@@ -100,7 +100,7 @@ public class SecurityConfig {
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("https://cdpn.io", "http://localhost:3000", "https://tangbisil-production.up.railway.app"));
+        configuration.setAllowedOrigins(List.of("https://cdpn.io", "http://localhost:3000", "https://tangbisil-production.up.railway.app", "https://nbe10-12-2-utf-8.vercel.app"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
         configuration.setAllowCredentials(true);
         configuration.setAllowedHeaders(List.of("*"));
