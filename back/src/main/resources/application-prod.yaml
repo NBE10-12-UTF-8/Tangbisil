@@ -9,4 +9,4 @@ spring:
     hibernate:
       ddl-auto: validate
 custom:
-  frontendBaseUrl: https://tangbisil-production.up.railway.app
+    frontendBaseUrl: https://tangbisil.vercel.app
