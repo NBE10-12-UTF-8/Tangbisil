@@ -13,6 +13,9 @@ Thumbs.db
 .env
 .env.local
 
+### Monitoring secrets ###
+monitoring/secrets/actuator_password.txt
+
 ### H2 Database ###
 *.mv.db
 *.trace.db

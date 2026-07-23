@@ -59,6 +59,9 @@ custom:
     expirationSeconds: "#{60*60*24*30}"
   bot:
     groq-api-key: ${GROQ_API_KEY:}
+  actuator:
+    username: ${ACTUATOR_USERNAME}
+    password: ${ACTUATOR_PASSWORD}
 management:
   endpoints:
     web:
@@ -66,7 +69,8 @@ management:
         include: health, info, prometheus, metrics
   endpoint:
     health:
-      show-details: always
+      show-details: never
   metrics:
     tags:
       application: ${spring.application.name}
+

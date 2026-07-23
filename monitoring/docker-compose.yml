@@ -6,6 +6,7 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./secrets/actuator_password.txt:/etc/prometheus/secrets/actuator_password.txt:ro
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
 
