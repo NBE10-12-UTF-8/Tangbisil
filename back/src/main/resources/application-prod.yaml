@@ -7,4 +7,4 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.MySQLDialect
 custom:
-  frontendBaseUrl: https://tangbisil-production.up.railway.app
+    frontendBaseUrl: https://tangbisil.vercel.app
