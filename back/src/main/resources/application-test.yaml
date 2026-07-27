@@ -6,5 +6,18 @@ spring:
     driver-class-name: org.h2.Driver
   jpa:
     database-platform: org.hibernate.dialect.MySQLDialect
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: dummy-client-id
+            client-secret: dummy-client-secret
+          kakao:
+            client-id: dummy-client-id
+            client-secret: dummy-client-secret
 custom:
   frontendBaseUrl: http://localhost:3000
+  actuator:
+    username: dummy-username
+    password: dummy-password
