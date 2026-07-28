@@ -60,6 +60,9 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
 
+    // 한국어 형태소 분석 (트렌드 키워드 추출용 명사 필터링)
+    implementation("org.apache.lucene:lucene-analysis-nori:9.11.1")
+
     // Test
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
