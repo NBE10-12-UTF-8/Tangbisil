@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# 1) 브랜치명 검증 (기존 로직)
 BRANCH=$(git symbolic-ref HEAD | sed 's|refs/heads/||')
 VALID_BRANCH="^(main|develop|(feat|fix|refactor|docs|chore)/(back|front)/[0-9]+)$"
 
@@ -8,3 +9,18 @@ if ! echo "$BRANCH" | grep -qE "$VALID_BRANCH"; then
   echo "✅ 올바른 형식: feat/back/123 | fix/front/123 | refactor/back/123 | docs/front/123 | chore/back/123"
   exit 1
 fi
+
+# 2) 백엔드 전체 테스트 통과 검증 (신규)
+# 변경 범위와 상관없이 push 시마다 back의 전체 테스트를 실행
+echo "🧪 백엔드 테스트를 실행합니다..."
+(cd back && ./gradlew test)
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "❌ 테스트 실패로 push가 중단되었습니다. 실패한 테스트를 먼저 수정해주세요."
+  exit 1
+fi
+
+echo "✅ 테스트 통과! push를 진행합니다."
+
+exit 0
