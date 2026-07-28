@@ -11,7 +11,7 @@ spring:
   data:
     redis:
       host: ${REDISHOST}
-      port: ${REDISPORT:6379}
-      password: ${REDISPASSWORD}
+      port: ${REDISPORT}
+      password: ${REDISPASSWORD:}
 custom:
-    frontendBaseUrl: https://tangbisil.vercel.app
+  frontendBaseUrl: https://tangbisil.vercel.app
