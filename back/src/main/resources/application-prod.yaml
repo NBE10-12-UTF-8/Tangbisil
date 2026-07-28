@@ -8,5 +8,10 @@ spring:
     database-platform: org.hibernate.dialect.MySQLDialect
     hibernate:
       ddl-auto: validate
+  data:
+    redis:
+      host: ${REDISHOST}
+      port: ${REDISPORT}
+      password: ${REDISPASSWORD:}
 custom:
-    frontendBaseUrl: https://tangbisil.vercel.app
+  frontendBaseUrl: https://tangbisil.vercel.app
