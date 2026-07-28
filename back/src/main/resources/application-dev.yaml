@@ -6,5 +6,10 @@ spring:
     driver-class-name: org.h2.Driver
   jpa:
     database-platform: org.hibernate.dialect.MySQLDialect
+  flyway:
+    baseline-on-migrate: true
 custom:
   frontendBaseUrl: http://localhost:3000
+  actuator:
+    username: dummy-username
+    password: dummy-password
