@@ -4,6 +4,7 @@ import com.back.domain.chat.chatRoomMessage.service.ChatMessageService;
 import com.back.domain.chat.chatRoomParticipant.service.ChatRoomParticipantService;
 import com.back.domain.match.matchRequest.dto.MatchHistoryDto;
 import com.back.domain.match.matchRequest.service.MatchRequestService;
+import com.back.domain.member.emailVerification.service.EmailVerificationService;
 import com.back.domain.member.member.dto.MemberAdmDto;
 import com.back.domain.member.member.dto.OAuthExchangeResult;
 import com.back.domain.member.member.entity.AuthProvider;
@@ -37,6 +38,7 @@ public class MemberService {
     private final OAuthCodeStore oAuthCodeStore;
     private final ChatRoomParticipantService chatRoomParticipantService;
     private final ChatMessageService chatMessageService;
+    private final EmailVerificationService emailVerificationService;
 
     public long count() {
         return memberRepository.count();
@@ -44,6 +46,23 @@ public class MemberService {
 
     @Transactional
     public Member join(String email, String password, Industry industry, String role) {
+        findByEmail(email).ifPresent(_ -> {
+            throw new ServiceException("409-1", "이미 존재하는 이메일입니다.");
+        });
+
+        emailVerificationService.consumeVerifiedEmail(email);
+
+        String encodedPassword = passwordEncoder.encode(password);
+        Member member = new Member(email, encodedPassword, industry, role);
+
+        return memberRepository.save(member);
+    }
+
+    // 초기 데이터(BaseInitData) 시딩 전용 - 이메일 인증 절차를 건너뛴다.
+    // 일반 회원가입 API(join)는 반드시 이메일 인증을 거쳐야 하지만,
+    // 시스템 초기 계정/봇 계정은 실제 이메일 소유자가 없으므로 이 경로로 생성한다.
+    @Transactional
+    public Member joinWithoutEmailVerification(String email, String password, Industry industry, String role) {
         findByEmail(email).ifPresent(_ -> {
             throw new ServiceException("409-1", "이미 존재하는 이메일입니다.");
         });

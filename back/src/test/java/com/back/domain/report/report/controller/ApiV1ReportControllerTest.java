@@ -94,8 +94,8 @@ public class ApiV1ReportControllerTest {
     void t1() throws Exception {
         // Given
         // 1. 신고자와 피신고자 회원가입 및 토큰 발급
-        Member reporter = memberService.join("reporter@test.com", "1234", Industry.IT, "USER");
-        Member reported = memberService.join("reported@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter@test.com", "1234", Industry.IT, "USER");
+        Member reported = memberService.joinWithoutEmailVerification("reported@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(reporter);
         createdMembers.add(reported);
         String accessToken = memberService.genAccessToken(reporter);
@@ -156,7 +156,7 @@ public class ApiV1ReportControllerTest {
     @DisplayName("존재하지 않는 채팅방 ID로 신고 시 실패")
     void t2() throws Exception {
         // Given
-        Member reporter = memberService.join("reporter2@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter2@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(reporter);
         String accessToken = memberService.genAccessToken(reporter);
         UUID nonExistentRoomId = UUID.randomUUID();
@@ -189,7 +189,7 @@ public class ApiV1ReportControllerTest {
     @DisplayName("존재하지 않는 메시지 ID로 신고 시 실패")
     void t3() throws Exception {
         // Given
-        Member reporter = memberService.join("reporter3@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter3@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(reporter);
         String accessToken = memberService.genAccessToken(reporter);
 
@@ -254,7 +254,7 @@ public class ApiV1ReportControllerTest {
     @DisplayName("자신이 작성한 메시지 신고 시도 시 실패")
     void t5() throws Exception {
         // Given
-        Member reporter = memberService.join("reporter5@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter5@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(reporter);
         String accessToken = memberService.genAccessToken(reporter);
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
@@ -291,8 +291,8 @@ public class ApiV1ReportControllerTest {
     @DisplayName("동일한 메시지 중복 신고 시도 시 실패")
     void t6() throws Exception {
         // Given
-        Member reporter = memberService.join("reporter6@test.com", "1234", Industry.IT, "USER");
-        Member reported = memberService.join("reported6@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter6@test.com", "1234", Industry.IT, "USER");
+        Member reported = memberService.joinWithoutEmailVerification("reported6@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(reporter);
         createdMembers.add(reported);
         String accessToken = memberService.genAccessToken(reporter);
@@ -333,8 +333,8 @@ public class ApiV1ReportControllerTest {
     @DisplayName("신고 유발 메시지 기준 이전 대화 최대 30개만 제한 백업 검증")
     void t7() throws Exception {
         // Given
-        Member reporter = memberService.join("reporter7@test.com", "1234", Industry.IT, "USER");
-        Member reported = memberService.join("reported7@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter7@test.com", "1234", Industry.IT, "USER");
+        Member reported = memberService.joinWithoutEmailVerification("reported7@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(reporter);
         createdMembers.add(reported);
         String accessToken = memberService.genAccessToken(reporter);
@@ -413,9 +413,9 @@ public class ApiV1ReportControllerTest {
     @DisplayName("채팅방 참여자가 아닌 유저가 신고 시도 시 실패")
     void t8() throws Exception {
         // Given
-        Member reporter = memberService.join("reporter8@test.com", "1234", Industry.IT, "USER");
-        Member reported = memberService.join("reported8@test.com", "1234", Industry.IT, "USER");
-        Member outsider = memberService.join("outsider8@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter8@test.com", "1234", Industry.IT, "USER");
+        Member reported = memberService.joinWithoutEmailVerification("reported8@test.com", "1234", Industry.IT, "USER");
+        Member outsider = memberService.joinWithoutEmailVerification("outsider8@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(reporter);
         createdMembers.add(reported);
         createdMembers.add(outsider);
@@ -457,8 +457,8 @@ public class ApiV1ReportControllerTest {
     @DisplayName("신고 메시지가 요청한 채팅방에 속하지 않을 경우 실패")
     void t9() throws Exception {
         // Given
-        Member reporter = memberService.join("reporter9@test.com", "1234", Industry.IT, "USER");
-        Member reported = memberService.join("reported9@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter9@test.com", "1234", Industry.IT, "USER");
+        Member reported = memberService.joinWithoutEmailVerification("reported9@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(reporter);
         createdMembers.add(reported);
         String accessToken = memberService.genAccessToken(reporter);
@@ -500,7 +500,7 @@ public class ApiV1ReportControllerTest {
     @DisplayName("신고 사유가 공백이거나 빈 문자열일 경우 유효성 검증 실패")
     void t10() throws Exception {
         // Given
-        Member reporter = memberService.join("reporter10@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter10@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(reporter);
         String accessToken = memberService.genAccessToken(reporter);
         UUID roomId = UUID.randomUUID();

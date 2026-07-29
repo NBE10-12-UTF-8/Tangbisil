@@ -55,7 +55,7 @@ public class ApiV1ChatMessageControllerTest {
     @DisplayName("메시지 전송 성공 - 보낸 채팅")
     void t1() throws Exception {
         // Given
-        Member member = memberService.join("user4@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
@@ -120,7 +120,7 @@ public class ApiV1ChatMessageControllerTest {
     @DisplayName("존재하지 않는 채팅방에 메시지 전송 시 실패")
     void t3() throws Exception {
         // Given
-        Member member = memberService.join("user4@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         UUID nonExistentRoomId = UUID.randomUUID();
@@ -150,7 +150,7 @@ public class ApiV1ChatMessageControllerTest {
     @DisplayName("종료된 채팅방에 메시지 전송 시 실패")
     void t4() throws Exception {
         // Given
-        Member member = memberService.join("user4@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
@@ -184,7 +184,7 @@ public class ApiV1ChatMessageControllerTest {
     @DisplayName("빈 내용으로 메시지 전송 시 실패")
     void t5() throws Exception {
         // Given
-        Member member = memberService.join("user5@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("user5@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
@@ -217,7 +217,7 @@ public class ApiV1ChatMessageControllerTest {
     @DisplayName("500자 초과 메시지 전송 시 실패")
     void t6() throws Exception {
         // Given
-        Member member = memberService.join("user6@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("user6@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
@@ -251,7 +251,7 @@ public class ApiV1ChatMessageControllerTest {
     @Test
     @DisplayName("메시지 전체 조회 성공 - isMine: true")
     void t7() throws Exception {
-        Member member = memberService.join("user4@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
         UUID roomId = chatRoom.getId();
@@ -284,8 +284,8 @@ public class ApiV1ChatMessageControllerTest {
     @Test
     @DisplayName("메시지 폴링 - 타인 메시지 isMine: false")
     void t8() throws Exception {
-        Member sender = memberService.join("user4@test.com", "1234", IT, "USER");
-        Member viewer = memberService.join("user5@test.com", "1234", FINANCE, "USER");
+        Member sender = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
+        Member viewer = memberService.joinWithoutEmailVerification("user5@test.com", "1234", FINANCE, "USER");
         String viewerToken = memberService.genAccessToken(viewer);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
@@ -320,7 +320,7 @@ public class ApiV1ChatMessageControllerTest {
     @Test
     @DisplayName("메시지 폴링 - after 파라미터 필터링")
     void t9() throws Exception {
-        Member member = memberService.join("user4@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
         UUID roomId = chatRoom.getId();
@@ -353,7 +353,7 @@ public class ApiV1ChatMessageControllerTest {
     @Test
     @DisplayName("메시지 폴링 - 신규 메시지 없음")
     void t10() throws Exception {
-        Member member = memberService.join("user4@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
         UUID roomId = chatRoom.getId();
@@ -372,7 +372,7 @@ public class ApiV1ChatMessageControllerTest {
     @Test
     @DisplayName("메시지 폴링 - 종료된 채팅방")
     void t11() throws Exception {
-        Member member = memberService.join("user4@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = new ChatRoom(ChatRoomStatus.ACTIVE, 2);
@@ -397,7 +397,7 @@ public class ApiV1ChatMessageControllerTest {
     @Test
     @DisplayName("메시지 폴링 - 존재하지 않는 채팅방 404")
     void t12() throws Exception {
-        Member member = memberService.join("user4@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         ResultActions result = mvc.perform(get("/api/v1/rooms/" + UUID.randomUUID() + "/messages")
@@ -424,8 +424,8 @@ public class ApiV1ChatMessageControllerTest {
     @Test
     @DisplayName("메시지 폴링 - 참여자 아닌 사용자 403")
     void t14() throws Exception {
-        Member owner = memberService.join("user4@test.com", "1234", IT, "USER");
-        Member outsider = memberService.join("user5@test.com", "1234", IT, "USER");
+        Member owner = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
+        Member outsider = memberService.joinWithoutEmailVerification("user5@test.com", "1234", IT, "USER");
         String outsiderToken = memberService.genAccessToken(outsider);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
@@ -443,8 +443,8 @@ public class ApiV1ChatMessageControllerTest {
     @Test
     @DisplayName("메시지 폴링 - 전체 채팅 흐름")
     void t15() throws Exception {
-        Member memberA = memberService.join("user6@test.com", "1234", IT, "USER");
-        Member memberB = memberService.join("user7@test.com", "1234", IT, "USER");
+        Member memberA = memberService.joinWithoutEmailVerification("user6@test.com", "1234", IT, "USER");
+        Member memberB = memberService.joinWithoutEmailVerification("user7@test.com", "1234", IT, "USER");
         String tokenA = memberService.genAccessToken(memberA);
         String tokenB = memberService.genAccessToken(memberB);
 

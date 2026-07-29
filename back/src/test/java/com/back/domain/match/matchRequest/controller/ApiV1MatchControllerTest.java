@@ -1,6 +1,8 @@
 package com.back.domain.match.matchRequest.controller;
 
 import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
+import com.back.domain.member.emailVerification.entity.EmailVerificationToken;
+import com.back.domain.member.emailVerification.repository.EmailVerificationTokenRepository;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,13 +36,24 @@ public class ApiV1MatchControllerTest {
     @Autowired
     private MemberRepository memberRepository;
 
+    @Autowired
+    EmailVerificationTokenRepository emailVerificationTokenRepository;
+
     @BeforeEach
     void setUp() {
         matchRequestRepository.deleteAll();
         memberRepository.deleteAll();
     }
 
+    private void preVerifyEmail(String email) {
+        EmailVerificationToken token = new EmailVerificationToken(email, "000000", 10);
+        token.markVerified();
+        emailVerificationTokenRepository.save(token);
+    }
+
     private String signupAndLogin(String email, String industry) throws Exception {
+        preVerifyEmail(email);
+
         mvc.perform(
                 post("/api/v1/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
