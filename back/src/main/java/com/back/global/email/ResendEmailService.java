@@ -2,6 +2,7 @@ package com.back.global.email;
 
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import org.springframework.web.client.RestClient;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ResendEmailService {
@@ -36,6 +38,7 @@ public class ResendEmailService {
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception e) {
+            log.error("Resend 이메일 발송 실패: to={}", to, e);
             throw new ServiceException("500-1", "이메일 발송에 실패했습니다.");
         }
     }
