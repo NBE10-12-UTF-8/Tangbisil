@@ -14,4 +14,4 @@ spring:
       port: ${REDISPORT}
       password: ${REDISPASSWORD:}
 custom:
-  frontendBaseUrl: https://tangbisil.vercel.app
+  frontendBaseUrl: https://tangbisil.kro.kr
