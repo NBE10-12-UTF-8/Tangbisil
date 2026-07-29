@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   apiCreateMatch, apiGetMatch, apiGetActiveRoom,
-  apiGetMe, apiGetHomeStats, getToken, INDUSTRY_NAMES,
+  apiGetMe, apiGetHomeStats, isLoggedIn, INDUSTRY_NAMES,
 } from '@/lib/api';
 import { AppShell } from '@/components/AppShell';
 import { TangbisilLogo } from '@/components/TangbisilLogo';
@@ -95,11 +95,10 @@ export default function HomePage() {
       setShowTimeout(true);
     }
 
-    const token = getToken();
-    if (!token) return;
+    if (!isLoggedIn()) return;
 
     apiGetMe()
-      .then(me => setUserIndustry(INDUSTRY_NAMES[me.industry] ?? me.industry))
+      .then(me => setUserIndustry(me.industry ? (INDUSTRY_NAMES[me.industry] ?? me.industry) : ''))
       .catch(() => {});
 
     apiGetActiveRoom()
@@ -132,7 +131,7 @@ export default function HomePage() {
   }, []);
 
   const startMatch = useCallback(async () => {
-    if (!getToken()) { setMatchError('LOGIN_REQUIRED'); return; }
+    if (!isLoggedIn()) { setMatchError('LOGIN_REQUIRED'); return; }
     if (!selectedTopic) { setMatchError('상황 칩을 선택해주세요'); return; }
     setMatchError('');
     try {
