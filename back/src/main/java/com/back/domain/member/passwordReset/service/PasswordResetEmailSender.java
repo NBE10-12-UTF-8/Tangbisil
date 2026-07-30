@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-class PasswordResetEmailSender {
+public class PasswordResetEmailSender {
 
     private final ResendEmailService resendEmailService;
     private final PasswordResetTokenIssuer tokenIssuer;
