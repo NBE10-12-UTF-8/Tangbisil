@@ -28,7 +28,7 @@ public class EmailVerificationService {
         String normalizedEmail = EmailNormalizer.normalize(email);
         String code = tokenIssuer.issue(normalizedEmail);
 
-        String html = VerificationEmailTemplate.render(code, expirationMinutes);  // 여기만 바뀜
+        String html = VerificationEmailTemplate.render(code, expirationMinutes);
         try {
             resendEmailService.send(normalizedEmail, "[탕비실] 이메일 인증 코드", html);
         } catch (RuntimeException e) {
