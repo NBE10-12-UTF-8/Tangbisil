@@ -26,11 +26,20 @@ export const clearTokens = () => {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("isAdmin");
+  localStorage.removeItem("hasSession");
 };
 
 export const setAdmin = () => localStorage.setItem("isAdmin", "1");
 export const isAdmin = () =>
   typeof window !== "undefined" && localStorage.getItem("isAdmin") === "1";
+
+// OAuth 로그인은 accessToken을 localStorage에 저장하지 않고 쿠키로만 인증하므로,
+// getToken()만으로는 로그인 여부를 판단할 수 없다. OAuth 콜백에서 /me 조회에 성공하면
+// 이 플래그를 세워 로그인 상태를 표시한다.
+export const markSession = () => localStorage.setItem("hasSession", "1");
+export const isLoggedIn = () =>
+  typeof window !== "undefined" &&
+  (!!getToken() || localStorage.getItem("hasSession") === "1");
 
 // 정지된 계정으로 로그인 시 /me 페이지에 정지 안내를 띄우기 위한 1회성 플래그 키
 export const SUSPENDED_STORAGE_KEY = "tangbisil_suspended";
@@ -72,7 +81,6 @@ export const INDUSTRY_NAMES: Record<string, string> = Object.fromEntries(
 const NO_REFRESH_RETRY_PATHS = [
   "/api/v1/members/login",
   "/api/v1/members/signup",
-  "/api/v1/members/oauth/exchange",
   "/api/v1/members/refresh",
 ];
 
@@ -121,15 +129,16 @@ async function req<T>(
 
   // accessToken 만료로 401을 받으면, 로그인 흐름 자체의 요청이 아닌 한
   // refreshToken으로 한 번만 자동 재발급받아 원요청을 재시도한다.
-  if (
-    res.status === 401 &&
-    !_isRetry &&
-    token &&
-    !NO_REFRESH_RETRY_PATHS.includes(path)
-  ) {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      return req<T>(path, options, true);
+  // OAuth 로그인 사용자는 localStorage에 토큰이 없고 쿠키만으로 인증되므로
+  // token 존재 여부와 무관하게 재발급을 시도해야 한다.
+  // 재시도한 요청마저 401이면(리프레시 토큰/쿠키 만료 등) 세션이 완전히 끝난 것이므로
+  // 여기서도 반드시 로컬 세션 정보를 정리하고 로그인 페이지로 보내야 한다.
+  if (res.status === 401 && !NO_REFRESH_RETRY_PATHS.includes(path)) {
+    if (!_isRetry) {
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        return req<T>(path, options, true);
+      }
     }
     clearTokens();
     if (typeof window !== "undefined") {
@@ -176,16 +185,36 @@ export const apiSignup = (email: string, password: string, industry: string) =>
 export const apiLogout = () =>
   req<null>("/api/v1/members/logout", { method: "POST" });
 
-export const apiOAuthExchange = (code: string) =>
-  req<{
-    grantType: string;
-    accessToken: string;
-    refreshToken: string;
-    accessTokenExpiresIn: number;
-    needsOnboarding: boolean;
-  }>("/api/v1/members/oauth/exchange", {
+// 이메일 인증 코드 발송 (회원가입 전) — 이미 가입된 이메일이면 409, 60초 내 재요청이면 429
+export const apiSendEmailVerification = (email: string) =>
+  req<null>("/api/v1/members/email-verification/send", {
     method: "POST",
-    body: JSON.stringify({ code }),
+    body: JSON.stringify({ email }),
+  });
+
+// 이메일 인증 코드 확인
+export const apiConfirmEmailVerification = (email: string, code: string) =>
+  req<null>("/api/v1/members/email-verification/confirm", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+
+// 비밀번호 재설정 코드 발송 — 가입되지 않은 이메일이어도 항상 200으로 응답(이메일 존재 여부 노출 방지)
+export const apiSendPasswordReset = (email: string) =>
+  req<null>("/api/v1/members/password-reset/send", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+
+// 비밀번호 재설정 코드 확인 + 새 비밀번호 적용
+export const apiConfirmPasswordReset = (
+  email: string,
+  code: string,
+  newPassword: string,
+) =>
+  req<null>("/api/v1/members/password-reset/confirm", {
+    method: "POST",
+    body: JSON.stringify({ email, code, newPassword }),
   });
 
 export const apiRefreshToken = () =>
@@ -195,7 +224,9 @@ export const apiRefreshToken = () =>
   );
 
 export const apiGetMe = () =>
-  req<{ email: string; industry: string }>("/api/v1/members/me");
+  req<{ email: string; industry: string | null; role: string }>(
+    "/api/v1/members/me",
+  );
 
 export const apiUpdateMe = (industry: string) =>
   req<{ industry: string }>("/api/v1/members/me", {

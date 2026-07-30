@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiGetMatch, apiCancelMatch, apiGetMe, apiGetHomeStats, getToken, INDUSTRY_NAMES } from '@/lib/api';
+import { apiGetMatch, apiCancelMatch, apiGetMe, apiGetHomeStats, isLoggedIn, INDUSTRY_NAMES } from '@/lib/api';
 import { AppShell } from '@/components/AppShell';
 import { TangbisilLogo } from '@/components/TangbisilLogo';
 
@@ -77,10 +77,9 @@ export default function MatchPage() {
     matchIdRef.current = saved.id;
     setSituation(saved.situation);
 
-    const token = getToken();
-    if (token) {
+    if (isLoggedIn()) {
       apiGetMe()
-        .then(me => setUserIndustry(INDUSTRY_NAMES[me.industry] ?? me.industry))
+        .then(me => setUserIndustry(me.industry ? (INDUSTRY_NAMES[me.industry] ?? me.industry) : ''))
         .catch(() => {});
     }
 

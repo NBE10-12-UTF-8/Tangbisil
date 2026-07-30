@@ -161,7 +161,7 @@ public class ApiV1AdmMemberControllerTest {
                 .path("accessToken")
                 .asText();
 
-        Member target = memberService.join("lookup_by_email@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        Member target = memberService.joinWithoutEmailVerification("lookup_by_email@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
         // When - UUID 대신 이메일로 조회
         ResultActions resultActions = mvc
@@ -204,7 +204,7 @@ public class ApiV1AdmMemberControllerTest {
                 .asText();
 
         // Given - 정지시킬 일반 회원 가입
-        Member user = memberService.join("user_suspend_adm@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        Member user = memberService.joinWithoutEmailVerification("user_suspend_adm@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
         // When
         ResultActions resultActions = mvc
@@ -227,8 +227,8 @@ public class ApiV1AdmMemberControllerTest {
     @DisplayName("일반 회원 권한으로 어드민 정지 API 접근 시 403 Forbidden 차단")
     void t4() throws Exception {
         // Given - 일반 회원 2명 가입 및 1명 로그인
-        Member user1 = memberService.join("user1_susp_adm@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
-        Member user2 = memberService.join("user2_susp_adm@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        Member user1 = memberService.joinWithoutEmailVerification("user1_susp_adm@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        Member user2 = memberService.joinWithoutEmailVerification("user2_susp_adm@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
         String loginResponse = mvc.perform(
                         post("/api/v1/members/login")
@@ -307,7 +307,7 @@ public class ApiV1AdmMemberControllerTest {
     @DisplayName("정지된 회원도 /me 조회는 가능하다")
     void t6() throws Exception {
         // Given - 일반 회원 가입 및 로그인 후, 정지 상태로 변경
-        Member user = memberService.join("user_blocked_adm@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        Member user = memberService.joinWithoutEmailVerification("user_blocked_adm@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
         String loginResponse = mvc.perform(
                         post("/api/v1/members/login")
@@ -348,7 +348,7 @@ public class ApiV1AdmMemberControllerTest {
     @Test
     @DisplayName("정지된 회원도 로그아웃은 가능하다")
     void t7() throws Exception {
-        Member user = memberService.join("user_susp_logout@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        Member user = memberService.joinWithoutEmailVerification("user_susp_logout@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
         String loginResponse = mvc.perform(
                         post("/api/v1/members/login")
@@ -386,7 +386,7 @@ public class ApiV1AdmMemberControllerTest {
     @Test
     @DisplayName("정지된 회원은 산업군 수정이 차단된다")
     void t8() throws Exception {
-        Member user = memberService.join("user_susp_patch@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        Member user = memberService.joinWithoutEmailVerification("user_susp_patch@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
         String loginResponse = mvc.perform(
                         post("/api/v1/members/login")
@@ -432,7 +432,7 @@ public class ApiV1AdmMemberControllerTest {
     @Test
     @DisplayName("정지된 회원은 탈퇴가 차단된다")
     void t9() throws Exception {
-        Member user = memberService.join("user_susp_delete@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        Member user = memberService.joinWithoutEmailVerification("user_susp_delete@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
         String loginResponse = mvc.perform(
                         post("/api/v1/members/login")
@@ -472,7 +472,7 @@ public class ApiV1AdmMemberControllerTest {
     @Test
     @DisplayName("정지된 회원은 내 정보 조회/로그아웃 외 API는 여전히 403 차단된다 (매칭 이력 예시)")
     void t10() throws Exception {
-        Member user = memberService.join("user_susp_blocked_other@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        Member user = memberService.joinWithoutEmailVerification("user_susp_blocked_other@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
         String loginResponse = mvc.perform(
                         post("/api/v1/members/login")

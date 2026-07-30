@@ -1,8 +1,8 @@
 package com.back.global.security;
 
 import com.back.global.rsData.RsData;
-import com.back.global.security.oauth.CustomOAuth2UserService;
-import com.back.global.security.oauth.OAuth2LoginSuccessHandler;
+import com.back.global.security.oauth2.CustomOAuth2UserService;
+import com.back.global.security.oauth2.OAuth2LoginSuccessHandler;
 import com.back.standard.util.Ut;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -84,8 +84,9 @@ public class SecurityConfig {
                                 .requestMatchers(
                                         "/api/*/members/login",
                                         "/api/*/members/refresh",
-                                        "/api/*/members/oauth/exchange",
-                                        "/api/*/matches/stats/home"
+                                        "/api/*/matches/stats/home",
+                                        "/api/*/members/email-verification/**",
+                                        "/api/*/members/password-reset/**"
                                 ).permitAll()
                                 .requestMatchers(
                                         HttpMethod.POST,

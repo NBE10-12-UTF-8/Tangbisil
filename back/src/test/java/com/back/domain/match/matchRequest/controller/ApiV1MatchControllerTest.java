@@ -1,6 +1,15 @@
 package com.back.domain.match.matchRequest.controller;
 
+import com.back.domain.chat.chatRoom.entity.ChatRoom;
+import com.back.domain.chat.chatRoom.entity.ChatRoomStatus;
+import com.back.domain.chat.chatRoom.repository.ChatRoomRepository;
+import com.back.domain.match.matchRequest.entity.MatchRequest;
+import com.back.domain.match.matchRequest.entity.Situation;
 import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
+import com.back.domain.member.emailVerification.entity.EmailVerificationToken;
+import com.back.domain.member.emailVerification.repository.EmailVerificationTokenRepository;
+import com.back.domain.member.member.entity.Industry;
+import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,13 +43,27 @@ public class ApiV1MatchControllerTest {
     @Autowired
     private MemberRepository memberRepository;
 
+    @Autowired
+    private ChatRoomRepository chatRoomRepository;
+
+    @Autowired
+    EmailVerificationTokenRepository emailVerificationTokenRepository;
+
     @BeforeEach
     void setUp() {
         matchRequestRepository.deleteAll();
         memberRepository.deleteAll();
     }
 
+    private void preVerifyEmail(String email) {
+        EmailVerificationToken token = new EmailVerificationToken(email, "000000", 10);
+        token.markVerified();
+        emailVerificationTokenRepository.save(token);
+    }
+
     private String signupAndLogin(String email, String industry) throws Exception {
+        preVerifyEmail(email);
+
         mvc.perform(
                 post("/api/v1/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -426,5 +449,37 @@ public class ApiV1MatchControllerTest {
                 .andExpect(jsonPath("$.resultCode").value("404-1"));
     }
 
+    @Test
+    @DisplayName("홈 통계의 상황별 순위는 인원수 내림차순으로 정렬된다 - 상황 랭킹 UI가 이 순서를 그대로 씀")
+    void t13() throws Exception {
+        // Given - NIGHT_WORK 3명, MEETING_BOMB 2명, BOSS_BLAME 1명 순으로
+        // MatchStatus.MATCHED + ChatRoomStatus.ACTIVE 조합 생성 (둘 다 만족해야 집계 대상)
+        saveMatchedRequest("night1@test.com", Situation.NIGHT_WORK);
+        saveMatchedRequest("night2@test.com", Situation.NIGHT_WORK);
+        saveMatchedRequest("night3@test.com", Situation.NIGHT_WORK);
+        saveMatchedRequest("meeting1@test.com", Situation.MEETING_BOMB);
+        saveMatchedRequest("meeting2@test.com", Situation.MEETING_BOMB);
+        saveMatchedRequest("boss1@test.com", Situation.BOSS_BLAME);
 
+        // When
+        ResultActions resultActions = mvc.perform(get("/api/v1/matches/stats/home")).andDo(print());
+
+        // Then - count 내림차순: 야근 중(3) -> 회의 폭탄(2) -> 상사 억까(1)
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.situationStats[0].situation").value("야근 중"))
+                .andExpect(jsonPath("$.data.situationStats[0].count").value(3))
+                .andExpect(jsonPath("$.data.situationStats[1].situation").value("회의 폭탄"))
+                .andExpect(jsonPath("$.data.situationStats[1].count").value(2))
+                .andExpect(jsonPath("$.data.situationStats[2].situation").value("상사 억까"))
+                .andExpect(jsonPath("$.data.situationStats[2].count").value(1));
+    }
+
+    private void saveMatchedRequest(String email, Situation situation) {
+        Member member = memberRepository.save(new Member(email, "1234", Industry.IT, "USER"));
+        ChatRoom room = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
+        MatchRequest request = new MatchRequest(member, situation);
+        request.matchWith(room);
+        matchRequestRepository.save(request);
+    }
 }

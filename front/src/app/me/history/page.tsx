@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiGetMatchHistory, getToken, INDUSTRY_NAMES, type MatchHistoryDto } from '@/lib/api';
+import { apiGetMatchHistory, isLoggedIn, INDUSTRY_NAMES, type MatchHistoryDto } from '@/lib/api';
 
 const LOGO_CHARS = [
   { c: 'T', color: '#3b7ff2' }, { c: 'a', color: '#ea4c4c' }, { c: 'n', color: '#f5b400' },
@@ -36,7 +36,7 @@ export default function MatchHistoryPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!getToken()) { router.replace('/login'); return; }
+    if (!isLoggedIn()) { router.replace('/login'); return; }
     apiGetMatchHistory()
       .then(data => setHistory(data))
       .catch(() => setError('매칭 이력을 불러오지 못했어요'))

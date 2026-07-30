@@ -4,14 +4,14 @@ import com.back.domain.chat.chatRoomMessage.service.ChatMessageService;
 import com.back.domain.chat.chatRoomParticipant.service.ChatRoomParticipantService;
 import com.back.domain.match.matchRequest.dto.MatchHistoryDto;
 import com.back.domain.match.matchRequest.service.MatchRequestService;
+import com.back.domain.member.emailVerification.service.EmailVerificationService;
 import com.back.domain.member.member.dto.MemberAdmDto;
-import com.back.domain.member.member.dto.OAuthExchangeResult;
 import com.back.domain.member.member.entity.AuthProvider;
 import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.global.exception.ServiceException;
-import com.back.global.security.oauth.OAuthCodeStore;
+import com.back.global.util.EmailNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -34,9 +34,9 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final MemberRepository memberRepository;
     private final MatchRequestService matchRequestService;
-    private final OAuthCodeStore oAuthCodeStore;
     private final ChatRoomParticipantService chatRoomParticipantService;
     private final ChatMessageService chatMessageService;
+    private final EmailVerificationService emailVerificationService;
 
     public long count() {
         return memberRepository.count();
@@ -44,12 +44,33 @@ public class MemberService {
 
     @Transactional
     public Member join(String email, String password, Industry industry, String role) {
-        findByEmail(email).ifPresent(_ -> {
+        String normalizedEmail = EmailNormalizer.normalize(email);
+
+        findByEmail(normalizedEmail).ifPresent(_ -> {
+            throw new ServiceException("409-1", "이미 존재하는 이메일입니다.");
+        });
+
+        emailVerificationService.consumeVerifiedEmail(normalizedEmail);
+
+        String encodedPassword = passwordEncoder.encode(password);
+        Member member = new Member(normalizedEmail, encodedPassword, industry, role);
+
+        return memberRepository.save(member);
+    }
+
+    // 초기 데이터(BaseInitData) 시딩 전용 - 이메일 인증 절차를 건너뛴다.
+    // 일반 회원가입 API(join)는 반드시 이메일 인증을 거쳐야 하지만,
+    // 시스템 초기 계정/봇 계정은 실제 이메일 소유자가 없으므로 이 경로로 생성한다.
+    @Transactional
+    public Member joinWithoutEmailVerification(String email, String password, Industry industry, String role) {
+        String normalizedEmail = EmailNormalizer.normalize(email);
+
+        findByEmail(normalizedEmail).ifPresent(_ -> {
             throw new ServiceException("409-1", "이미 존재하는 이메일입니다.");
         });
 
         String encodedPassword = passwordEncoder.encode(password);
-        Member member = new Member(email, encodedPassword, industry, role);
+        Member member = new Member(normalizedEmail, encodedPassword, industry, role);
 
         return memberRepository.save(member);
     }
@@ -70,20 +91,6 @@ public class MemberService {
             return memberRepository.findByProviderAndProviderId(provider, providerId)
                     .orElseThrow(() -> e);
         }
-    }
-
-    @Transactional
-    public OAuthExchangeResult exchangeOAuthCode(String code) {
-        UUID memberId = oAuthCodeStore.consume(code);
-
-        Member member = findById(memberId)
-                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
-
-        String accessToken = genAccessToken(member);
-        UUID refreshToken = genRefreshToken(member);
-        boolean needsOnboarding = member.getIndustry() == null;
-
-        return new OAuthExchangeResult(accessToken, refreshToken, needsOnboarding);
     }
 
     public void checkPassword(Member member, String password) {

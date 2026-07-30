@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   apiCreateMatch, apiGetMatch, apiGetActiveRoom,
-  apiGetMe, apiGetHomeStats, getToken, INDUSTRY_NAMES,
+  apiGetMe, apiGetHomeStats, isLoggedIn, INDUSTRY_NAMES,
 } from '@/lib/api';
 import { AppShell } from '@/components/AppShell';
 import { TangbisilLogo } from '@/components/TangbisilLogo';
@@ -24,6 +24,21 @@ const TOPICS = [
   { label: '몰래 루팡중' },
   { label: '기타' },
 ];
+
+// TODO: 백엔드에 실시간 HOT 키워드 API가 아직 없어서 임시로 하드코딩. 구현되면 apiGetHomeStats류로 교체.
+const TREND_ICON: Record<'up' | 'down' | 'flat', string> = { up: '▲', down: '▼', flat: '—' };
+const TREND_COLOR: Record<'up' | 'down' | 'flat', string> = { up: '#ea4c4c', down: '#3b7ff2', flat: '#9aa0a6' };
+const HOT_KEYWORDS = ([
+  { label: '퇴사', trend: 'up' }, { label: '팀장', trend: 'down' }, { label: '치킨', trend: 'flat' },
+  { label: '재택', trend: 'up' }, { label: '연봉', trend: 'up' }, { label: '회식', trend: 'up' },
+  { label: '야근수당', trend: 'up' }, { label: '이직', trend: 'up' }, { label: '상여금', trend: 'up' }, { label: '점심', trend: 'up' },
+] as const).map((k, idx) => ({
+  label: k.label,
+  rank: idx + 1,
+  trendIcon: TREND_ICON[k.trend],
+  trendColor: TREND_COLOR[k.trend],
+  rankColor: idx < 3 ? '#1a56c4' : '#9aa0a6',
+}));
 
 function SearchIcon({ onClick }: { onClick?: () => void }) {
   return (
@@ -95,11 +110,10 @@ export default function HomePage() {
       setShowTimeout(true);
     }
 
-    const token = getToken();
-    if (!token) return;
+    if (!isLoggedIn()) return;
 
     apiGetMe()
-      .then(me => setUserIndustry(INDUSTRY_NAMES[me.industry] ?? me.industry))
+      .then(me => setUserIndustry(me.industry ? (INDUSTRY_NAMES[me.industry] ?? me.industry) : ''))
       .catch(() => {});
 
     apiGetActiveRoom()
@@ -132,7 +146,7 @@ export default function HomePage() {
   }, []);
 
   const startMatch = useCallback(async () => {
-    if (!getToken()) { setMatchError('LOGIN_REQUIRED'); return; }
+    if (!isLoggedIn()) { setMatchError('LOGIN_REQUIRED'); return; }
     if (!selectedTopic) { setMatchError('상황 칩을 선택해주세요'); return; }
     setMatchError('');
     try {
@@ -155,6 +169,21 @@ export default function HomePage() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [preClick, startMatch]);
+
+  // 실시간 매칭 대기 인원(situationCounts)에서 실제로 count > 0인 상황만 🔥 HOT 후보로 삼아
+  // 최대 3개까지 앞쪽에 노출한다. count가 0인 상황은 순위와 무관하게 절대 HOT으로 표시하지 않는다.
+  const rankedTopics = useMemo(() => {
+    const active = TOPICS
+      .filter(t => (situationCounts[t.label] ?? 0) > 0)
+      .sort((a, b) => situationCounts[b.label] - situationCounts[a.label]);
+    const hot = active.slice(0, 3);
+    const hotLabels = hot.map(t => t.label);
+    const rest = TOPICS.filter(t => !hotLabels.includes(t.label));
+    return [...hot, ...rest].map(t => ({
+      ...t,
+      hotRank: hotLabels.indexOf(t.label) + 1,
+    }));
+  }, [situationCounts]);
 
   const s = {
     card: { width: '100%', maxWidth: 560, background: '#fff', borderRadius: 24, boxShadow: '0 1px 10px rgba(32,33,36,.18)', marginTop: 20, boxSizing: 'border-box' } as const,
@@ -225,16 +254,21 @@ export default function HomePage() {
                 <span style={{ fontSize: 11.5, color: '#5f6368' }}>지금 가장 많이 얘기되는 상황 — 골라서 매칭하세요</span>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {TOPICS.map(t => {
+                {rankedTopics.map(t => {
                   const active = selectedTopic === t.label;
+                  const isHot = t.hotRank > 0;
+                  const border = active ? '#3b7ff2' : isHot ? '#ef9a9a' : '#e8eaed';
+                  const color = active ? '#3b7ff2' : isHot ? '#c1503f' : '#3c4043';
+                  const background = active ? '#e8f0fe' : isHot ? '#fff' : '#f8f9fa';
                   return (
                     <span
                       key={t.label}
                       onClick={() => { setMatchError(''); setSelectedTopic(active ? null : t.label); }}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: active ? '#e8f0fe' : '#f8f9fa', border: `1px solid ${active ? '#3b7ff2' : '#e8eaed'}`, borderRadius: 16, fontSize: 13, color: active ? '#3b7ff2' : '#3c4043', fontWeight: active ? 600 : 400, cursor: 'pointer' }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', background, border: `1px solid ${border}`, borderRadius: 16, fontSize: 13, color, fontWeight: active || isHot ? 600 : 400, cursor: 'pointer' }}
                     >
+                      {isHot && <span style={{ fontSize: 11 }}>🔥</span>}
                       {t.label}
-                      <span style={{ color: '#80868b', fontSize: 11.5 }}>{(situationCounts[t.label] ?? 0).toLocaleString()}</span>
+                      <span style={{ color: active ? '#7ea8f0' : isHot ? '#e29a91' : '#80868b', fontSize: 11.5 }}>{(situationCounts[t.label] ?? 0).toLocaleString()}</span>
                     </span>
                   );
                 })}
@@ -242,7 +276,7 @@ export default function HomePage() {
               <button
                 onClick={startMatch}
                 disabled={!selectedTopic}
-                style={{ marginTop: 14, width: '100%', height: 44, background: selectedTopic ? '#3b7ff2' : '#f1f3f4', color: selectedTopic ? '#fff' : '#9aa0a6', border: 'none', borderRadius: 10, fontSize: 14.5, fontWeight: 600, cursor: selectedTopic ? 'pointer' : 'default' }}
+                style={{ marginTop: 14, width: '100%', height: 36, background: selectedTopic ? '#3b7ff2' : '#f1f3f4', color: selectedTopic ? '#fff' : '#9aa0a6', border: 'none', borderRadius: 18, fontSize: 14, fontWeight: 600, cursor: selectedTopic ? 'pointer' : 'default' }}
               >
                 {selectedTopic ? `"${selectedTopic}"로 매칭하기` : '상황을 선택해주세요'}
               </button>
@@ -255,6 +289,18 @@ export default function HomePage() {
               ) : matchError ? (
                 <div style={{ marginTop: 10, fontSize: 12, color: '#ea4c4c' }}>{matchError}</div>
               ) : null}
+
+              <div style={{ height: 1, background: '#e8eaed', margin: '18px 0 16px' }} />
+              <div style={{ fontSize: 12.5, color: '#202124', fontWeight: 700, marginBottom: 11 }}>실시간 HOT 키워드</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridAutoFlow: 'column', gridTemplateRows: 'repeat(5, auto)', columnGap: 20 }}>
+                {HOT_KEYWORDS.map(k => (
+                  <div key={k.rank} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
+                    <span style={{ width: 16, fontSize: 13, color: k.rankColor, fontWeight: 700 }}>{k.rank}</span>
+                    <span style={{ flex: 1, fontSize: 13.5, color: '#202124' }}>{k.label}</span>
+                    <span style={{ fontSize: 10, color: k.trendColor }}>{k.trendIcon}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div style={s.sep} />

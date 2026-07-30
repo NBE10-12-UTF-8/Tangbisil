@@ -1,10 +1,11 @@
 package com.back.domain.member.member.controller;
 import com.back.domain.match.matchRequest.dto.MatchHistoryDto;
+import com.back.domain.member.emailVerification.service.EmailVerificationService;
 import com.back.domain.member.member.dto.MemberDto;
-import com.back.domain.member.member.dto.OAuthExchangeResult;
 import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
+import com.back.domain.member.passwordReset.service.PasswordResetService;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
@@ -12,10 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -32,11 +30,13 @@ import java.util.UUID;
 @SecurityRequirement(name = "bearerAuth")
 public class ApiV1MemberController {
     private final MemberService memberService;
+    private final EmailVerificationService emailVerificationService;
     private final Rq rq;
     @Value("${custom.accessToken.expirationSeconds}")
     private int accessTokenExpirationSeconds;
     @Value("${custom.refreshToken.expirationSeconds}")
     private int refreshTokenExpirationSeconds;
+    private final PasswordResetService passwordResetService;
 
     public record MemberSignupReq(
             @NotBlank
@@ -58,19 +58,6 @@ public class ApiV1MemberController {
             @Size(min = 4, max = 30)
             String password
     ) {}
-
-    public record OAuthLoginReq(
-            @NotBlank
-            String code
-    ){}
-
-    public record OAuthExchangeRes(
-            String grantType,
-            String accessToken,
-            String refreshToken,
-            int accessTokenExpiresIn,
-            boolean needsOnboarding
-    ){}
 
     public record MemberLoginRes(
             String grantType,
@@ -119,27 +106,6 @@ public class ApiV1MemberController {
 
     }
 
-    @PostMapping("/oauth/exchange")
-    @Operation(summary = "소셜 로그인 code 교환")
-    public RsData<OAuthExchangeRes> oauthExchange(@Valid @RequestBody OAuthLoginReq req) {
-        OAuthExchangeResult result = memberService.exchangeOAuthCode(req.code());
-
-        rq.setCookie("accessToken", result.accessToken(), accessTokenExpirationSeconds);
-        rq.setCookie("refreshToken", result.refreshToken().toString(), refreshTokenExpirationSeconds);
-
-        return new RsData<>(
-                "200-1",
-                "소셜 로그인 성공",
-                new OAuthExchangeRes(
-                        "Bearer",
-                        result.accessToken(),
-                        result.refreshToken().toString(),
-                        accessTokenExpirationSeconds,
-                        result.needsOnboarding()
-                )
-        );
-    }
-
     @PostMapping("/logout")
     @Operation(summary = "로그아웃")
     public RsData<Void> logout() {
@@ -155,7 +121,8 @@ public class ApiV1MemberController {
     }
     public record MemberMeRes(
             String email,
-            Industry industry
+            Industry industry,
+            String role
     ) {}
 
     @GetMapping("/me")
@@ -167,7 +134,7 @@ public class ApiV1MemberController {
         return new RsData<>(
                 "200-1",
                 "내 정보 조회 성공",
-                new MemberMeRes(actor.getEmail(), actor.getIndustry())
+                new MemberMeRes(actor.getEmail(), actor.getIndustry(), actor.getRole())
         );
     }
     public record MemberUpdateIndustryReq(
@@ -256,5 +223,60 @@ public class ApiV1MemberController {
                         accessTokenExpirationSeconds
                 )
         );
+    }
+    public record EmailVerificationSendReq(
+            @NotBlank @Email String email
+    ) {}
+
+    public record EmailVerificationConfirmReq(
+            @NotBlank @Email String email,
+            @NotBlank String code
+    ) {}
+
+    @PostMapping("/email-verification/send")
+    @Operation(summary = "이메일 인증 코드 발송")
+    public RsData<Void> sendEmailVerification(@Valid @RequestBody EmailVerificationSendReq req) {
+        emailVerificationService.sendVerificationCode(req.email());
+        return new RsData<>("200-1", "인증 코드 발송 성공");
+    }
+
+    @PostMapping("/email-verification/confirm")
+    @Operation(summary = "이메일 인증 코드 확인")
+    public RsData<Void> confirmEmailVerification(@Valid @RequestBody EmailVerificationConfirmReq req) {
+        emailVerificationService.confirmVerificationCode(req.email(), req.code());
+        return new RsData<>("200-1", "이메일 인증 성공");
+    }
+    public record PasswordResetSendReq(
+            @NotBlank
+            @Email
+            @Size(min = 5, max = 50)
+            String email
+    ) {}
+
+    public record PasswordResetConfirmReq(
+            @NotBlank
+            @Email
+            @Size(min = 5, max = 50)
+            String email,
+            @NotBlank
+            @Pattern(regexp = "^\\d{6}$", message = "인증 코드는 6자리 숫자여야 합니다.")
+            String code,
+            @NotBlank
+            @Size(min = 4, max = 30)
+            String newPassword
+    ) {}
+
+    @PostMapping("/password-reset/send")
+    @Operation(summary = "비밀번호 재설정 코드 발송")
+    public RsData<Void> sendPasswordReset(@Valid @RequestBody PasswordResetSendReq req) {
+        passwordResetService.sendResetCode(req.email());
+        return new RsData<>("200-1", "재설정 코드 발송 성공");
+    }
+
+    @PostMapping("/password-reset/confirm")
+    @Operation(summary = "비밀번호 재설정")
+    public RsData<Void> confirmPasswordReset(@Valid @RequestBody PasswordResetConfirmReq req) {
+        passwordResetService.resetPassword(req.email(), req.code(), req.newPassword());
+        return new RsData<>("200-1", "비밀번호 재설정 성공");
     }
 }

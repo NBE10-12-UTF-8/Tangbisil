@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { getToken } from '@/lib/api';
+import { isLoggedIn as checkIsLoggedIn } from '@/lib/api';
 
 export function AppShell({ children, topAlign = false }: { children: React.ReactNode; topAlign?: boolean }) {
   const pathname = usePathname();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  useEffect(() => { setIsLoggedIn(!!getToken()); }, [pathname]);
+  useEffect(() => { setIsLoggedIn(checkIsLoggedIn()); }, [pathname]);
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#fff', fontFamily: "Arial, 'Helvetica Neue', sans-serif" }}>
