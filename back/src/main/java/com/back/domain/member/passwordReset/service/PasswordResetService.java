@@ -32,14 +32,15 @@ public class PasswordResetService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendResetCode(String email) {
         String normalizedEmail = EmailNormalizer.normalize(email);
-        String code = tokenIssuer.issueIfMemberExists(normalizedEmail);
+        PasswordResetTokenIssuer.IssueResult result = tokenIssuer.issue(normalizedEmail);
 
-        if (code == null) {
-            // 가입되지 않은 이메일이어도 동일하게 성공 처리 (이메일 존재 여부 노출 방지)
+        if (!result.memberExists()) {
+            // 토큰은 이미 만들어졌으니 재발송 제한은 가입된 이메일과 동일하게 동작한다.
+            // 다만 실제 메일은 보내지 않는다.
             return;
         }
 
-        String html = PasswordResetEmailTemplate.render(code, expirationMinutes);
+        String html = PasswordResetEmailTemplate.render(result.code(), expirationMinutes);
         try {
             resendEmailService.send(normalizedEmail, "[탕비실] 비밀번호 재설정 코드", html);
         } catch (RuntimeException e) {
