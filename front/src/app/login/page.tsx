@@ -29,12 +29,19 @@ function LoginPageInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showSignupToast, setShowSignupToast] = useState(() => searchParams.get('signup') === 'success');
+  const [showResetToast, setShowResetToast] = useState(() => searchParams.get('reset') === 'success');
 
   useEffect(() => {
     if (!showSignupToast) return;
     const t = setTimeout(() => setShowSignupToast(false), 3000);
     return () => clearTimeout(t);
   }, [showSignupToast]);
+
+  useEffect(() => {
+    if (!showResetToast) return;
+    const t = setTimeout(() => setShowResetToast(false), 3000);
+    return () => clearTimeout(t);
+  }, [showResetToast]);
 
   const handleLogin = async () => {
     if (!email || !password) return;
@@ -75,6 +82,12 @@ function LoginPageInner() {
         <div style={{ position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 8, background: '#202124', color: '#fff', borderRadius: 10, padding: '12px 18px', fontSize: 13.5, fontWeight: 500, boxShadow: '0 4px 16px rgba(0,0,0,.2)', zIndex: 200 }}>
           <span style={{ color: '#34a06b' }}>✓</span>
           회원가입이 완료됐어요. 로그인해주세요
+        </div>
+      )}
+      {showResetToast && (
+        <div style={{ position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 8, background: '#202124', color: '#fff', borderRadius: 10, padding: '12px 18px', fontSize: 13.5, fontWeight: 500, boxShadow: '0 4px 16px rgba(0,0,0,.2)', zIndex: 200 }}>
+          <span style={{ color: '#34a06b' }}>✓</span>
+          비밀번호가 변경됐어요. 새 비밀번호로 로그인해주세요
         </div>
       )}
       <Link href="/" style={{ textDecoration: 'none' }}><TangbisilLogo size={42} /></Link>
@@ -121,7 +134,7 @@ function LoginPageInner() {
             <input type="checkbox" style={{ width: 15, height: 15, accentColor: '#3b7ff2' }} />
             로그인 유지
           </label>
-          <span style={{ fontSize: 12.5, color: '#3b7ff2', cursor: 'pointer' }}>비밀번호 찾기</span>
+          <Link href="/forgot-password" style={{ fontSize: 12.5, color: '#3b7ff2', textDecoration: 'none' }}>비밀번호 찾기</Link>
         </div>
 
         <button

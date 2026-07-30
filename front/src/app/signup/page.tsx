@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiSignup, INDUSTRY_CODES, isValidEmail } from '@/lib/api';
+import {
+  apiSignup, apiSendEmailVerification, apiConfirmEmailVerification,
+  INDUSTRY_CODES, isValidEmail,
+} from '@/lib/api';
 
 const INDUSTRIES = [
   { name: 'IT/개발',       color: '#3b7ff2' },
@@ -38,9 +41,52 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verifySent, setVerifySent] = useState(false);
+  const [verifyCode, setVerifyCode] = useState('');
+  const [sendingCode, setSendingCode] = useState(false);
+  const [confirmingCode, setConfirmingCode] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
+
   const emailOk = isValidEmail(email);
   const pwOk = password.length >= 4;
-  const canSubmit = !!(emailOk && pwOk && password === confirm && selected && !loading);
+  const canSubmit = !!(emailOk && emailVerified && pwOk && password === confirm && selected && !loading);
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setEmailVerified(false);
+    setVerifySent(false);
+    setVerifyCode('');
+    setVerifyError('');
+  };
+
+  const sendVerificationCode = async () => {
+    if (!emailOk || sendingCode) return;
+    setVerifyError('');
+    setSendingCode(true);
+    try {
+      await apiSendEmailVerification(email);
+      setVerifySent(true);
+    } catch (e: unknown) {
+      setVerifyError((e as Error)?.message ?? '인증 코드 발송에 실패했어요');
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const confirmVerificationCode = async () => {
+    if (!verifyCode || confirmingCode) return;
+    setVerifyError('');
+    setConfirmingCode(true);
+    try {
+      await apiConfirmEmailVerification(email, verifyCode);
+      setEmailVerified(true);
+    } catch (e: unknown) {
+      setVerifyError((e as Error)?.message ?? '인증 코드 확인에 실패했어요');
+    } finally {
+      setConfirmingCode(false);
+    }
+  };
 
   const handleSignup = async () => {
     if (!canSubmit) return;
@@ -66,17 +112,57 @@ export default function SignupPage() {
         {/* Email */}
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 12, color: '#5f6368', marginBottom: 6 }}>이메일</div>
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="work@company.com"
-            style={{ width: '100%', height: 46, border: '1px solid #dadce0', borderRadius: 8, padding: '0 14px', fontSize: 15, color: '#202124', outline: 'none', boxSizing: 'border-box' }}
-          />
-          {email && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="email"
+              value={email}
+              onChange={e => handleEmailChange(e.target.value)}
+              placeholder="work@company.com"
+              disabled={emailVerified}
+              style={{ flex: 1, height: 46, border: '1px solid #dadce0', borderRadius: 8, padding: '0 14px', fontSize: 15, color: '#202124', outline: 'none', boxSizing: 'border-box', background: emailVerified ? '#f8f9fa' : '#fff' }}
+            />
+            <button
+              type="button"
+              onClick={sendVerificationCode}
+              disabled={!emailOk || sendingCode || emailVerified}
+              style={{ flexShrink: 0, padding: '0 16px', height: 46, borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', cursor: emailOk && !emailVerified ? 'pointer' : 'default', background: emailVerified ? '#e6f4ea' : emailOk ? '#3b7ff2' : '#f1f3f4', color: emailVerified ? '#137333' : emailOk ? '#fff' : '#9aa0a6' }}
+            >
+              {emailVerified ? '인증 완료' : sendingCode ? '발송 중...' : verifySent ? '재발송' : '인증코드 받기'}
+            </button>
+          </div>
+          {email && !emailVerified && (
             <div style={{ fontSize: 11.5, color: emailOk ? '#34a06b' : '#9aa0a6', marginTop: 6 }}>
               {emailOk ? '✓ 사용 가능한 이메일 형식이에요' : '올바른 이메일 형식으로 입력해주세요 (예: work@company.com)'}
             </div>
+          )}
+
+          {verifySent && !emailVerified && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={verifyCode}
+                onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
+                onKeyDown={e => e.key === 'Enter' && confirmVerificationCode()}
+                placeholder="6자리 인증코드"
+                style={{ flex: 1, height: 42, border: '1px solid #dadce0', borderRadius: 8, padding: '0 14px', fontSize: 15, color: '#202124', outline: 'none', boxSizing: 'border-box', letterSpacing: 2 }}
+              />
+              <button
+                type="button"
+                onClick={confirmVerificationCode}
+                disabled={verifyCode.length !== 6 || confirmingCode}
+                style={{ flexShrink: 0, padding: '0 16px', height: 42, borderRadius: 8, fontSize: 13, fontWeight: 600, border: '1px solid #3b7ff2', cursor: verifyCode.length === 6 ? 'pointer' : 'default', background: '#fff', color: '#3b7ff2', opacity: verifyCode.length === 6 ? 1 : 0.5 }}
+              >
+                {confirmingCode ? '확인 중...' : '확인'}
+              </button>
+            </div>
+          )}
+          {emailVerified && (
+            <div style={{ fontSize: 11.5, color: '#34a06b', marginTop: 6 }}>✓ 이메일 인증이 완료됐어요</div>
+          )}
+          {verifyError && (
+            <div style={{ fontSize: 11.5, color: '#ea4c4c', marginTop: 6 }}>{verifyError}</div>
           )}
         </div>
 

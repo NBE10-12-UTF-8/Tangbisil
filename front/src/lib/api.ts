@@ -185,6 +185,38 @@ export const apiSignup = (email: string, password: string, industry: string) =>
 export const apiLogout = () =>
   req<null>("/api/v1/members/logout", { method: "POST" });
 
+// 이메일 인증 코드 발송 (회원가입 전) — 이미 가입된 이메일이면 409, 60초 내 재요청이면 429
+export const apiSendEmailVerification = (email: string) =>
+  req<null>("/api/v1/members/email-verification/send", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+
+// 이메일 인증 코드 확인
+export const apiConfirmEmailVerification = (email: string, code: string) =>
+  req<null>("/api/v1/members/email-verification/confirm", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+
+// 비밀번호 재설정 코드 발송 — 가입되지 않은 이메일이어도 항상 200으로 응답(이메일 존재 여부 노출 방지)
+export const apiSendPasswordReset = (email: string) =>
+  req<null>("/api/v1/members/password-reset/send", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+
+// 비밀번호 재설정 코드 확인 + 새 비밀번호 적용
+export const apiConfirmPasswordReset = (
+  email: string,
+  code: string,
+  newPassword: string,
+) =>
+  req<null>("/api/v1/members/password-reset/confirm", {
+    method: "POST",
+    body: JSON.stringify({ email, code, newPassword }),
+  });
+
 export const apiRefreshToken = () =>
   req<{ grantType: string; accessToken: string; refreshToken: string; accessTokenExpiresIn: number }>(
     "/api/v1/members/refresh",
