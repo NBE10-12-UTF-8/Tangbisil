@@ -41,7 +41,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
         Member member = memberService.findById(memberId).orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
         String accessToken = memberService.genAccessToken(member);
-        UUID refreshToken = memberService.genRefreshToken(member);
+        rq.setCookie("accessToken", accessToken, accessTokenExpirationSeconds);
         rq.setCookie("accessToken", accessToken ,  accessTokenExpirationSeconds);
         rq.setCookie("refreshToken", refreshToken.toString(), refreshTokenExpirationSeconds);
         response.sendRedirect(frontendBaseUrl + "/oauth/callback");
