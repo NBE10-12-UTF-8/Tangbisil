@@ -7,6 +7,7 @@ import com.back.domain.member.passwordReset.repository.PasswordResetTokenReposit
 import com.back.global.exception.ServiceException;
 import com.back.global.util.EmailNormalizer;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -26,13 +27,20 @@ public class PasswordResetService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendResetCode(String email) {
         String normalizedEmail = EmailNormalizer.normalize(email);
-        PasswordResetTokenIssuer.IssueResult result = tokenIssuer.issue(normalizedEmail);
+        PasswordResetTokenIssuer.IssueResult result = issueWithRetry(normalizedEmail);
 
         if (result.memberExists()) {
             emailSender.sendAsync(normalizedEmail, result.code());
         }
-        // 회원 존재 여부와 무관하게 항상 즉시 반환한다.
-        // 실제 메일 발송은 비동기로 처리해 응답 시간으로 이메일 존재 여부가 드러나지 않도록 한다.
+    }
+
+    private PasswordResetTokenIssuer.IssueResult issueWithRetry(String email) {
+        try {
+            return tokenIssuer.issue(email);
+        } catch (DataIntegrityViolationException e) {
+            // 완전히 동시에 들어온 첫 요청끼리 유니크 제약에 부딪힌 경우, 새 트랜잭션으로 한 번 재시도
+            return tokenIssuer.issue(email);
+        }
     }
 
     @Transactional(noRollbackFor = ServiceException.class)
