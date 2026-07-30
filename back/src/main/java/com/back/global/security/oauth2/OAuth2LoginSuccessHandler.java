@@ -2,6 +2,7 @@ package com.back.global.security.oauth2;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
+import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,26 +26,25 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     @Value("${custom.frontendBaseUrl:http://localhost:3000}")
     private String frontendBaseUrl;
 
-
     @Value("${custom.accessToken.expirationSeconds}")
     private int accessTokenExpirationSeconds;
     @Value("${custom.refreshToken.expirationSeconds}")
     private int refreshTokenExpirationSeconds;
+
     @Override
     public void onAuthenticationSuccess(
             HttpServletRequest request,
             HttpServletResponse response,
             Authentication authentication
     ) throws IOException, ServletException {
-Member member = memberService.findById(memberId).orElseThrow(() -> new com.back.global.exception.ServiceException("404-1", "존재하지 않는 회원입니다."));
+        CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
+        UUID memberId = oAuth2User.getMemberId();
         Member member = memberService.findById(memberId)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
-        Member member = memberService.findById(memberId).orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
         String accessToken = memberService.genAccessToken(member);
+        UUID refreshToken = memberService.genRefreshToken(member);
         rq.setCookie("accessToken", accessToken, accessTokenExpirationSeconds);
-        rq.setCookie("accessToken", accessToken ,  accessTokenExpirationSeconds);
         rq.setCookie("refreshToken", refreshToken.toString(), refreshTokenExpirationSeconds);
         response.sendRedirect(frontendBaseUrl + "/oauth/callback");
-
     }
 }
