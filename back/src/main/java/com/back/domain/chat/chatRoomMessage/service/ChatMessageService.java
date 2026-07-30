@@ -12,6 +12,9 @@ import com.back.domain.chat.chatRoomParticipant.entity.ChatRoomParticipant;
 import com.back.domain.chat.chatRoomParticipant.repository.ChatRoomParticipantRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.global.exception.ServiceException;
+import com.back.domain.chat.chatRoomMessage.dto.RedisChatMessageDto;
+import com.back.domain.chat.chatRoomMessage.event.ChatMessageSentEvent;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
@@ -59,6 +62,12 @@ public class ChatMessageService {
         ChatMessage message = chatMessageRepository.save(
                 new ChatMessage(chatRoom, participant, content)
         );
+
+        // 저장 성공한 메시지 엔티티를 가벼운 Redis DTO 객체로 변환
+        RedisChatMessageDto cacheDto = new RedisChatMessageDto(message);
+
+        // 비동기 캐시 적재를 수행할 배달부(EventHandler)에게 이벤트 발행
+        eventPublisher.publishEvent(new ChatMessageSentEvent(cacheDto));
 
         // 사람이(봇이 아닌 발신자가) 봇이 참여 중인 방에 메시지를 보내면, 봇이 맥락에 맞게 응답하게 트리거
         if (!BotAccounts.isBotEmail(sender.getEmail())) {
