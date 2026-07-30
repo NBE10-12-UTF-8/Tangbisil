@@ -578,4 +578,58 @@ public class ApiV1MemberControllerTest {
         resultActions
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    @DisplayName("내 정보 조회 시 role도 함께 내려온다 - OAuth2 콜백이 토큰 없이 role을 판단하기 위함")
+    void t16() throws Exception {
+        preVerifyEmail("test@test.com");
+
+        // Given - 회원가입 선행
+        mvc.perform(
+                post("/api/v1/members/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                                 "email": "test@test.com",
+                                 "password": "1234",
+                                 "industry": "IT/개발"
+                            }
+                            """)
+        );
+
+        // Given - 로그인 선행
+        String loginResponse = mvc.perform(
+                        post("/api/v1/members/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                         "email": "test@test.com",
+                                         "password": "1234"
+                                    }
+                                    """)
+                )
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(loginResponse)
+                .path("data")
+                .path("accessToken")
+                .asText();
+
+        // When
+        ResultActions resultActions = mvc
+                .perform(
+                        get("/api/v1/members/me")
+                                .header("Authorization", "Bearer " + accessToken)
+                )
+                .andDo(print());
+
+        // Then
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.email").value("test@test.com"))
+                .andExpect(jsonPath("$.data.role").value("USER"));
+    }
 }

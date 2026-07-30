@@ -2,7 +2,6 @@ package com.back.domain.member.member.controller;
 import com.back.domain.match.matchRequest.dto.MatchHistoryDto;
 import com.back.domain.member.emailVerification.service.EmailVerificationService;
 import com.back.domain.member.member.dto.MemberDto;
-import com.back.domain.member.member.dto.OAuthExchangeResult;
 import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
@@ -61,19 +60,6 @@ public class ApiV1MemberController {
             String password
     ) {}
 
-    public record OAuthLoginReq(
-            @NotBlank
-            String code
-    ){}
-
-    public record OAuthExchangeRes(
-            String grantType,
-            String accessToken,
-            String refreshToken,
-            int accessTokenExpiresIn,
-            boolean needsOnboarding
-    ){}
-
     public record MemberLoginRes(
             String grantType,
             String accessToken,
@@ -121,27 +107,6 @@ public class ApiV1MemberController {
 
     }
 
-    @PostMapping("/oauth/exchange")
-    @Operation(summary = "소셜 로그인 code 교환")
-    public RsData<OAuthExchangeRes> oauthExchange(@Valid @RequestBody OAuthLoginReq req) {
-        OAuthExchangeResult result = memberService.exchangeOAuthCode(req.code());
-
-        rq.setCookie("accessToken", result.accessToken(), accessTokenExpirationSeconds);
-        rq.setCookie("refreshToken", result.refreshToken().toString(), refreshTokenExpirationSeconds);
-
-        return new RsData<>(
-                "200-1",
-                "소셜 로그인 성공",
-                new OAuthExchangeRes(
-                        "Bearer",
-                        result.accessToken(),
-                        result.refreshToken().toString(),
-                        accessTokenExpirationSeconds,
-                        result.needsOnboarding()
-                )
-        );
-    }
-
     @PostMapping("/logout")
     @Operation(summary = "로그아웃")
     public RsData<Void> logout() {
@@ -157,7 +122,8 @@ public class ApiV1MemberController {
     }
     public record MemberMeRes(
             String email,
-            Industry industry
+            Industry industry,
+            String role
     ) {}
 
     @GetMapping("/me")
@@ -169,7 +135,7 @@ public class ApiV1MemberController {
         return new RsData<>(
                 "200-1",
                 "내 정보 조회 성공",
-                new MemberMeRes(actor.getEmail(), actor.getIndustry())
+                new MemberMeRes(actor.getEmail(), actor.getIndustry(), actor.getRole())
         );
     }
     public record MemberUpdateIndustryReq(
