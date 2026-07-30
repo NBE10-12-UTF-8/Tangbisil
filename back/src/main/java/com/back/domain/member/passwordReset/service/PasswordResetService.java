@@ -56,7 +56,7 @@ public class PasswordResetService {
         if (token.isBlocked()) {
             throw new ServiceException("400-5", "인증 시도 횟수를 초과했습니다. 코드를 다시 발송해주세요.");
         }
-        if (!token.matches(code)) {
+        if (!token.verifyCode(code)) {
             throw new ServiceException("400-3", "재설정 코드가 일치하지 않습니다.");
         }
 

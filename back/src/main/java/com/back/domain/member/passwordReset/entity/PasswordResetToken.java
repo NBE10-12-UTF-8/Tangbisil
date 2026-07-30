@@ -43,7 +43,7 @@ public class PasswordResetToken {
         return failedAttempts >= MAX_ATTEMPTS;
     }
 
-    public boolean matches(String inputCode) {
+    public boolean verifyCode(String inputCode) {
         boolean matched = this.code.equals(inputCode);
         if (!matched) {
             this.failedAttempts++;
