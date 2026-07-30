@@ -13,6 +13,7 @@ import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.global.exception.ServiceException;
 import com.back.global.security.oauth.OAuthCodeStore;
+import com.back.global.util.EmailNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -46,14 +47,16 @@ public class MemberService {
 
     @Transactional
     public Member join(String email, String password, Industry industry, String role) {
-        findByEmail(email).ifPresent(_ -> {
+        String normalizedEmail = EmailNormalizer.normalize(email);
+
+        findByEmail(normalizedEmail).ifPresent(_ -> {
             throw new ServiceException("409-1", "이미 존재하는 이메일입니다.");
         });
 
-        emailVerificationService.consumeVerifiedEmail(email);
+        emailVerificationService.consumeVerifiedEmail(normalizedEmail);
 
         String encodedPassword = passwordEncoder.encode(password);
-        Member member = new Member(email, encodedPassword, industry, role);
+        Member member = new Member(normalizedEmail, encodedPassword, industry, role);
 
         return memberRepository.save(member);
     }
@@ -63,12 +66,14 @@ public class MemberService {
     // 시스템 초기 계정/봇 계정은 실제 이메일 소유자가 없으므로 이 경로로 생성한다.
     @Transactional
     public Member joinWithoutEmailVerification(String email, String password, Industry industry, String role) {
-        findByEmail(email).ifPresent(_ -> {
+        String normalizedEmail = EmailNormalizer.normalize(email);
+
+        findByEmail(normalizedEmail).ifPresent(_ -> {
             throw new ServiceException("409-1", "이미 존재하는 이메일입니다.");
         });
 
         String encodedPassword = passwordEncoder.encode(password);
-        Member member = new Member(email, encodedPassword, industry, role);
+        Member member = new Member(normalizedEmail, encodedPassword, industry, role);
 
         return memberRepository.save(member);
     }

@@ -16,12 +16,16 @@ import java.util.UUID;
 @NoArgsConstructor
 @Table(name = "email_verification_token")
 public class EmailVerificationToken {
+
+    private static final int MAX_ATTEMPTS = 5;
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     private String email;
     private String code;
     private boolean verified;
+    private int failedAttempts;
     private LocalDateTime expiresAt;
     private LocalDateTime createdAt;
 
@@ -36,9 +40,19 @@ public class EmailVerificationToken {
         return LocalDateTime.now().isAfter(expiresAt);
     }
 
-    public boolean matches(String inputCode) {
-        return this.code.equals(inputCode);
+    public boolean isBlocked() {
+        return failedAttempts >= MAX_ATTEMPTS;
     }
+
+    // 코드가 틀리면 실패 횟수를 증가시킨다. 호출부에서 isBlocked()를 먼저 확인해야 한다.
+    public boolean matches(String inputCode) {
+        boolean matched = this.code.equals(inputCode);
+        if (!matched) {
+            this.failedAttempts++;
+        }
+        return matched;
+    }
+
     public void markVerified() {
         this.verified = true;
     }
