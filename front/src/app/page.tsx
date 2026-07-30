@@ -278,8 +278,9 @@ export default function HomePage() {
                 disabled={!selectedTopic}
                 style={{ marginTop: 14, width: '100%', height: 36, background: selectedTopic ? '#3b7ff2' : '#f1f3f4', color: selectedTopic ? '#fff' : '#9aa0a6', border: 'none', borderRadius: 18, fontSize: 14, fontWeight: 600, cursor: selectedTopic ? 'pointer' : 'default' }}
               >
-                {selectedTopic ? `"${selectedTopic}"로 매칭하기` : '상황을 선택해주세요'}
+                매칭시작하기
               </button>
+              <div style={{ marginTop: 6, textAlign: 'center', fontSize: 11, color: '#bdc1c6' }}>같은 업계의 동료와 매칭돼요.</div>
 
               {matchError === 'LOGIN_REQUIRED' ? (
                 <div style={{ marginTop: 10, fontSize: 12, color: '#5f6368' }}>
