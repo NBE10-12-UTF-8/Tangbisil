@@ -3,6 +3,7 @@ package com.back.domain.member.emailVerification.service;
 import com.back.domain.member.emailVerification.entity.EmailVerificationToken;
 import com.back.domain.member.emailVerification.repository.EmailVerificationTokenRepository;
 import com.back.global.email.ResendEmailService;
+import com.back.global.email.VerificationEmailTemplate;
 import com.back.global.exception.ServiceException;
 import com.back.global.util.EmailNormalizer;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,7 @@ public class EmailVerificationService {
         String normalizedEmail = EmailNormalizer.normalize(email);
         String code = tokenIssuer.issue(normalizedEmail);
 
-        String html = "<p>인증 코드: <b>" + code + "</b></p><p>" + expirationMinutes + "분 내에 입력해주세요.</p>";
+        String html = VerificationEmailTemplate.render(code, expirationMinutes);  // 여기만 바뀜
         try {
             resendEmailService.send(normalizedEmail, "[탕비실] 이메일 인증 코드", html);
         } catch (RuntimeException e) {
