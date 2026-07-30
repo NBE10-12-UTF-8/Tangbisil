@@ -131,14 +131,14 @@ async function req<T>(
   // refreshToken으로 한 번만 자동 재발급받아 원요청을 재시도한다.
   // OAuth 로그인 사용자는 localStorage에 토큰이 없고 쿠키만으로 인증되므로
   // token 존재 여부와 무관하게 재발급을 시도해야 한다.
-  if (
-    res.status === 401 &&
-    !_isRetry &&
-    !NO_REFRESH_RETRY_PATHS.includes(path)
-  ) {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      return req<T>(path, options, true);
+  // 재시도한 요청마저 401이면(리프레시 토큰/쿠키 만료 등) 세션이 완전히 끝난 것이므로
+  // 여기서도 반드시 로컬 세션 정보를 정리하고 로그인 페이지로 보내야 한다.
+  if (res.status === 401 && !NO_REFRESH_RETRY_PATHS.includes(path)) {
+    if (!_isRetry) {
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        return req<T>(path, options, true);
+      }
     }
     clearTokens();
     if (typeof window !== "undefined") {
