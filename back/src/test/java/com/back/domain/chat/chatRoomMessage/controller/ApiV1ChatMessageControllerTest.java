@@ -11,7 +11,9 @@ import com.back.domain.member.member.service.MemberService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assumptions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
@@ -23,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
+import java.net.Socket;
+import java.net.InetSocketAddress;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static com.back.domain.member.member.entity.Industry.*;
@@ -53,6 +57,12 @@ public class ApiV1ChatMessageControllerTest {
 
     @Autowired
     private org.springframework.data.redis.core.RedisTemplate<String, String> redisTemplate;
+
+    @Value("${spring.data.redis.host}")
+    private String redisHost;
+
+    @Value("${spring.data.redis.port}")
+    private int redisPort;
 
     @Test
     @DisplayName("메시지 전송 성공 - 보낸 채팅")
@@ -446,6 +456,14 @@ public class ApiV1ChatMessageControllerTest {
     @Test
     @DisplayName("메시지 폴링 - 전체 채팅 흐름")
     void t15() throws Exception {
+        boolean isRedisAvailable = false;
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(redisHost, redisPort), 1000);
+            isRedisAvailable = socket.isConnected();
+        } catch (Exception ignored) {
+        }
+        Assumptions.assumeTrue(isRedisAvailable);
+
         Member memberA = memberService.joinWithoutEmailVerification("user6@test.com", "1234", IT, "USER");
         Member memberB = memberService.joinWithoutEmailVerification("user7@test.com", "1234", IT, "USER");
         String tokenA = memberService.genAccessToken(memberA);
