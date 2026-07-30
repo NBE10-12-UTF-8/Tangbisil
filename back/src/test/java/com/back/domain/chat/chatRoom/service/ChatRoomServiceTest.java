@@ -36,10 +36,10 @@ public class ChatRoomServiceTest {
     @DisplayName("채팅방 생성 성공")
     void t1() {
         // Given
-        Member member1 = memberService.join("chatroomuser1@test.com", "1234", IT
+        Member member1 = memberService.joinWithoutEmailVerification("chatroomuser1@test.com", "1234", IT
 
                 , "USER");
-        Member member2 = memberService.join("chatroomuser2@test.com", "1234", IT, "USER");
+        Member member2 = memberService.joinWithoutEmailVerification("chatroomuser2@test.com", "1234", IT, "USER");
         List<Member> members = List.of(member1, member2);
 
         // When

@@ -1,5 +1,6 @@
 package com.back.domain.member.member.controller;
 import com.back.domain.match.matchRequest.dto.MatchHistoryDto;
+import com.back.domain.member.emailVerification.service.EmailVerificationService;
 import com.back.domain.member.member.dto.MemberDto;
 import com.back.domain.member.member.dto.OAuthExchangeResult;
 import com.back.domain.member.member.entity.Industry;
@@ -32,6 +33,7 @@ import java.util.UUID;
 @SecurityRequirement(name = "bearerAuth")
 public class ApiV1MemberController {
     private final MemberService memberService;
+    private final EmailVerificationService emailVerificationService;
     private final Rq rq;
     @Value("${custom.accessToken.expirationSeconds}")
     private int accessTokenExpirationSeconds;
@@ -256,5 +258,27 @@ public class ApiV1MemberController {
                         accessTokenExpirationSeconds
                 )
         );
+    }
+    public record EmailVerificationSendReq(
+            @NotBlank @Email String email
+    ) {}
+
+    public record EmailVerificationConfirmReq(
+            @NotBlank @Email String email,
+            @NotBlank String code
+    ) {}
+
+    @PostMapping("/email-verification/send")
+    @Operation(summary = "이메일 인증 코드 발송")
+    public RsData<Void> sendEmailVerification(@Valid @RequestBody EmailVerificationSendReq req) {
+        emailVerificationService.sendVerificationCode(req.email());
+        return new RsData<>("200-1", "인증 코드 발송 성공");
+    }
+
+    @PostMapping("/email-verification/confirm")
+    @Operation(summary = "이메일 인증 코드 확인")
+    public RsData<Void> confirmEmailVerification(@Valid @RequestBody EmailVerificationConfirmReq req) {
+        emailVerificationService.confirmVerificationCode(req.email(), req.code());
+        return new RsData<>("200-1", "이메일 인증 성공");
     }
 }

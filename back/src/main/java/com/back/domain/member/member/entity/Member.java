@@ -30,6 +30,7 @@ public class Member extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private AuthProvider provider;
     private String providerId;
+    private boolean emailVerified;
 
     public Member(UUID id, String email, String role) {
         setId(id);
@@ -44,6 +45,7 @@ public class Member extends BaseEntity {
         this.role = role;
         this.isSuspended = false;
         this.provider = AuthProvider.LOCAL;
+        this.emailVerified = true;
     }
 
     public static Member ofOAuth(String email, AuthProvider provider, String providerId){
@@ -52,6 +54,7 @@ public class Member extends BaseEntity {
         member.provider = provider;
         member.providerId = providerId;
         member.role = "USER";
+        member.emailVerified = true;
 
         return member;
     }

@@ -1,0 +1,1 @@
+ALTER TABLE email_verification_token ADD COLUMN failed_attempts INT NOT NULL DEFAULT 0;

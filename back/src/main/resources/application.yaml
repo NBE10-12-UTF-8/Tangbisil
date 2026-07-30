@@ -70,6 +70,12 @@ custom:
   actuator:
     username: ${ACTUATOR_USERNAME}
     password: ${ACTUATOR_PASSWORD}
+  resend:
+    api-key: ${RESEND_API_KEY:}
+    from-email: no-reply@tangbisil.kro.kr
+  email:
+    verification:
+      code-expiration-minutes: 10
 management:
   endpoints:
     web:
