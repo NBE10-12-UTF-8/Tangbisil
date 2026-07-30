@@ -1,1 +1,0 @@
-ALTER TABLE password_reset_token ADD CONSTRAINT uk_password_reset_token_email UNIQUE (email);

@@ -5,7 +5,6 @@ CREATE TABLE password_reset_token (
     failed_attempts INT NOT NULL DEFAULT 0,
     expires_at DATETIME(6) NOT NULL,
     created_at DATETIME(6) NOT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    CONSTRAINT uk_password_reset_token_email UNIQUE (email)
 );
-
-CREATE INDEX idx_password_reset_token_email ON password_reset_token (email);
