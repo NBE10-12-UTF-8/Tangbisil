@@ -24,7 +24,7 @@ public class PasswordResetEmailSender {
         String html = PasswordResetEmailTemplate.render(code, expirationMinutes);
         try {
             resendEmailService.send(email, "[탕비실] 비밀번호 재설정 코드", html);
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             log.error("비밀번호 재설정 메일 발송 실패: email={}", email, e);
             tokenIssuer.deleteToken(email);
         }

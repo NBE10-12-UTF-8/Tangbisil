@@ -30,7 +30,7 @@ class PasswordResetTokenIssuer {
     // 회원이 존재할 때만 토큰을 발급하고 코드를 반환한다.
     // 존재하지 않으면 null을 반환할 뿐, 예외를 던지지 않는다 (이메일 존재 여부 노출 방지).
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    IssueResult issue(String email) {
+    public IssueResult issue(String email) {
         tokenRepository.findTopByEmailOrderByCreatedAtDesc(email).ifPresent(prev -> {
             if (prev.getCreatedAt().isAfter(LocalDateTime.now().minusSeconds(60))) {
                 throw new ServiceException("429-1", "잠시 후 다시 시도해주세요.");
@@ -47,7 +47,7 @@ class PasswordResetTokenIssuer {
     }
 
     @Transactional
-    void deleteToken(String email) {
+    public void deleteToken(String email) {
         tokenRepository.deleteByEmail(email);
     }
 }
