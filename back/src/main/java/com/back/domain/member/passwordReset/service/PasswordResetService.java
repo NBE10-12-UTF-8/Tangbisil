@@ -4,12 +4,9 @@ import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.passwordReset.entity.PasswordResetToken;
 import com.back.domain.member.passwordReset.repository.PasswordResetTokenRepository;
-import com.back.global.email.PasswordResetEmailTemplate;
-import com.back.global.email.ResendEmailService;
 import com.back.global.exception.ServiceException;
 import com.back.global.util.EmailNormalizer;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -22,31 +19,20 @@ public class PasswordResetService {
 
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordResetTokenIssuer tokenIssuer;
+    private final PasswordResetEmailSender emailSender;
     private final MemberRepository memberRepository;
-    private final ResendEmailService resendEmailService;
     private final PasswordEncoder passwordEncoder;
-
-    @Value("${custom.password-reset.code-expiration-minutes}")
-    private int expirationMinutes;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendResetCode(String email) {
         String normalizedEmail = EmailNormalizer.normalize(email);
         PasswordResetTokenIssuer.IssueResult result = tokenIssuer.issue(normalizedEmail);
 
-        if (!result.memberExists()) {
-            // 토큰은 이미 만들어졌으니 재발송 제한은 가입된 이메일과 동일하게 동작한다.
-            // 다만 실제 메일은 보내지 않는다.
-            return;
+        if (result.memberExists()) {
+            emailSender.sendAsync(normalizedEmail, result.code());
         }
-
-        String html = PasswordResetEmailTemplate.render(result.code(), expirationMinutes);
-        try {
-            resendEmailService.send(normalizedEmail, "[탕비실] 비밀번호 재설정 코드", html);
-        } catch (RuntimeException e) {
-            tokenIssuer.deleteToken(normalizedEmail);
-            throw e;
-        }
+        // 회원 존재 여부와 무관하게 항상 즉시 반환한다.
+        // 실제 메일 발송은 비동기로 처리해 응답 시간으로 이메일 존재 여부가 드러나지 않도록 한다.
     }
 
     @Transactional(noRollbackFor = ServiceException.class)
