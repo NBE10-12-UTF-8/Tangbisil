@@ -76,6 +76,8 @@ custom:
   email:
     verification:
       code-expiration-minutes: 10
+  password-reset:
+    code-expiration-minutes: 10
 management:
   endpoints:
     web:

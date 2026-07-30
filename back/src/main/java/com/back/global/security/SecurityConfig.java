@@ -85,7 +85,8 @@ public class SecurityConfig {
                                         "/api/*/members/login",
                                         "/api/*/members/refresh",
                                         "/api/*/matches/stats/home",
-                                        "/api/*/members/email-verification/**"
+                                        "/api/*/members/email-verification/**",
+                                        "/api/*/members/password-reset/**"
                                 ).permitAll()
                                 .requestMatchers(
                                         HttpMethod.POST,

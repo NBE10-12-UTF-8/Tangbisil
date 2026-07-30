@@ -5,6 +5,7 @@ import com.back.domain.member.member.dto.MemberDto;
 import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
+import com.back.domain.member.passwordReset.service.PasswordResetService;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
@@ -12,10 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -38,6 +36,7 @@ public class ApiV1MemberController {
     private int accessTokenExpirationSeconds;
     @Value("${custom.refreshToken.expirationSeconds}")
     private int refreshTokenExpirationSeconds;
+    private final PasswordResetService passwordResetService;
 
     public record MemberSignupReq(
             @NotBlank
@@ -246,5 +245,38 @@ public class ApiV1MemberController {
     public RsData<Void> confirmEmailVerification(@Valid @RequestBody EmailVerificationConfirmReq req) {
         emailVerificationService.confirmVerificationCode(req.email(), req.code());
         return new RsData<>("200-1", "이메일 인증 성공");
+    }
+    public record PasswordResetSendReq(
+            @NotBlank
+            @Email
+            @Size(min = 5, max = 50)
+            String email
+    ) {}
+
+    public record PasswordResetConfirmReq(
+            @NotBlank
+            @Email
+            @Size(min = 5, max = 50)
+            String email,
+            @NotBlank
+            @Pattern(regexp = "^\\d{6}$", message = "인증 코드는 6자리 숫자여야 합니다.")
+            String code,
+            @NotBlank
+            @Size(min = 4, max = 30)
+            String newPassword
+    ) {}
+
+    @PostMapping("/password-reset/send")
+    @Operation(summary = "비밀번호 재설정 코드 발송")
+    public RsData<Void> sendPasswordReset(@Valid @RequestBody PasswordResetSendReq req) {
+        passwordResetService.sendResetCode(req.email());
+        return new RsData<>("200-1", "재설정 코드 발송 성공");
+    }
+
+    @PostMapping("/password-reset/confirm")
+    @Operation(summary = "비밀번호 재설정")
+    public RsData<Void> confirmPasswordReset(@Valid @RequestBody PasswordResetConfirmReq req) {
+        passwordResetService.resetPassword(req.email(), req.code(), req.newPassword());
+        return new RsData<>("200-1", "비밀번호 재설정 성공");
     }
 }

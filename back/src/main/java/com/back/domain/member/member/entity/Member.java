@@ -82,4 +82,7 @@ public class Member extends BaseEntity {
     public void toggleSuspended() {
         this.isSuspended = !this.isSuspended;
     }
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
 }
