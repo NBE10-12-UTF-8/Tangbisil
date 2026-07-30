@@ -62,6 +62,7 @@ public interface MatchRequestRepository extends JpaRepository<MatchRequest, UUID
          FROM MatchRequest r
          WHERE r.status = :status AND r.room.status = :roomStatus
          GROUP BY r.situation
+         ORDER BY COUNT(r) DESC
          """)
     List<SituationStatisticsDto> countActiveBySituation(
             @Param("status") MatchStatus status,
