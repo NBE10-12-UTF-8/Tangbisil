@@ -73,12 +73,12 @@ class MatchRequestConcurrencyTest {
         // Given - 공용 후보 하나 + 경쟁할 두 유저, 셋 다 Tier2(산업군 전체 매칭) 구간인 35초 전 요청으로 세팅.
         // userA, userB도 서로 후보가 될 수 있어서 "누가 후보랑 매칭되는지"는 실행마다 달라질 수 있음(정상).
         // 그래서 "특정 조합으로 매칭됐는지"가 아니라 "후보가 방 2개에 동시에 들어가는 사고가 없는지"를 검증한다.
-        Member candidate = memberService.join("race_candidate@test.com", "1234", Industry.IT, "USER");
+        Member candidate = memberService.joinWithoutEmailVerification("race_candidate@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(candidate);
         createPendingRequest(candidate, Situation.OTHER, 35);
 
-        Member userA = memberService.join("race_a@test.com", "1234", Industry.IT, "USER");
-        Member userB = memberService.join("race_b@test.com", "1234", Industry.IT, "USER");
+        Member userA = memberService.joinWithoutEmailVerification("race_a@test.com", "1234", Industry.IT, "USER");
+        Member userB = memberService.joinWithoutEmailVerification("race_b@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(userA);
         createdMembers.add(userB);
         MatchRequest requestA = createPendingRequest(userA, Situation.NIGHT_WORK, 35);

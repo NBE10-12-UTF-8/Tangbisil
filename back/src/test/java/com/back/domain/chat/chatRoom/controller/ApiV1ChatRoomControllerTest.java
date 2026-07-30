@@ -50,7 +50,7 @@ public class ApiV1ChatRoomControllerTest {
     @DisplayName("채팅방 정보 조회 성공")
     void t1() throws Exception {
         // Given
-        Member member = memberService.join("testuser1@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("testuser1@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
@@ -82,7 +82,7 @@ public class ApiV1ChatRoomControllerTest {
     @DisplayName("존재하지 않는 채팅방 정보 조회 시 실패")
     void t2() throws Exception {
         // Given
-        Member member = memberService.join("testuser2@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("testuser2@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
         UUID nonexistentRoomId = UUID.randomUUID();
 
@@ -106,7 +106,7 @@ public class ApiV1ChatRoomControllerTest {
     @DisplayName("참여하지 않은 채팅방 정보 조회 시 실패")
     void t3() throws Exception {
         // Given
-        Member member = memberService.join("testuser3@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("testuser3@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
@@ -132,7 +132,7 @@ public class ApiV1ChatRoomControllerTest {
     @DisplayName("채팅방 종료 성공")
     void t4() throws Exception {
         // Given
-        Member member = memberService.join("closeuser1@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("closeuser1@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
@@ -165,7 +165,7 @@ public class ApiV1ChatRoomControllerTest {
     @DisplayName("참여하지 않은 채팅방 종료 시 실패")
     void t5() throws Exception {
         // Given
-        Member member = memberService.join("closeuser2@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("closeuser2@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
@@ -191,7 +191,7 @@ public class ApiV1ChatRoomControllerTest {
     @DisplayName("이미 종료된 채팅방 종료 시 실패")
     void t6() throws Exception {
         // Given
-        Member member = memberService.join("closeuser3@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("closeuser3@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.CLOSED, 2));
@@ -219,7 +219,7 @@ public class ApiV1ChatRoomControllerTest {
     @DisplayName("존재하지 않는 채팅방 종료 시 실패")
     void t7() throws Exception {
         // Given
-        Member member = memberService.join("closeuser4@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("closeuser4@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
         UUID nonexistentRoomId = UUID.randomUUID();
 
@@ -243,7 +243,7 @@ public class ApiV1ChatRoomControllerTest {
     @DisplayName("현재 활성화된 채팅방 조회 성공")
     void t8() throws Exception {
         // Given
-        Member member = memberService.join("activeuser1@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("activeuser1@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
@@ -276,7 +276,7 @@ public class ApiV1ChatRoomControllerTest {
     @DisplayName("진행 중인 채팅방이 존재하지 않을 때 조회 성공")
     void t9() throws Exception {
         // Given
-        Member member = memberService.join("activeuser2@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("activeuser2@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         // When

@@ -62,7 +62,7 @@ class BotMatchIntegrationTest {
     @Test
     @DisplayName("35초가 안 지났으면 실제 유저가 없어도 봇과 매칭되지 않는다")
     void 그레이스_기간_전에는_봇_매칭_안됨() {
-        Member user = memberService.join("bot_grace_early@test.com", "1234", Industry.IT, "USER");
+        Member user = memberService.joinWithoutEmailVerification("bot_grace_early@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(user);
         MatchRequest userRequest = createPendingRequest(user, Situation.NIGHT_WORK, 32);
 
@@ -75,7 +75,7 @@ class BotMatchIntegrationTest {
     @Test
     @DisplayName("35초가 지나면 실제 유저를 못 찾은 요청이 봇과 매칭된다")
     void 그레이스_기간_지나면_봇과_매칭() {
-        Member user = memberService.join("bot_grace_fallback@test.com", "1234", Industry.IT, "USER");
+        Member user = memberService.joinWithoutEmailVerification("bot_grace_fallback@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(user);
         MatchRequest userRequest = createPendingRequest(user, Situation.NIGHT_WORK, 36);
 
@@ -89,8 +89,8 @@ class BotMatchIntegrationTest {
     @Test
     @DisplayName("실제 유저가 있으면 40초가 지나도 봇이 아니라 실제 유저와 매칭된다")
     void 실유저_있으면_봇보다_우선() {
-        Member userA = memberService.join("bot_priority_a@test.com", "1234", Industry.IT, "USER");
-        Member userB = memberService.join("bot_priority_b@test.com", "1234", Industry.IT, "USER");
+        Member userA = memberService.joinWithoutEmailVerification("bot_priority_a@test.com", "1234", Industry.IT, "USER");
+        Member userB = memberService.joinWithoutEmailVerification("bot_priority_b@test.com", "1234", Industry.IT, "USER");
         createdMembers.add(userA);
         createdMembers.add(userB);
         MatchRequest reqA = createPendingRequest(userA, Situation.NIGHT_WORK, 36);

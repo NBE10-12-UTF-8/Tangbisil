@@ -77,8 +77,8 @@ public class ApiV1DashboardControllerTest {
     @DisplayName("관리자 대시보드 - 최근 매칭 로그, 매칭 성사 시 1건만 기록 (중복 제거)")
     void t2() throws Exception {
         // Given - 같은 산업군 유저 두 명이 매칭 성사
-        memberService.join("dashboard1@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
-        memberService.join("dashboard2@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        memberService.joinWithoutEmailVerification("dashboard1@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        memberService.joinWithoutEmailVerification("dashboard2@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
         String token1 = loginAndGetToken("dashboard1@test.com");
         String token2 = loginAndGetToken("dashboard2@test.com");
@@ -140,7 +140,7 @@ public class ApiV1DashboardControllerTest {
     @Test
     @DisplayName("일반 유저는 관리자 대시보드 접근 불가 - 403")
     void t3() throws Exception {
-        memberService.join("normaluser@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        memberService.joinWithoutEmailVerification("normaluser@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
         String userToken = loginAndGetToken("normaluser@test.com");
 
         mvc.perform(get("/api/v1/admin/dashboard")

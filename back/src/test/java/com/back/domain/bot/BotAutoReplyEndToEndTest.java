@@ -70,7 +70,7 @@ class BotAutoReplyEndToEndTest {
     @DisplayName("봇과 매칭되면, 커밋 후 봇이 자동으로 메시지를 보낸다 (테스트 환경엔 GROQ_API_KEY가 없어 캔드 메시지로 폴백됨)")
     void 봇_매칭_후_자동응답() throws InterruptedException {
         // Given - 41초 전에 혼자 요청해서 봇 폴백 대상이 되게 함
-        createdUser = memberService.join("bot_reply_e2e@test.com", "1234", Industry.IT, "USER");
+        createdUser = memberService.joinWithoutEmailVerification("bot_reply_e2e@test.com", "1234", Industry.IT, "USER");
         MatchRequest matchRequest = matchRequestRepository.save(new MatchRequest(createdUser, Situation.NIGHT_WORK));
         ReflectionTestUtils.setField(matchRequest, "requestedAt", LocalDateTime.now().minusSeconds(41));
         matchRequestRepository.saveAndFlush(matchRequest);

@@ -90,8 +90,8 @@ public class ApiV1AdmReportControllerTest {
                 .asText();
 
         // Given - 1건의 신고 데이터 임의 적재
-        Member reporter = memberService.join("reporter_list@test.com", "1234", Industry.IT, "USER");
-        Member reported = memberService.join("reported_list@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter_list@test.com", "1234", Industry.IT, "USER");
+        Member reported = memberService.joinWithoutEmailVerification("reported_list@test.com", "1234", Industry.IT, "USER");
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
         Report report = reportRepository.save(new Report(reporter, reported, chatRoom, UUID.randomUUID(), "욕설 및 부적절 대화"));
@@ -123,7 +123,7 @@ public class ApiV1AdmReportControllerTest {
     @DisplayName("일반 회원 권한으로 관리자용 신고 API 접근 시 403 Forbidden 차단")
     void t2() throws Exception {
         // Given - 일반 회원 가입 및 로그인
-        Member user = memberService.join("normal_user@test.com", "1234", Industry.IT, "USER");
+        Member user = memberService.joinWithoutEmailVerification("normal_user@test.com", "1234", Industry.IT, "USER");
 
         String loginResponse = mvc.perform(
                         post("/api/v1/members/login")
@@ -182,9 +182,9 @@ public class ApiV1AdmReportControllerTest {
                 .asText();
 
         // Given - 신고자, 피신고자, 참여자 계정 생성
-        Member reporter = memberService.join("reporter_detail@test.com", "1234", Industry.IT, "USER");
-        Member reported = memberService.join("reported_detail@test.com", "1234", Industry.IT, "USER");
-        Member participant = memberService.join("participant_detail@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter_detail@test.com", "1234", Industry.IT, "USER");
+        Member reported = memberService.joinWithoutEmailVerification("reported_detail@test.com", "1234", Industry.IT, "USER");
+        Member participant = memberService.joinWithoutEmailVerification("participant_detail@test.com", "1234", Industry.IT, "USER");
 
         // 대화방 생성 및 참여자 등록
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 3));
@@ -258,8 +258,8 @@ public class ApiV1AdmReportControllerTest {
                 .asText();
 
         // Given - 임시 신고 데이터 생성 (기본 PENDING)
-        Member reporter = memberService.join("reporter_toggle@test.com", "1234", Industry.IT, "USER");
-        Member reported = memberService.join("reported_toggle@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter_toggle@test.com", "1234", Industry.IT, "USER");
+        Member reported = memberService.joinWithoutEmailVerification("reported_toggle@test.com", "1234", Industry.IT, "USER");
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
         Report report = reportRepository.save(new Report(reporter, reported, chatRoom, UUID.randomUUID(), "욕설"));
 
@@ -284,7 +284,7 @@ public class ApiV1AdmReportControllerTest {
     @DisplayName("일반 회원 권한으로 관리자용 신고 처리 상태 수정 API 접근 시 403 Forbidden 차단")
     void t5() throws Exception {
         // Given - 일반 회원 가입 및 로그인
-        Member user = memberService.join("normal_toggle_user@test.com", "1234", Industry.IT, "USER");
+        Member user = memberService.joinWithoutEmailVerification("normal_toggle_user@test.com", "1234", Industry.IT, "USER");
 
         String loginResponse = mvc.perform(
                         post("/api/v1/members/login")
@@ -307,8 +307,8 @@ public class ApiV1AdmReportControllerTest {
                 .asText();
 
         // Given - 임시 신고 데이터 생성
-        Member reporter = memberService.join("reporter_toggle_fail@test.com", "1234", Industry.IT, "USER");
-        Member reported = memberService.join("reported_toggle_fail@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter_toggle_fail@test.com", "1234", Industry.IT, "USER");
+        Member reported = memberService.joinWithoutEmailVerification("reported_toggle_fail@test.com", "1234", Industry.IT, "USER");
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
         Report report = reportRepository.save(new Report(reporter, reported, chatRoom, UUID.randomUUID(), "욕설"));
 
@@ -391,8 +391,8 @@ public class ApiV1AdmReportControllerTest {
                 .asText();
 
         // Given - PENDING 상태인 검증용 데이터 직접 생성
-        Member reporter = memberService.join("reporter_t7@test.com", "1234", Industry.IT, "USER");
-        Member reported = memberService.join("reported_t7@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter_t7@test.com", "1234", Industry.IT, "USER");
+        Member reported = memberService.joinWithoutEmailVerification("reported_t7@test.com", "1234", Industry.IT, "USER");
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
         reportRepository.save(new Report(reporter, reported, chatRoom, UUID.randomUUID(), "PENDING 검증용 사유"));
 
@@ -440,8 +440,8 @@ public class ApiV1AdmReportControllerTest {
                 .asText();
 
         // Given - PROCESSED 상태인 검증용 데이터 직접 생성
-        Member reporter = memberService.join("reporter_t8@test.com", "1234", Industry.IT, "USER");
-        Member reported = memberService.join("reported_t8@test.com", "1234", Industry.IT, "USER");
+        Member reporter = memberService.joinWithoutEmailVerification("reporter_t8@test.com", "1234", Industry.IT, "USER");
+        Member reported = memberService.joinWithoutEmailVerification("reported_t8@test.com", "1234", Industry.IT, "USER");
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
         Report report = new Report(reporter, reported, chatRoom, UUID.randomUUID(), "PROCESSED 검증용 사유");
         report.toggleStatus();

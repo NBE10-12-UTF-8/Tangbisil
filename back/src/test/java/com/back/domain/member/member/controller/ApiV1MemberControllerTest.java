@@ -1,5 +1,7 @@
 package com.back.domain.member.member.controller;
 
+import com.back.domain.member.emailVerification.entity.EmailVerificationToken;
+import com.back.domain.member.emailVerification.repository.EmailVerificationTokenRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,9 +37,20 @@ public class ApiV1MemberControllerTest {
     @Autowired
     private MockMvc mvc;
 
+    @Autowired
+    EmailVerificationTokenRepository emailVerificationTokenRepository;
+
+    private void preVerifyEmail(String email) {
+        EmailVerificationToken token = new EmailVerificationToken(email, "000000", 10);
+        token.markVerified();
+        emailVerificationTokenRepository.save(token);
+    }
+
     @Test
     @DisplayName("회원가입")
     void t1() throws Exception {
+        preVerifyEmail("test@test.com");
+
         // When
         ResultActions resultActions = mvc
                 .perform(
@@ -66,6 +79,8 @@ public class ApiV1MemberControllerTest {
     @Test
     @DisplayName("로그인")
     void t2() throws Exception {
+        preVerifyEmail("test@test.com");
+
         // Given - 회원가입 선행
         mvc.perform(
                 post("/api/v1/members/signup")
@@ -151,6 +166,8 @@ public class ApiV1MemberControllerTest {
     @Test
     @DisplayName("로그아웃")
     void t5() throws Exception {
+        preVerifyEmail("test@test.com");
+
         // Given - 회원가입 선행
         mvc.perform(
                 post("/api/v1/members/signup")
@@ -202,6 +219,8 @@ public class ApiV1MemberControllerTest {
     @Test
     @DisplayName("내 정보 조회")
     void t6() throws Exception {
+        preVerifyEmail("test@test.com");
+
         // Given - 회원가입 선행
         mvc.perform(
                 post("/api/v1/members/signup")
@@ -255,6 +274,8 @@ public class ApiV1MemberControllerTest {
     @Test
     @DisplayName("산업군 수정")
     void t7() throws Exception {
+        preVerifyEmail("test@test.com");
+
         // Given - 회원가입 선행
         mvc.perform(
                 post("/api/v1/members/signup")
@@ -314,8 +335,8 @@ public class ApiV1MemberControllerTest {
     @DisplayName("매칭 이력 조회 성공 - CLOSED 채팅방만 반환")
     void t9() throws Exception {
         // Given - 두 유저 직접 생성 후 매칭
-        Member member1 = memberService.join("history1@test.com", "1234", IT, "USER");
-        Member member2 = memberService.join("history2@test.com", "1234", IT, "USER");
+        Member member1 = memberService.joinWithoutEmailVerification("history1@test.com", "1234", IT, "USER");
+        Member member2 = memberService.joinWithoutEmailVerification("history2@test.com", "1234", IT, "USER");
         String accessToken1 = memberService.genAccessToken(member1);
         String accessToken2 = memberService.genAccessToken(member2);
 
@@ -373,7 +394,7 @@ public class ApiV1MemberControllerTest {
     @DisplayName("매칭 이력 없을 때 빈 배열 반환")
     void t10() throws Exception {
         // Given
-        Member member = memberService.join("history3@test.com", "1234", IT, "USER");
+        Member member = memberService.joinWithoutEmailVerification("history3@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
 
         // When
@@ -394,8 +415,8 @@ public class ApiV1MemberControllerTest {
     @DisplayName("ACTIVE 채팅방은 이력에 포함되지 않음")
     void t11() throws Exception {
         // Given - 매칭 후 채팅방 종료 안 함
-        Member member1 = memberService.join("history4@test.com", "1234", IT, "USER");
-        Member member2 = memberService.join("history5@test.com", "1234", IT, "USER");
+        Member member1 = memberService.joinWithoutEmailVerification("history4@test.com", "1234", IT, "USER");
+        Member member2 = memberService.joinWithoutEmailVerification("history5@test.com", "1234", IT, "USER");
         String accessToken1 = memberService.genAccessToken(member1);
         String accessToken2 = memberService.genAccessToken(member2);
 
@@ -446,6 +467,8 @@ public class ApiV1MemberControllerTest {
     @Test
     @DisplayName("회원 탈퇴")
     void t8() throws Exception {
+        preVerifyEmail("test@test.com");
+
         // Given - 회원가입 선행
         mvc.perform(
                 post("/api/v1/members/signup")
@@ -498,7 +521,7 @@ public class ApiV1MemberControllerTest {
     @DisplayName("AccessToken 재발급 성공")
     void t13() throws Exception {
         // given
-        Member member = memberService.join(
+        Member member = memberService.joinWithoutEmailVerification(
                 "refresh@test.com",
                 "1234",
                 IT,
@@ -559,6 +582,8 @@ public class ApiV1MemberControllerTest {
     @Test
     @DisplayName("내 정보 조회 시 role도 함께 내려온다 - OAuth2 콜백이 토큰 없이 role을 판단하기 위함")
     void t16() throws Exception {
+        preVerifyEmail("test@test.com");
+
         // Given - 회원가입 선행
         mvc.perform(
                 post("/api/v1/members/signup")
