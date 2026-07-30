@@ -452,7 +452,8 @@ public class ApiV1MatchControllerTest {
     @Test
     @DisplayName("홈 통계의 상황별 순위는 인원수 내림차순으로 정렬된다 - 상황 랭킹 UI가 이 순서를 그대로 씀")
     void t13() throws Exception {
-        // Given - NIGHT_WORK 3명, MEETING_BOMB 2명, BOSS_BLAME 1명 순으로 매칭 완료 상태 생성
+        // Given - NIGHT_WORK 3명, MEETING_BOMB 2명, BOSS_BLAME 1명 순으로
+        // MatchStatus.MATCHED + ChatRoomStatus.ACTIVE 조합 생성 (둘 다 만족해야 집계 대상)
         saveMatchedRequest("night1@test.com", Situation.NIGHT_WORK);
         saveMatchedRequest("night2@test.com", Situation.NIGHT_WORK);
         saveMatchedRequest("night3@test.com", Situation.NIGHT_WORK);
