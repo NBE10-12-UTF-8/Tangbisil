@@ -14,17 +14,20 @@ import com.back.domain.member.member.entity.Member;
 import com.back.global.exception.ServiceException;
 import com.back.domain.chat.chatRoomMessage.dto.RedisChatMessageDto;
 import com.back.domain.chat.chatRoomMessage.event.ChatMessageSentEvent;
+import com.back.standard.util.Ut;
 
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.redis.core.RedisTemplate;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.sql.Timestamp;
+import java.time.*;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +37,8 @@ public class ChatMessageService {
     private final ChatRoomParticipantRepository chatRoomParticipantRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final RedisTemplate<String, String> redisTemplate;
+    private static final Logger log = LoggerFactory.getLogger(ChatMessageService.class);
 
     @Transactional
     public ChatRoomMessageResponseDto sendMessage(UUID roomId, Member sender, String content) {
@@ -116,12 +121,72 @@ public class ChatMessageService {
             throw new ServiceException("200-3", "종료된 채팅방입니다.");
         }
 
-        List<ChatMessage> messages = (after != null)
-                ? chatMessageRepository.findByChatRoomIdAndCreatedAtAfterOrderByCreatedAtAsc(roomId, after)
-                : chatMessageRepository.findByChatRoomIdOrderByCreatedAtAsc(roomId);
+        String key = "chat:room:" + roomId + ":messages";
+        List<RedisChatMessageDto> cachedMessages = null;
 
-        return messages
-                .stream()
+        // Redis 캐시 조회 시도
+        try {
+            Set<String> jsonPayloads;
+            if (after != null) {
+                // after 시점의 타임스탬프를 Score 최소값으로 지정하여 범위 조회 (Range Query 최적화)
+                long minScore = Timestamp.valueOf(after).getTime();
+                jsonPayloads = redisTemplate.opsForZSet().rangeByScore(key, minScore, Double.MAX_VALUE);
+            } else {
+                jsonPayloads = redisTemplate.opsForZSet().range(key, 0, -1);
+            }
+
+            if (jsonPayloads != null && !jsonPayloads.isEmpty()) {
+                cachedMessages = new ArrayList<>();
+                for (String json : jsonPayloads) {
+                    // 프로젝트 공용 ObjectMapper를 사용해 JSON 텍스트를 DTO 객체로 역직렬화
+                    RedisChatMessageDto dto = Ut.json.objectMapper.readValue(json, RedisChatMessageDto.class);
+                    cachedMessages.add(dto);
+                }
+            }
+        } catch (Exception e) {
+            // Redis 완전 다운 시 에러 로그만 남기고 조용히 DB 조회로 우회
+            log.error("Redis 조회 실패! DB 직접 조회로 Fallback합니다. roomId: {}", roomId, e);
+        }
+
+        // 캐시 히트(Cache Hit) 성공 시 즉각 반환 (DB 쿼리 차단)
+        if (cachedMessages != null) {
+            // after 타임스탬프가 동일한 경계값 메시지 필터링
+            if (after != null) {
+                cachedMessages = cachedMessages.stream()
+                        .filter(m -> m.getCreatedAt().isAfter(after))
+                        .toList();
+            }
+            return cachedMessages.stream()
+                    .map(cache -> new ChatRoomMessageResponseDto(cache, requester.getId()))
+                    .toList();
+        }
+
+        // 캐시 미스(Cache Miss) 또는 레디스 장애 시: MySQL DB 조회 진행
+        List<ChatMessage> messages = chatMessageRepository.findByChatRoomIdOrderByCreatedAtAsc(roomId);
+
+        // DB 조회 데이터를 Redis ZSet 캐시에 재건
+        try {
+            if (!messages.isEmpty()) {
+                for (ChatMessage msg : messages) {
+                    RedisChatMessageDto dto = new RedisChatMessageDto(msg);
+                    String json = Ut.json.toString(dto);
+                    long score = java.sql.Timestamp.valueOf(dto.getCreatedAt()).getTime();
+                    redisTemplate.opsForZSet().add(key, json, score);
+                }
+                // Active 방에 누수 방지용 Safety TTL (2시간) 지정
+                redisTemplate.expire(key, Duration.ofHours(2));
+            }
+        } catch (Exception e) {
+            log.warn("Redis 캐시 재건 실패! (레디스 서버 다운 상태일 수 있습니다.)", e);
+        }
+
+        // DB에서 조회한 원본 결과 반환
+        if (after != null) {
+            messages = messages.stream()
+                    .filter(m -> m.getCreatedAt().isAfter(after))
+                    .toList();
+        }
+        return messages.stream()
                 .map(message -> new ChatRoomMessageResponseDto(message, requester.getId()))
                 .toList();
     }
