@@ -68,6 +68,10 @@ public class PasswordResetService {
         Member member = memberRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
 
+        if (passwordEncoder.matches(newPassword, member.getPassword())) {
+            throw new ServiceException("400-4", "현재 비밀번호와 동일한 비밀번호로는 변경할 수 없습니다.");
+        }
+
         member.updatePassword(passwordEncoder.encode(newPassword));
         tokenRepository.deleteByEmail(normalizedEmail);
     }
