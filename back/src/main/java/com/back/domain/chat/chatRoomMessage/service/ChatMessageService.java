@@ -126,31 +126,34 @@ public class ChatMessageService {
 
         // Redis 캐시 조회 시도
         try {
-            Set<String> jsonPayloads;
-            if (after != null) {
-                // after 시점의 타임스탬프를 Score 최소값으로 지정하여 범위 조회 (Range Query 최적화)
-                long minScore = Timestamp.valueOf(after).getTime();
-                jsonPayloads = redisTemplate.opsForZSet().rangeByScore(key, minScore, Double.MAX_VALUE);
-            } else {
-                jsonPayloads = redisTemplate.opsForZSet().range(key, 0, -1);
-            }
-
-            if (jsonPayloads != null && !jsonPayloads.isEmpty()) {
+            // 레디스 캐시 키가 확실히 존재(hasKey)하는지 먼저 체크
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(key))) {
+                // 키가 있다면 결과가 비어있더라도 캐시 히트(빈 리스트)로 취급하여 DB 조회를 차단
                 cachedMessages = new ArrayList<>();
-                for (String json : jsonPayloads) {
-                    // 프로젝트 공용 ObjectMapper를 사용해 JSON 텍스트를 DTO 객체로 역직렬화
-                    RedisChatMessageDto dto = Ut.json.objectMapper.readValue(json, RedisChatMessageDto.class);
-                    cachedMessages.add(dto);
+
+                Set<String> jsonPayloads;
+                if (after != null) {
+                    long minScore = Timestamp.valueOf(after).getTime();
+                    jsonPayloads = redisTemplate.opsForZSet().rangeByScore(key, minScore, Double.MAX_VALUE);
+                } else {
+                    jsonPayloads = redisTemplate.opsForZSet().range(key, 0, -1);
+                }
+
+                if (jsonPayloads != null && !jsonPayloads.isEmpty()) {
+                    for (String json : jsonPayloads) {
+                        RedisChatMessageDto dto = Ut.json.objectMapper.readValue(json, RedisChatMessageDto.class);
+                        cachedMessages.add(dto);
+                    }
                 }
             }
         } catch (Exception e) {
-            // Redis 완전 다운 시 에러 로그만 남기고 조용히 DB 조회로 우회
+            // Redis 완전 다운 시 에러 로그만 남기고 조용히 DB 조회로 우회 (Fallback)
             log.error("Redis 조회 실패! DB 직접 조회로 Fallback합니다. roomId: {}", roomId, e);
+            cachedMessages = null; // 에러가 나면 확실히 null로 밀어서 DB로 돌림
         }
 
         // 캐시 히트(Cache Hit) 성공 시 즉각 반환 (DB 쿼리 차단)
         if (cachedMessages != null) {
-            // after 타임스탬프가 동일한 경계값 메시지 필터링
             if (after != null) {
                 cachedMessages = cachedMessages.stream()
                         .filter(m -> m.getCreatedAt().isAfter(after))

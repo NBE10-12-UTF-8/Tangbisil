@@ -51,6 +51,9 @@ public class ApiV1ChatMessageControllerTest {
     @Autowired
     private ChatMessageRepository chatMessageRepository;
 
+    @Autowired
+    private org.springframework.data.redis.core.RedisTemplate<String, String> redisTemplate;
+
     @Test
     @DisplayName("메시지 전송 성공 - 보낸 채팅")
     void t1() throws Exception {
@@ -467,6 +470,7 @@ public class ApiV1ChatMessageControllerTest {
                 .andExpect(jsonPath("$.resultCode").value("201-1"))
                 .andExpect(jsonPath("$.data.senderNickname").value("익명의 동료1"))
                 .andExpect(jsonPath("$.data.content").value("오늘 진짜 야근 미쳤네요."));
+
         // Step 2: B가 전체 조회 → A 메시지 수신 (isMine: false)
         String afterFirst = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
@@ -494,6 +498,8 @@ public class ApiV1ChatMessageControllerTest {
                 .andExpect(jsonPath("$.resultCode").value("201-1"))
                 .andExpect(jsonPath("$.data.senderNickname").value("익명의 동료2"))
                 .andExpect(jsonPath("$.data.content").value("저도요... 갑자기 핫픽스 떨어졌어요"));
+
+        redisTemplate.delete("chat:room:" + roomId + ":messages");
 
         // Step 4: A가 after 파라미터로 폴링 → B의 답장만 수신 (isMine: false)
         mvc.perform(
