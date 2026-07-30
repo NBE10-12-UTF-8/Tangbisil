@@ -26,7 +26,7 @@ public class Rq {
     // host-only로 스코프되어 tangbisil.kro.kr을 통한(Next.js 프록시) API 호출엔 안 실린다.
     // dev/test는 빈 문자열로 둬서 기존처럼 host-only(localhost) 쿠키를 유지한다.
     @Value("${custom.cookieDomain:}")
-    private String cookieDomain;
+    private String cookieDomain = "";
 
     public Member getActor() {
         return Optional.ofNullable(
