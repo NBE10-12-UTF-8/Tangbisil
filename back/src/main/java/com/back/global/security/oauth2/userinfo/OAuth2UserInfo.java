@@ -1,4 +1,4 @@
-package com.back.global.security.oauth.userinfo;
+package com.back.global.security.oauth2.userinfo;
 
 import com.back.domain.member.member.entity.AuthProvider;
 

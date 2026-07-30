@@ -1,5 +1,8 @@
-package com.back.global.security.oauth;
+package com.back.global.security.oauth2;
 
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.service.MemberService;
+import com.back.global.rq.Rq;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -16,22 +19,31 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
-    private final OAuthCodeStore oAuthCodeStore;
+    private final MemberService memberService;
+    private final Rq rq;
 
     @Value("${custom.frontendBaseUrl:http://localhost:3000}")
     private String frontendBaseUrl;
 
+
+    @Value("${custom.accessToken.expirationSeconds}")
+    private int accessTokenExpirationSeconds;
+    @Value("${custom.refreshToken.expirationSeconds}")
+    private int refreshTokenExpirationSeconds;
     @Override
     public void onAuthenticationSuccess(
             HttpServletRequest request,
             HttpServletResponse response,
             Authentication authentication
-    )throws IOException, ServletException {
+    ) throws IOException, ServletException {
         CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
         UUID memberId = oAuth2User.getMemberId();
-        String code = oAuthCodeStore.issue(memberId);
-        response.sendRedirect(frontendBaseUrl + "/oauth/callback?code=" + code);
-
+        Member member = memberService.findById(memberId).orElseThrow();
+        String accessToken = memberService.genAccessToken(member);
+        UUID refreshToken = memberService.genRefreshToken(member);
+        rq.setCookie("accessToken", accessToken ,  accessTokenExpirationSeconds);
+        rq.setCookie("refreshToken", refreshToken.toString(), refreshTokenExpirationSeconds);
+        response.sendRedirect(frontendBaseUrl + "/oauth/callback");
 
     }
 }
