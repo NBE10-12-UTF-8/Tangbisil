@@ -47,4 +47,9 @@ class EmailVerificationTokenIssuer {
 
         return code;
     }
+
+    @Transactional
+    void deleteToken(String email) {
+        tokenRepository.deleteByEmail(email);
+    }
 }
