@@ -24,11 +24,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 
-/**
- * OAuth2 1회용 code를 없애고, 로그인 성공 시점에 바로 쿠키를 심어서 리다이렉트하는
- * 새 동작을 규정하는 테스트. 아직 구현 전이라 컴파일이 안 될 수 있음 - 아래 힌트를 참고해서
- * OAuth2LoginSuccessHandler를 이 테스트가 통과하도록 고치면 됨.
- */
 @ExtendWith(MockitoExtension.class)
 class OAuth2LoginSuccessHandlerTest {
 
@@ -64,11 +59,10 @@ class OAuth2LoginSuccessHandlerTest {
         // When
         handler.onAuthenticationSuccess(request, response, authentication);
 
-        // Then - OAuthCodeStore를 거치지 않고, 발급받은 토큰을 Rq를 통해 쿠키로 직접 심어야 한다
+        // Then
         verify(rq).setCookie(eq("accessToken"), eq("access-token-value"), anyInt());
         verify(rq).setCookie(eq("refreshToken"), anyString(), anyInt());
 
-        // Then - 리다이렉트 URL에는 code도, 토큰 원문도 노출되면 안 된다
         String redirectedUrl = response.getRedirectedUrl();
         assertThat(redirectedUrl).isEqualTo(FRONTEND_BASE_URL + "/oauth/callback");
     }
