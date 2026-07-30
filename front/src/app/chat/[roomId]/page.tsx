@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   apiGetRoom, apiCloseRoom, apiSendMessage, apiGetMessages, apiGetMe, apiSubmitReport,
-  apiGetHomeStats, getToken, INDUSTRY_NAMES, type ChatMsg,
+  apiGetHomeStats, isLoggedIn, INDUSTRY_NAMES, type ChatMsg,
 } from '@/lib/api';
 import { AppShell } from '@/components/AppShell';
 import { TangbisilLogo } from '@/components/TangbisilLogo';
@@ -124,13 +124,12 @@ export default function ChatPage() {
   useEffect(() => {
     if (!roomId) { router.push('/'); return; }
 
-    const token = getToken();
-    if (!token) { router.push('/login'); return; }
+    if (!isLoggedIn()) { router.push('/login'); return; }
 
     setSituation(localStorage.getItem(SITUATION_KEY) ?? '');
 
     apiGetMe()
-      .then(me => setUserIndustry(INDUSTRY_NAMES[me.industry] ?? me.industry))
+      .then(me => setUserIndustry(me.industry ? (INDUSTRY_NAMES[me.industry] ?? me.industry) : ''))
       .catch(() => {});
 
     apiGetMessages(roomId).then(({ msgs: initial, closed }) => {

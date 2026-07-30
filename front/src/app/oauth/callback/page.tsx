@@ -4,11 +4,10 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  apiOAuthExchange,
+  apiGetMe,
   apiGetActiveRoom,
-  setTokens,
   setAdmin,
-  getRoleFromToken,
+  markSession,
   SUSPENDED_STORAGE_KEY,
 } from '@/lib/api';
 
@@ -25,28 +24,24 @@ function OAuthCallbackInner() {
       return;
     }
 
-    const code = searchParams.get('code');
-    if (!code) {
-      setError('로그인 코드가 없어요');
-      return;
-    }
-    // OAuthCodeStore의 code는 1회용이라, StrictMode의 이펙트 2회 실행 시 재요청되면 실패함
+    // 백엔드가 로그인 성공 시점에 바로 쿠키를 심어주므로, 여기서는 code 교환 없이
+    // 쿠키 인증으로 내 정보(/me)를 조회해 role/온보딩 여부를 판단한다.
     if (hasFetched.current) return;
     hasFetched.current = true;
 
     (async () => {
       try {
-        const data = await apiOAuthExchange(code);
-        setTokens(data.accessToken, data.refreshToken);
+        const me = await apiGetMe();
+        markSession();
 
-        if (data.needsOnboarding) {
-          router.replace('/me?onboarding=true');
+        if (me.role === 'ADMIN') {
+          setAdmin();
+          router.replace('/admin/stats');
           return;
         }
 
-        if (getRoleFromToken(data.accessToken) === 'ADMIN') {
-          setAdmin();
-          router.replace('/admin/stats');
+        if (!me.industry) {
+          router.replace('/me?onboarding=true');
           return;
         }
 
@@ -61,7 +56,7 @@ function OAuthCallbackInner() {
         }
         router.replace('/');
       } catch (err) {
-        console.error('OAuth Exchange Error:', err);
+        console.error('OAuth Callback Error:', err);
         setError('소셜 로그인에 실패했어요');
       }
     })();

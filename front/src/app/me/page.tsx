@@ -51,7 +51,7 @@ function MyPageInner() {
     apiGetMe()
       .then(data => {
         setEmail(data.email);
-        setCurrent(INDUSTRY_NAMES[data.industry] ?? data.industry);
+        setCurrent(data.industry ? (INDUSTRY_NAMES[data.industry] ?? data.industry) : '');
       })
       .catch(() => router.replace('/login'))
       .finally(() => setLoading(false));
