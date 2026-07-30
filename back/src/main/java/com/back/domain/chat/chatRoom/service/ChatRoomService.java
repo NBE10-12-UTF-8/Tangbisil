@@ -11,6 +11,9 @@ import com.back.domain.member.member.entity.Member;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -18,9 +21,11 @@ import java.util.*;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ChatRoomService {
+    private static final Logger log = LoggerFactory.getLogger(ChatRoomService.class);
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomParticipantService chatRoomParticipantService;
+    private final RedisTemplate<String, String> redisTemplate;
 
     public ChatRoom getChatRoom(UUID roomId) {
         return chatRoomRepository.findById(roomId)
@@ -53,6 +58,13 @@ public class ChatRoomService {
         }
 
         chatRoom.close();
+
+        try {
+            String key = "chat:room:" + roomId + ":messages";
+            redisTemplate.delete(key);
+        } catch (Exception e) {
+            log.error("대화방 종료 후 Redis 캐시 삭제 실패 - roomId: {}", roomId, e);
+        }
 
         return chatRoom;
     }
