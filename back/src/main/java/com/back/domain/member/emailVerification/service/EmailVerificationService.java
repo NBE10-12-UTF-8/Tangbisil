@@ -28,7 +28,14 @@ public class EmailVerificationService {
         String code = tokenIssuer.issue(normalizedEmail);
 
         String html = "<p>인증 코드: <b>" + code + "</b></p><p>" + expirationMinutes + "분 내에 입력해주세요.</p>";
-        resendEmailService.send(normalizedEmail, "[탕비실] 이메일 인증 코드", html);
+        try {
+            resendEmailService.send(normalizedEmail, "[탕비실] 이메일 인증 코드", html);
+        } catch (RuntimeException e) {
+            // 발송 실패 시 토큰을 남겨두면 60초 재발송 제한(429-1)에 걸려
+            // 사용자가 바로 재시도할 수 없으므로, 방금 만든 토큰을 제거하고 예외를 그대로 전파한다.
+            tokenRepository.deleteByEmail(normalizedEmail);
+            throw e;
+        }
     }
 
     // failedAttempts 증가가 예외로 인해 롤백되지 않도록 noRollbackFor 지정
