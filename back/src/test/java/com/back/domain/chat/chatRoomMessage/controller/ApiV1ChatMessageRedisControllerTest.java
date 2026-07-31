@@ -166,7 +166,8 @@ public class ApiV1ChatMessageRedisControllerTest {
         mvc.perform(
                 post("/api/v1/members/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(String.format("{\"email\": \"%s\", \"password\": \"1234\", \"industry\": \"%s\"}", email, industry))
+                        .content(String.format("{\"email\": \"%s\", \"password\": \"1234\", \"industry\": \"%s\", \"agreedToTerms\": true}", email, industry))
+
         );
 
         return memberRepository.findByEmail(email).orElseThrow();

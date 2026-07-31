@@ -54,6 +54,7 @@ public class MemberService {
 
         String encodedPassword = passwordEncoder.encode(password);
         Member member = new Member(normalizedEmail, encodedPassword, industry, role);
+        member.markConsented();
 
         return memberRepository.save(member);
     }
