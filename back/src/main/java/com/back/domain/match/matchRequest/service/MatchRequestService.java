@@ -86,8 +86,6 @@ public class MatchRequestService {
         other.matchWith(chatRoom);
 
         triggerBotReplyIfNeeded(matchRequest.getMember(), other.getMember(), chatRoom.getId());
-
-        triggerBotReplyIfNeeded(matchRequest.getMember(), other.getMember(), chatRoom.getId());
         notifyMatchSuccessIfNeeded(matchRequest.getMember(), other.getMember(), chatRoom.getId());
     }
 
