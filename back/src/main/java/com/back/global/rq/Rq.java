@@ -6,6 +6,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,6 +20,13 @@ import java.util.Optional;
 public class Rq {
     private final HttpServletRequest req;
     private final HttpServletResponse resp;
+
+    // OAuth2 로그인은 프론트(tangbisil.kro.kr)가 아니라 백엔드(api.tangbisil.kro.kr)에서
+    // 브라우저가 직접 리다이렉트를 거치므로, Domain을 안 정해주면 쿠키가 api.tangbisil.kro.kr에만
+    // host-only로 스코프되어 tangbisil.kro.kr을 통한(Next.js 프록시) API 호출엔 안 실린다.
+    // dev/test는 빈 문자열로 둬서 기존처럼 host-only(localhost) 쿠키를 유지한다.
+    @Value("${custom.cookieDomain:}")
+    private String cookieDomain = "";
 
     public Member getActor() {
         return Optional.ofNullable(
@@ -73,7 +81,9 @@ public class Rq {
         cookie.setPath("/");
         cookie.setHttpOnly(true);
 
-//        cookie.setDomain("localhost");
+        if (!cookieDomain.isBlank()) {
+            cookie.setDomain(cookieDomain);
+        }
         cookie.setSecure(false);
         cookie.setAttribute("SameSite", "Strict");
 

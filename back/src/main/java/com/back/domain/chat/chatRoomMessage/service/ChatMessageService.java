@@ -12,16 +12,22 @@ import com.back.domain.chat.chatRoomParticipant.entity.ChatRoomParticipant;
 import com.back.domain.chat.chatRoomParticipant.repository.ChatRoomParticipantRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.global.exception.ServiceException;
+import com.back.domain.chat.chatRoomMessage.dto.RedisChatMessageDto;
+import com.back.domain.chat.chatRoomMessage.event.ChatMessageSentEvent;
+import com.back.standard.util.Ut;
+
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.redis.core.RedisTemplate;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.sql.Timestamp;
+import java.time.*;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +37,8 @@ public class ChatMessageService {
     private final ChatRoomParticipantRepository chatRoomParticipantRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final RedisTemplate<String, String> redisTemplate;
+    private static final Logger log = LoggerFactory.getLogger(ChatMessageService.class);
 
     @Transactional
     public ChatRoomMessageResponseDto sendMessage(UUID roomId, Member sender, String content) {
@@ -59,6 +67,12 @@ public class ChatMessageService {
         ChatMessage message = chatMessageRepository.save(
                 new ChatMessage(chatRoom, participant, content)
         );
+
+        // 저장 성공한 메시지 엔티티를 가벼운 Redis DTO 객체로 변환
+        RedisChatMessageDto cacheDto = new RedisChatMessageDto(message);
+
+        // 비동기 캐시 적재를 수행할 배달부(EventHandler)에게 이벤트 발행
+        eventPublisher.publishEvent(new ChatMessageSentEvent(cacheDto));
 
         // 사람이(봇이 아닌 발신자가) 봇이 참여 중인 방에 메시지를 보내면, 봇이 맥락에 맞게 응답하게 트리거
         if (!BotAccounts.isBotEmail(sender.getEmail())) {
@@ -107,12 +121,75 @@ public class ChatMessageService {
             throw new ServiceException("200-3", "종료된 채팅방입니다.");
         }
 
-        List<ChatMessage> messages = (after != null)
-                ? chatMessageRepository.findByChatRoomIdAndCreatedAtAfterOrderByCreatedAtAsc(roomId, after)
-                : chatMessageRepository.findByChatRoomIdOrderByCreatedAtAsc(roomId);
+        String key = "chat:room:" + roomId + ":messages";
+        List<RedisChatMessageDto> cachedMessages = null;
 
-        return messages
-                .stream()
+        // Redis 캐시 조회 시도
+        try {
+            // 레디스 캐시 키가 확실히 존재(hasKey)하는지 먼저 체크
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(key))) {
+                // 키가 있다면 결과가 비어있더라도 캐시 히트(빈 리스트)로 취급하여 DB 조회를 차단
+                cachedMessages = new ArrayList<>();
+
+                Set<String> jsonPayloads;
+                if (after != null) {
+                    long minScore = Timestamp.valueOf(after).getTime();
+                    jsonPayloads = redisTemplate.opsForZSet().rangeByScore(key, minScore, Double.MAX_VALUE);
+                } else {
+                    jsonPayloads = redisTemplate.opsForZSet().range(key, 0, -1);
+                }
+
+                if (jsonPayloads != null && !jsonPayloads.isEmpty()) {
+                    for (String json : jsonPayloads) {
+                        RedisChatMessageDto dto = Ut.json.objectMapper.readValue(json, RedisChatMessageDto.class);
+                        cachedMessages.add(dto);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Redis 완전 다운 시 에러 로그만 남기고 조용히 DB 조회로 우회 (Fallback)
+            log.error("Redis 조회 실패! DB 직접 조회로 Fallback합니다. roomId: {}", roomId, e);
+            cachedMessages = null; // 에러가 나면 확실히 null로 밀어서 DB로 돌림
+        }
+
+        // 캐시 히트(Cache Hit) 성공 시 즉각 반환 (DB 쿼리 차단)
+        if (cachedMessages != null) {
+            if (after != null) {
+                cachedMessages = cachedMessages.stream()
+                        .filter(m -> m.getCreatedAt().isAfter(after))
+                        .toList();
+            }
+            return cachedMessages.stream()
+                    .map(cache -> new ChatRoomMessageResponseDto(cache, requester.getId()))
+                    .toList();
+        }
+
+        // 캐시 미스(Cache Miss) 또는 레디스 장애 시: MySQL DB 조회 진행
+        List<ChatMessage> messages = chatMessageRepository.findByChatRoomIdOrderByCreatedAtAsc(roomId);
+
+        // DB 조회 데이터를 Redis ZSet 캐시에 재건
+        try {
+            if (!messages.isEmpty()) {
+                for (ChatMessage msg : messages) {
+                    RedisChatMessageDto dto = new RedisChatMessageDto(msg);
+                    String json = Ut.json.toString(dto);
+                    long score = java.sql.Timestamp.valueOf(dto.getCreatedAt()).getTime();
+                    redisTemplate.opsForZSet().add(key, json, score);
+                }
+                // Active 방에 누수 방지용 Safety TTL (2시간) 지정
+                redisTemplate.expire(key, Duration.ofHours(2));
+            }
+        } catch (Exception e) {
+            log.warn("Redis 캐시 재건 실패! (레디스 서버 다운 상태일 수 있습니다.)", e);
+        }
+
+        // DB에서 조회한 원본 결과 반환
+        if (after != null) {
+            messages = messages.stream()
+                    .filter(m -> m.getCreatedAt().isAfter(after))
+                    .toList();
+        }
+        return messages.stream()
                 .map(message -> new ChatRoomMessageResponseDto(message, requester.getId()))
                 .toList();
     }
