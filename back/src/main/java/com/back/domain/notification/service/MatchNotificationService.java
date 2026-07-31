@@ -7,9 +7,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -35,37 +35,35 @@ public class MatchNotificationService {
         String key = key(memberId);
         try {
             String json = Ut.json.toString(notification);
-            long score = Timestamp.valueOf(notification.getCreatedAt()).getTime();
+            long score = notification.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
             redisTemplate.opsForZSet().add(key, json, score);
             redisTemplate.expire(key, TTL);
         } catch (Exception e) {
+            // 알림 저장 실패가 매칭 성사 자체를 막으면 안 되므로 여기서는 로그만 남기고 삼킨다.
             log.error("[MatchNotificationService] 알림 저장 실패 - memberId: {}", memberId, e);
         }
     }
 
+    // 조회 실패는 삼키지 않는다 - Redis 유일 저장소라 실패를 숨기면
+    // "진짜 장애"와 "알림 없음"을 구분할 수 없어진다.
     public List<MatchNotificationDto> getNotifications(UUID memberId, LocalDateTime after) {
         String key = key(memberId);
         List<MatchNotificationDto> notifications = new ArrayList<>();
 
-        try {
-            Set<String> jsonPayloads;
-            if (after != null) {
-                long minScore = Timestamp.valueOf(after).getTime();
-                jsonPayloads = redisTemplate.opsForZSet().rangeByScore(key, minScore, Double.MAX_VALUE);
-            } else {
-                jsonPayloads = redisTemplate.opsForZSet().range(key, 0, -1);
-            }
-
-            if (jsonPayloads != null) {
-                for (String json : jsonPayloads) {
-                    notifications.add(Ut.json.objectMapper.readValue(json, MatchNotificationDto.class));
-                }
-            }
-        } catch (Exception e) {
-            log.error("[MatchNotificationService] 알림 조회 실패 - memberId: {}", memberId, e);
+        Set<String> jsonPayloads;
+        if (after != null) {
+            long minScore = after.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            jsonPayloads = redisTemplate.opsForZSet().rangeByScore(key, minScore, Double.MAX_VALUE);
+        } else {
+            jsonPayloads = redisTemplate.opsForZSet().range(key, 0, -1);
         }
 
-        // 채팅 폴링과 동일하게, score 경계값(after와 정확히 같은 시각) 중복 수신 방지
+        if (jsonPayloads != null) {
+            for (String json : jsonPayloads) {
+                notifications.add(Ut.json.objectMapper.readValue(json, MatchNotificationDto.class));
+            }
+        }
+
         if (after != null) {
             notifications = notifications.stream()
                     .filter(n -> n.getCreatedAt().isAfter(after))
