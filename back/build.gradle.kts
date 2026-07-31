@@ -60,11 +60,16 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
 
+    // 한국어 형태소 분석 (트렌드 키워드 추출용 명사 필터링)
+    implementation("org.apache.lucene:lucene-analysis-nori:9.11.1")
+
     // Test
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-test")
+    // @Async 메서드 완료를 폴링으로 기다리는 용도 (TrendAggregationEventHandlerTest)
+    testImplementation("org.awaitility:awaitility:4.3.0")
 
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")
