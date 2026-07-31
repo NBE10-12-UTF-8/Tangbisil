@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Baloo_2 } from "next/font/google";
+import { NotificationListener } from "@/components/NotificationListener";
 import "./globals.css";
 
 const baloo2 = Baloo_2({
@@ -20,7 +21,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className={`${baloo2.variable} h-full`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <NotificationListener />
+        {children}
+      </body>
     </html>
   );
 }
