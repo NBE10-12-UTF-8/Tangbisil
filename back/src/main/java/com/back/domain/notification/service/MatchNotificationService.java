@@ -37,9 +37,15 @@ public class MatchNotificationService {
             String json = Ut.json.toString(notification);
             long score = notification.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
             redisTemplate.opsForZSet().add(key, json, score);
+
+            // expire만으로는 활성 사용자의 오래된 항목이 안 지워지므로,
+            // 새 알림 추가 시점에 TTL 창(3일) 밖의 오래된 항목을 함께 정리한다.
+            long expiredBefore = LocalDateTime.now().minus(TTL)
+                    .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            redisTemplate.opsForZSet().removeRangeByScore(key, 0, expiredBefore);
+
             redisTemplate.expire(key, TTL);
         } catch (Exception e) {
-            // 알림 저장 실패가 매칭 성사 자체를 막으면 안 되므로 여기서는 로그만 남기고 삼킨다.
             log.error("[MatchNotificationService] 알림 저장 실패 - memberId: {}", memberId, e);
         }
     }
