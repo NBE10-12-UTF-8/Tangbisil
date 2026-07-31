@@ -31,6 +31,7 @@ public class Member extends BaseEntity {
     private AuthProvider provider;
     private String providerId;
     private boolean emailVerified;
+    private LocalDateTime consentedAt;
 
     public Member(UUID id, String email, String role) {
         setId(id);
@@ -84,5 +85,8 @@ public class Member extends BaseEntity {
     }
     public void updatePassword(String encodedPassword) {
         this.password = encodedPassword;
+    }
+    public void markConsented() {
+        this.consentedAt = LocalDateTime.now();
     }
 }

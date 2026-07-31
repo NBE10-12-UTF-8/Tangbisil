@@ -47,8 +47,11 @@ public class ApiV1MemberController {
             @Size(min = 4, max = 30)
             String password,
             @NotNull
-            Industry industry
+            Industry industry,
+            @AssertTrue(message = "약관 및 개인정보 수집에 동의해야 합니다.")
+            boolean agreedToTerms
     ) {}
+
     public record MemberLoginReq(
             @NotBlank
             @Email

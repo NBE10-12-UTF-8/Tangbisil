@@ -1,0 +1,1 @@
+ALTER TABLE member ADD COLUMN consented_at DATETIME(6) NULL;
