@@ -176,10 +176,15 @@ export const apiLogin = (email: string, password: string) =>
     body: JSON.stringify({ email, password }),
   });
 
-export const apiSignup = (email: string, password: string, industry: string) =>
+export const apiSignup = (
+  email: string,
+  password: string,
+  industry: string,
+  agreedToTerms: boolean,
+) =>
   req<{ id: string; email: string; industry: string }>(
     "/api/v1/members/signup",
-    { method: "POST", body: JSON.stringify({ email, password, industry }) },
+    { method: "POST", body: JSON.stringify({ email, password, industry, agreedToTerms }) },
   );
 
 export const apiLogout = () =>

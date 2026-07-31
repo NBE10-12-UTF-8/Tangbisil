@@ -38,6 +38,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -50,7 +51,7 @@ export default function SignupPage() {
 
   const emailOk = isValidEmail(email);
   const pwOk = password.length >= 4;
-  const canSubmit = !!(emailOk && emailVerified && pwOk && password === confirm && selected && !loading);
+  const canSubmit = !!(emailOk && emailVerified && pwOk && password === confirm && selected && agreedToTerms && !loading);
 
   const handleEmailChange = (value: string) => {
     setEmail(value);
@@ -93,7 +94,7 @@ export default function SignupPage() {
     setError('');
     setLoading(true);
     try {
-      await apiSignup(email, password, INDUSTRY_CODES[selected!] ?? selected!);
+      await apiSignup(email, password, INDUSTRY_CODES[selected!] ?? selected!, agreedToTerms);
       router.replace('/login?signup=success');
     } catch (e: unknown) {
       setError((e as Error)?.message ?? '회원가입에 실패했어요');
@@ -224,6 +225,19 @@ export default function SignupPage() {
           현재 상황은 가입 후 매칭할 때 골라요
         </div>
 
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, marginBottom: 18, fontSize: 12.5, color: '#3c4043', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={agreedToTerms}
+            onChange={e => setAgreedToTerms(e.target.checked)}
+            style={{ width: 16, height: 16, marginTop: 1, accentColor: '#3b7ff2', flexShrink: 0, cursor: 'pointer' }}
+          />
+          <span>
+            <span style={{ color: '#ea4c4c' }}>[필수] </span>
+            약관 및 개인정보 최소 수집(이메일·비밀번호·산업군)에 동의합니다
+          </span>
+        </label>
+
         {error && <div style={{ fontSize: 12, color: '#ea4c4c', marginBottom: 12 }}>{error}</div>}
 
         <button
@@ -233,9 +247,6 @@ export default function SignupPage() {
         >
           {loading ? '가입 중...' : '가입하고 매칭 시작'}
         </button>
-        <div style={{ textAlign: 'center', fontSize: 12, color: '#9aa0a6', marginTop: 14 }}>
-          가입 시 약관 및 개인정보 최소 수집(이메일·비밀번호·산업군)에 동의합니다
-        </div>
         <div style={{ textAlign: 'center', fontSize: 13, color: '#5f6368', marginTop: 12 }}>
           이미 계정이 있으신가요?{' '}
           <Link href="/login" style={{ color: '#3b7ff2', fontWeight: 600, textDecoration: 'none' }}>로그인</Link>
