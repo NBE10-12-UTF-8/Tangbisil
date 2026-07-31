@@ -33,7 +33,7 @@ public class TrendSnapshotScheduler {
         this.redisTemplate = redisTemplate;
     }
 
-    @Scheduled(cron = "0 5 0 * * *")
+    @Scheduled(cron = "0 5 0 * * *", zone = "Asia/Seoul")
     @Transactional
     public void snapshotYesterday() {
         LocalDate yesterday = LocalDate.now(KST).minusDays(1);
