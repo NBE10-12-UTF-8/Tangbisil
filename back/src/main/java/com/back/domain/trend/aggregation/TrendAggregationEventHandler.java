@@ -24,14 +24,14 @@ public class TrendAggregationEventHandler {
     private final NounExtractor nounExtractor;
     private final RedisTemplate<String, String> redisTemplate;
 
-    public TrendAggregationEventHandler(RedisTemplate<String, String> redisTemplate , NounExtractor nounExtractor) {
+    public TrendAggregationEventHandler(RedisTemplate<String, String> redisTemplate, NounExtractor nounExtractor) {
         this.redisTemplate = redisTemplate;
-        this.nounExtractor =nounExtractor;
+        this.nounExtractor = nounExtractor;
     }
 
     @Async
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT )
-    public void handleChatMessageSent (ChatMessageSentEvent event){
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleChatMessageSent(ChatMessageSentEvent event) {
 
         String content = event.getMessageDto() != null ? event.getMessageDto().getContent() : null;
         List<String> nouns = nounExtractor.extract(content).stream().distinct().toList();
@@ -40,7 +40,7 @@ public class TrendAggregationEventHandler {
         String keywordKey = "trend:keyword:" + today;
         String messageKey = "trend:messages:" + today;
 
-        for(String noun : nouns){
+        for (String noun : nouns) {
             redisTemplate.opsForZSet().incrementScore(keywordKey, noun, 1);
         }
         redisTemplate.opsForValue().increment(messageKey);
@@ -49,7 +49,6 @@ public class TrendAggregationEventHandler {
             redisTemplate.expire(keywordKey, KEY_TTL);
         }
         redisTemplate.expire(messageKey, KEY_TTL);
-
     }
 
 }
