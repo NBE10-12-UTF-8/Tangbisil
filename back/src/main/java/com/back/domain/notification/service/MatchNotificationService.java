@@ -52,7 +52,7 @@ public class MatchNotificationService {
         Set<String> jsonPayloads;
         if (after != null) {
             long minScore = after.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-            jsonPayloads = redisTemplate.opsForZSet().rangeByScore(key, minScore, Double.MAX_VALUE);
+            jsonPayloads = redisTemplate.opsForZSet().rangeByScore(key, minScore, Double.POSITIVE_INFINITY);
         } else {
             jsonPayloads = redisTemplate.opsForZSet().range(key, 0, -1);
         }
