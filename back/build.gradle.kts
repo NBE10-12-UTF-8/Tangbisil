@@ -68,6 +68,8 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
     testImplementation("org.springframework.boot:spring-boot-starter-security-test")
+    // @Async 메서드 완료를 폴링으로 기다리는 용도 (TrendAggregationEventHandlerTest)
+    testImplementation("org.awaitility:awaitility:4.3.0")
 
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")
