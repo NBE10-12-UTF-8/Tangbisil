@@ -12,6 +12,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,7 +32,7 @@ class TrendAggregationEventHandlerTest {
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
-    private static final LocalDate TODAY = LocalDate.now();
+    private static final LocalDate TODAY = LocalDate.now(ZoneId.of("Asia/Seoul"));
     private static final String KEYWORD_KEY = "trend:keyword:" + TODAY;
     private static final String MESSAGE_KEY = "trend:messages:" + TODAY;
 
