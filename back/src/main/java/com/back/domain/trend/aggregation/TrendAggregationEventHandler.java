@@ -34,7 +34,7 @@ public class TrendAggregationEventHandler {
     public void handleChatMessageSent (ChatMessageSentEvent event){
 
         String content = event.getMessageDto() != null ? event.getMessageDto().getContent() : null;
-        List<String> nouns = nounExtractor.extract(content);
+        List<String> nouns = nounExtractor.extract(content).stream().distinct().toList();
 
         LocalDate today = LocalDate.now(KST);
         String keywordKey = "trend:keyword:" + today;
