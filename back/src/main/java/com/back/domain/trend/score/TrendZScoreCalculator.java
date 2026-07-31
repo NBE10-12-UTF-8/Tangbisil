@@ -21,27 +21,19 @@ public class TrendZScoreCalculator {
         return zScore;
     }
 
-    // 1단계: p̂₀ = baseline.frequency / baseline.totalMessages
     private double calculateBaselineRatio(WordFrequencyStatsDto baseline) {
-        double baselineRatio = (double) baseline.frequency() / baseline.totalMessages();
-        return baselineRatio;
+        return (double) baseline.frequency() / baseline.totalMessages();
     }
 
-    // 2단계: p̂₁ = current.frequency / current.totalMessages
     private double calculateCurrentRatio(WordFrequencyStatsDto current) {
-        double currentRatio = (double)current.frequency() / current.totalMessages();
-        return currentRatio;
+        return (double) current.frequency() / current.totalMessages();
     }
 
-    // 3단계: p̂ = (baseline.frequency + current.frequency) / (baseline.totalMessages + current.totalMessages)
     private double calculatePooledRatio(WordFrequencyStatsDto baseline, WordFrequencyStatsDto current) {
-        double pooledRatio = (double)(baseline.frequency() + current.frequency()) / (baseline.totalMessages() + current.totalMessages());
-        return pooledRatio;
+        return (double) (baseline.frequency() + current.frequency()) / (baseline.totalMessages() + current.totalMessages());
     }
 
-    // 4단계: √[ pooledRatio × (1 − pooledRatio) × (1/current.totalMessages + 1/baseline.totalMessages) ]
     private double calculateStandardError(double pooledRatio, WordFrequencyStatsDto baseline, WordFrequencyStatsDto current) {
-        double standardError = Math.sqrt(pooledRatio * (1 - pooledRatio) * (1 / (double)current.totalMessages() + 1 / (double)baseline.totalMessages()));
-        return standardError;
+        return Math.sqrt(pooledRatio * (1 - pooledRatio) * (1 / (double) current.totalMessages() + 1 / (double) baseline.totalMessages()));
     }
 }
