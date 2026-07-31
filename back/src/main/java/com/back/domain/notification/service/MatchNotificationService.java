@@ -44,12 +44,11 @@ public class MatchNotificationService {
         }
     }
 
-    // 조회 실패는 삼키지 않는다 - Redis 유일 저장소라 실패를 숨기면
-    // "진짜 장애"와 "알림 없음"을 구분할 수 없어진다.
     public List<MatchNotificationDto> getNotifications(UUID memberId, LocalDateTime after) {
         String key = key(memberId);
         List<MatchNotificationDto> notifications = new ArrayList<>();
 
+        // Redis 연결 실패는 여기서 그대로 전파된다 (장애 은폐 방지)
         Set<String> jsonPayloads;
         if (after != null) {
             long minScore = after.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
@@ -60,7 +59,12 @@ public class MatchNotificationService {
 
         if (jsonPayloads != null) {
             for (String json : jsonPayloads) {
-                notifications.add(Ut.json.objectMapper.readValue(json, MatchNotificationDto.class));
+                try {
+                    notifications.add(Ut.json.objectMapper.readValue(json, MatchNotificationDto.class));
+                } catch (Exception e) {
+                    // 항목 하나가 손상됐다고 전체 조회를 실패시키지 않는다
+                    log.error("[MatchNotificationService] 알림 역직렬화 실패 - payload: {}", json, e);
+                }
             }
         }
 
