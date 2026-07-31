@@ -8,11 +8,19 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 @Component
 public class TrendAggregationEventHandler {
+
+    // MySQL 스냅샷 스케줄러가 아직 없어 정확한 보존 기간이 확정되지 않았으므로,
+    // 무한 누적을 막는 안전망 용도로 넉넉하게 잡는다. 스케줄러 도입 시 재검토.
+    private static final Duration KEY_TTL = Duration.ofDays(7);
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final NounExtractor nounExtractor;
     private final RedisTemplate<String, String> redisTemplate;
 
@@ -28,11 +36,19 @@ public class TrendAggregationEventHandler {
         String content = event.getMessageDto() != null ? event.getMessageDto().getContent() : null;
         List<String> nouns = nounExtractor.extract(content);
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(KST);
+        String keywordKey = "trend:keyword:" + today;
+        String messageKey = "trend:messages:" + today;
+
         for(String noun : nouns){
-            redisTemplate.opsForZSet().incrementScore("trend:keyword:" + today, noun, 1);
+            redisTemplate.opsForZSet().incrementScore(keywordKey, noun, 1);
         }
-        redisTemplate.opsForValue().increment("trend:messages:" + today);
+        redisTemplate.opsForValue().increment(messageKey);
+
+        if (!nouns.isEmpty()) {
+            redisTemplate.expire(keywordKey, KEY_TTL);
+        }
+        redisTemplate.expire(messageKey, KEY_TTL);
 
     }
 
