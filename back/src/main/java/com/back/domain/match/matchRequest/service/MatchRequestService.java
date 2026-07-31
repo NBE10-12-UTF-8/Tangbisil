@@ -15,6 +15,7 @@ import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
 import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.notification.service.MatchNotificationService;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,7 @@ public class MatchRequestService {
     private final ChatRoomService chatRoomService;
     private final ApplicationEventPublisher eventPublisher;
     private final MatchRequestRetryProcessor retryProcessor;
+    private final MatchNotificationService matchNotificationService;
 
     private static final long TIER1_THRESHOLD_SECONDS = 15; // 15초 후 유사 상황 매칭
     private static final long TIER2_THRESHOLD_SECONDS = 30; // 30초 후 산업군 전체 매칭
@@ -84,6 +86,19 @@ public class MatchRequestService {
         other.matchWith(chatRoom);
 
         triggerBotReplyIfNeeded(matchRequest.getMember(), other.getMember(), chatRoom.getId());
+
+        triggerBotReplyIfNeeded(matchRequest.getMember(), other.getMember(), chatRoom.getId());
+        notifyMatchSuccessIfNeeded(matchRequest.getMember(), other.getMember(), chatRoom.getId());
+    }
+
+    // 봇은 알림을 받을 수 없으니 실제 유저 쪽에만 발행한다.
+    private void notifyMatchSuccessIfNeeded(Member a, Member b, UUID roomId) {
+        if (!BotAccounts.isBotEmail(a.getEmail())) {
+            matchNotificationService.notifyMatchSuccess(a.getId(), roomId);
+        }
+        if (!BotAccounts.isBotEmail(b.getEmail())) {
+            matchNotificationService.notifyMatchSuccess(b.getId(), roomId);
+        }
     }
 
     // 선점 실패 시 처리: 봇 전용 임시 요청이면 대기열에 남기지 말고 삭제,
