@@ -23,10 +23,12 @@ public class MatchNotificationService {
     private final RedisTemplate<String, String> redisTemplate;
 
     private static final Duration TTL = Duration.ofDays(3);
+    private static final String NOTIFICATION_KEY_PREFIX = "notification:member:";
+    private static final String MATCH_SUCCESS_TYPE = "MATCH_SUCCESS";
 
     public void notifyMatchSuccess(UUID memberId, UUID roomId) {
         MatchNotificationDto notification = new MatchNotificationDto(
-                "MATCH_SUCCESS",
+                MATCH_SUCCESS_TYPE,
                 roomId,
                 "매칭이 성사됐어요! 대화를 시작해보세요.",
                 LocalDateTime.now()
@@ -46,10 +48,13 @@ public class MatchNotificationService {
 
             redisTemplate.expire(key, TTL);
         } catch (Exception e) {
+            // 알림 저장 실패가 매칭 성사 자체를 막으면 안 되므로 여기서는 로그만 남기고 삼킨다.
             log.error("[MatchNotificationService] 알림 저장 실패 - memberId: {}", memberId, e);
         }
     }
 
+    // 조회 실패는 삼키지 않는다 - Redis 유일 저장소라 실패를 숨기면
+    // "진짜 장애"와 "알림 없음"을 구분할 수 없어진다.
     public List<MatchNotificationDto> getNotifications(UUID memberId, LocalDateTime after) {
         String key = key(memberId);
         List<MatchNotificationDto> notifications = new ArrayList<>();
@@ -74,6 +79,9 @@ public class MatchNotificationService {
             }
         }
 
+        // rangeByScore는 minScore를 포함(inclusive)해서 가져오므로,
+        // after와 정확히 같은 시각의 알림(이미 클라이언트가 받아간 것)이 중복 전달된다.
+        // 이를 제외하기 위해 엄격한 초과(isAfter) 조건으로 한 번 더 거른다. (채팅 폴링과 동일한 방식)
         if (after != null) {
             notifications = notifications.stream()
                     .filter(n -> n.getCreatedAt().isAfter(after))
@@ -84,6 +92,6 @@ public class MatchNotificationService {
     }
 
     private String key(UUID memberId) {
-        return "notification:member:" + memberId;
+        return NOTIFICATION_KEY_PREFIX + memberId;
     }
 }
