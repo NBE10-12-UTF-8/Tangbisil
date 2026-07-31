@@ -7,12 +7,15 @@ import org.springframework.stereotype.Component;
 public class TrendZScoreCalculator {
 
     public double calculate(WordFrequencyStatsDto baseline, WordFrequencyStatsDto current) {
+        if (baseline.totalMessages() <= 0 || current.totalMessages() <= 0) {
+            return 0.0;
+        }
         double baselineRatio = calculateBaselineRatio(baseline);
         double currentRatio = calculateCurrentRatio(current);
         double pooledRatio = calculatePooledRatio(baseline, current);
         double standardError = calculateStandardError(pooledRatio, baseline, current);
         double zScore = (currentRatio - baselineRatio) / standardError;
-        if (Double.isNaN(zScore)) {
+        if (Double.isNaN(zScore) || Double.isInfinite(zScore)) {
             return 0.0;
         }
         return zScore;

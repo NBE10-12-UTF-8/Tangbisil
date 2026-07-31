@@ -90,4 +90,14 @@ class TrendAggregationEventHandlerTest {
                 assertThat(redisTemplate.opsForValue().get(MESSAGE_KEY)).isEqualTo("1"));
         assertThat(redisTemplate.opsForZSet().size(KEYWORD_KEY)).isIn(0L, null);
     }
+
+    @Test
+    @DisplayName("메시지 content가 null이어도 예외 없이 처리되고, 명사만 없을 뿐 전체 메시지 카운트는 증가한다")
+    void t5() {
+        trendAggregationEventHandler.handleChatMessageSent(eventWithContent(null));
+
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
+                assertThat(redisTemplate.opsForValue().get(MESSAGE_KEY)).isEqualTo("1"));
+        assertThat(redisTemplate.opsForZSet().size(KEYWORD_KEY)).isIn(0L, null);
+    }
 }

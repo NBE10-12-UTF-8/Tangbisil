@@ -25,13 +25,14 @@ public class TrendAggregationEventHandler {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT )
     public void handleChatMessageSent (ChatMessageSentEvent event){
 
-        List<String>nouns = nounExtractor.extract(event.getMessageDto().getContent());
+        String content = event.getMessageDto() != null ? event.getMessageDto().getContent() : null;
+        List<String> nouns = nounExtractor.extract(content);
 
+        LocalDate today = LocalDate.now();
         for(String noun : nouns){
-            redisTemplate.opsForZSet().incrementScore("trend:keyword:" + LocalDate.now(),noun, 1);
+            redisTemplate.opsForZSet().incrementScore("trend:keyword:" + today, noun, 1);
         }
-        redisTemplate.opsForValue().increment("trend:messages:" + LocalDate.now());
-
+        redisTemplate.opsForValue().increment("trend:messages:" + today);
 
     }
 

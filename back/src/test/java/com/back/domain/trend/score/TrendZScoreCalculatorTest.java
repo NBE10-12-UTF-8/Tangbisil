@@ -58,4 +58,16 @@ class TrendZScoreCalculatorTest {
         assertThat(z).isZero();
         assertThat(Double.isNaN(z)).isFalse();
     }
+
+    @Test
+    @DisplayName("totalMessages가 0이면 NaN/Infinity 대신 0을 반환한다")
+    void zeroTotalMessagesReturnsZeroNotInfinite() {
+        WordFrequencyStatsDto baseline = new WordFrequencyStatsDto(0, 0);
+        WordFrequencyStatsDto current = new WordFrequencyStatsDto(5, 1000);
+
+        double z = calculator.calculate(baseline, current);
+
+        assertThat(z).isZero();
+        assertThat(Double.isInfinite(z)).isFalse();
+    }
 }

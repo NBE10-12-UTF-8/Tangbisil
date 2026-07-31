@@ -23,6 +23,10 @@ public class NounExtractor {
     private static final Set<POS.Tag> NOUN_TAGS = EnumSet.of(POS.Tag.NNG, POS.Tag.NNP);
 
     public List<String> extract(String text) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+
         List<String> nouns = new ArrayList<>();
 
         try (KoreanTokenizer tokenizer = new KoreanTokenizer(

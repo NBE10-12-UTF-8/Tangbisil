@@ -51,4 +51,10 @@ class NounExtractorTest {
     void emptyTextReturnsEmptyList() {
         assertThat(nounExtractor.extract("")).isEmpty();
     }
+
+    @Test
+    @DisplayName("null 입력은 예외 없이 빈 리스트를 반환한다")
+    void nullTextReturnsEmptyList() {
+        assertThat(nounExtractor.extract(null)).isEmpty();
+    }
 }
