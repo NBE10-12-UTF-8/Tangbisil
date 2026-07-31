@@ -12,8 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 public class TrendSnapshotScheduler {
@@ -52,14 +55,17 @@ public class TrendSnapshotScheduler {
                 redisTemplate.opsForZSet().rangeWithScores("trend:keyword:" + yesterday, 0, -1);
         if (keywordScores == null) { keywordScores = Set.of(); }
 
+        Map<String, DailyKeywordCount> existingKeywords = dailyKeywordCountRepository.findAllByDate(yesterday)
+                .stream()
+                .collect(Collectors.toMap(DailyKeywordCount::getKeyword, Function.identity()));
+
         for (ZSetOperations.TypedTuple<String> tuple : keywordScores) {
             String keyword = tuple.getValue();
             long frequency = tuple.getScore().longValue();
 
-            Optional<DailyKeywordCount> existingKeyword =
-                    dailyKeywordCountRepository.findByDateAndKeyword(yesterday, keyword);
-            if (existingKeyword.isPresent()) {
-                existingKeyword.get().updateFrequency(frequency);
+            DailyKeywordCount existingKeyword = existingKeywords.get(keyword);
+            if (existingKeyword != null) {
+                existingKeyword.updateFrequency(frequency);
             } else {
                 dailyKeywordCountRepository.save(new DailyKeywordCount(yesterday, keyword, frequency));
             }
