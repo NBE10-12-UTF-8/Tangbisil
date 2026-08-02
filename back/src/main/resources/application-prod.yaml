@@ -6,6 +6,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     database-platform: org.hibernate.dialect.MySQLDialect
+    show-sql: false
     hibernate:
       ddl-auto: validate
   data:
@@ -13,6 +14,16 @@ spring:
       host: ${REDISHOST}
       port: ${REDISPORT}
       password: ${REDISPASSWORD:}
+  output:
+    ansi:
+      enabled: never
+logging:
+  level:
+    root: INFO
+    com.back: INFO
+    org.hibernate.orm.jdbc.bind: WARN
+    org.hibernate.orm.jdbc.extract: WARN
+    org.springframework.transaction.interceptor: WARN
 custom:
   frontendBaseUrl: https://tangbisil.kro.kr
   cookieDomain: tangbisil.kro.kr
