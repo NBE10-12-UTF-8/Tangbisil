@@ -7,11 +7,9 @@ import com.back.domain.chat.chatRoom.entity.ChatRoomStatus;
 import com.back.domain.chat.chatRoom.service.ChatRoomService;
 import com.back.domain.match.matchRequest.dto.MatchHistoryDto;
 import com.back.domain.match.matchRequest.dto.SituationStatisticsDto;
-import com.back.domain.match.matchRequest.entity.MatchRequest;
-import com.back.domain.match.matchRequest.entity.MatchStatus;
-import com.back.domain.match.matchRequest.entity.Situation;
-import com.back.domain.match.matchRequest.entity.SituationSimilarity;
+import com.back.domain.match.matchRequest.entity.*;
 import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
+import com.back.domain.match.matchRequest.repository.MatchingOutboxRepository;
 import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
@@ -23,7 +21,10 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
 
+import java.time.ZoneId;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -39,6 +40,8 @@ public class MatchRequestService {
     private final ApplicationEventPublisher eventPublisher;
     private final MatchRequestRetryProcessor retryProcessor;
     private final MatchNotificationService matchNotificationService;
+    private final RedisMatchQueue redisMatchQueue;
+    private final MatchingOutboxRepository matchingOutboxRepository;
 
     private static final long TIER1_THRESHOLD_SECONDS = 15; // 15초 후 유사 상황 매칭
     private static final long TIER2_THRESHOLD_SECONDS = 30; // 30초 후 산업군 전체 매칭
@@ -143,8 +146,45 @@ public class MatchRequestService {
         if (matchRequestRepository.existsByMemberAndStatus(member, MatchStatus.PENDING)) {
             throw new ServiceException("409-1", "이미 진행 중인 매칭 요청이 있습니다.");
         }
+
+        // RDB에 대기 정보 저장
         MatchRequest matchRequest = matchRequestRepository.save(new MatchRequest(member, situation));
-        tryMatch(matchRequest);
+
+        // RDB 동일 트랜잭션 내에 아웃박스 이벤트 저장
+        long epochMilli = matchRequest.getRequestedAt().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        MatchingOutbox outbox = MatchingOutbox.create(
+                matchRequest.getId(),
+                member.getIndustry(),
+                situation,
+                epochMilli
+        );
+        matchingOutboxRepository.save(outbox);
+
+        // AFTER_COMMIT 리스너 등록 (커밋 완료 직후 Redis ZADD 기동)
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        try {
+                            // Redis ZSet 대기열 적재
+                            redisMatchQueue.add(
+                                    member.getIndustry(),
+                                    situation,
+                                    matchRequest.getId(),
+                                    epochMilli
+                            );
+                            // 적재 성공 시 아웃박스 상태 SUCCESS 마킹
+                            outbox.markSuccess();
+                            matchingOutboxRepository.save(outbox);
+                        } catch (Exception e) {
+                            // 적재 실패 시 FAIL 마킹
+                            outbox.markFailed();
+                            matchingOutboxRepository.save(outbox);
+                        }
+                    }
+                }
+        );
+
         return matchRequest;
     }
 
@@ -217,14 +257,31 @@ public class MatchRequestService {
         if (matchRequest.getStatus() == MatchStatus.MATCHED) {
             throw new ServiceException("409-1", "이미 매칭된 요청은 취소할 수 없습니다.");
         }
+
         matchRequestRepository.delete(matchRequest);
+
+        // Redis ZSet 대기열에서도 본인을 즉시 안전하게 제거
+        redisMatchQueue.remove(
+                matchRequest.getMember().getIndustry(),
+                matchRequest.getSituation(),
+                matchRequest.getId()
+        );
     }
 
     @Transactional
     public void cancelExpiredRequests() {
         LocalDateTime expiredBefore = LocalDateTime.now().minusMinutes(5);
-        List<MatchRequest> expired = matchRequestRepository
-                .findExpiredPending(MatchStatus.PENDING, expiredBefore);
+        List<MatchRequest> expired = matchRequestRepository.findExpiredPending(MatchStatus.PENDING, expiredBefore);
+
+        // DB에서 지우기 전에, 각 만료 건을 Redis ZSet 대기열에서 제거
+        for (MatchRequest request : expired) {
+            redisMatchQueue.remove(
+                    request.getMember().getIndustry(),
+                    request.getSituation(),
+                    request.getId()
+            );
+        }
+
         matchRequestRepository.deleteAll(expired);
     }
 
