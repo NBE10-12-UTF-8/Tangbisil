@@ -63,6 +63,27 @@ public class RedisMatchQueue {
         }
     }
 
+    public long size(Industry industry, Situation situation) {
+        String key = getQueueKey(industry, situation);
+        try {
+            Long size = redisTemplate.opsForZSet().size(key);
+            return size != null ? size : 0L;
+        } catch (Exception e) {
+            log.error("[RedisMatchQueue] 대기열 크기 조회 실패 (ZCARD) - key: {}", key, e);
+            throw e;
+        }
+    }
+
+    public Set<String> getAllIds(Industry industry, Situation situation) {
+        String key = getQueueKey(industry, situation);
+        try {
+            return redisTemplate.opsForZSet().range(key, 0, -1);
+        } catch (Exception e) {
+            log.error("[RedisMatchQueue] 대기열 전체 목록 조회 실패 (ZRANGE) - key: {}", key, e);
+            throw e;
+        }
+    }
+
     private String getQueueKey(Industry industry, Situation situation) {
         return QUEUE_KEY_PREFIX + industry.name() + ":" + situation.name();
     }
