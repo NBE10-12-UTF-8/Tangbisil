@@ -100,19 +100,6 @@ public interface MatchRequestRepository extends JpaRepository<MatchRequest, UUID
             @Param("member") Member member,
             @Param("status") ChatRoomStatus status);
 
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query(value = "UPDATE match_request SET status = 'MATCHED', version = version + 1, modified_at = CURRENT_TIMESTAMP " +
-            "WHERE id = :id AND status = 'PENDING'", nativeQuery = true)
-    int claimPending(@Param("id") UUID id);
-
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query(value = "UPDATE match_request SET room_id = :roomId WHERE id = :id", nativeQuery = true)
-    void assignRoom(@Param("id") UUID id, @Param("roomId") UUID roomId);
-
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query(value = "UPDATE match_request SET status = 'PENDING', version = version + 1 WHERE id = :id", nativeQuery = true)
-    void revertToPending(@Param("id") UUID id);
-
     @Query("SELECT mr FROM MatchRequest mr JOIN FETCH mr.room WHERE mr.status = :status ORDER BY mr.modifiedAt DESC")
     List<MatchRequest> findRecentByStatus(@Param("status") MatchStatus status, Pageable pageable);
 

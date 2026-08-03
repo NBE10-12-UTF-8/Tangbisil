@@ -1,5 +1,9 @@
 package com.back.global.redis;
 
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -9,13 +13,35 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @Configuration
 public class RedisConfig {
 
+    @Value("${spring.data.redis.host:localhost}")
+    private String redisHost;
+
+    @Value("${spring.data.redis.port:6379}")
+    private int redisPort;
+
+    @Value("${spring.data.redis.password:}")
+    private String redisPassword;
+
+    /**
+     * Spring Boot 4.x 및 코틀린 마이그레이션 호환성을 보장하기 위해
+     * application.yml 설정을 기반으로 RedissonClient 빈을 수동으로 안전하게 기동합니다.
+     */
+    @Bean
+    public RedissonClient redissonClient() {
+        Config config = new Config();
+        var serverConfig = config.useSingleServer()
+                .setAddress("redis://" + redisHost + ":" + redisPort);
+        if (redisPassword != null && !redisPassword.isBlank()) {
+            serverConfig.setPassword(redisPassword);
+        }
+        return Redisson.create(config);
+    }
+
     @Bean
     public RedisTemplate<String, String> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, String> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        // Key와 Value의 직렬화 방식을 모두 StringSerializer로 통일합니다.
-        // 데이터에 자바 클래스 정보(@class)가 포함되는 것을 막아, 향후 패키지 리팩토링 및 Kotlin 마이그레이션 시 역직렬화 오류를 차단하기 위함입니다.
         StringRedisSerializer stringSerializer = new StringRedisSerializer();
         template.setKeySerializer(stringSerializer);
         template.setHashKeySerializer(stringSerializer);

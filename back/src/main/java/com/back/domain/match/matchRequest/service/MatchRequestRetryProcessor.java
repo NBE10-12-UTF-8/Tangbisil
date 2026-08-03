@@ -6,6 +6,7 @@ import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,8 @@ public class MatchRequestRetryProcessor {
     private final MatchRequestRepository matchRequestRepository;
     private final ApplicationContext applicationContext;
 
+    // 매칭 신청 트랜잭션 커밋(afterCommit) 흐름에서 호출되므로, 요청 스레드를 블로킹하지 않도록 비동기로 실행한다.
+    @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void retryOne(UUID matchRequestId) {
         MatchRequest matchRequest = matchRequestRepository.findByIdWithMember(matchRequestId)

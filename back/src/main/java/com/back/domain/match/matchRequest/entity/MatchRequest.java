@@ -35,16 +35,11 @@ public class MatchRequest extends BaseEntity {
 
     private LocalDateTime requestedAt;
 
-    // 비관적 락(@Lock)이 DB 엔진(H2 등)에 따라 기대만큼 안 먹힐 수 있어서,
-    // 낙관적 락으로 이중 안전장치를 건다. 두 트랜잭션이 같은 row를 동시에 MATCHED로
-    // 바꾸려고 하면, 나중에 커밋하는 쪽이 이 버전 충돌로 실패한다.
-    //
-    // 주의: claimPending()은 네이티브 벌크 UPDATE라 영속성 컨텍스트/dirty checking을
-    // 거치지 않으므로 이 @Version 체크는 그 경로에서는 동작하지 않는다.
-    // 실제 동시성 방어는 claimPending의 CAS(WHERE status='PENDING')가 전담하고,
-    // 이 필드는 향후 일반 save() 경로로 MatchRequest를 수정하는 코드가 생길 때를 대비한 안전장치다.
+    // 매칭 엔진 내부의 동시 수정 경쟁은 Redis 분산 락(match:lock:{industry})이 전담하므로,
+    // 이 필드가 그 경로에서 충돌을 방어할 일은 없다. 이 필드는 매칭 엔진 바깥 경로
+    // (사용자 취소 API, 만료 배치 등)와의 충돌을 막는 최후의 안전장치로 유지한다.
     @Version
-    private Long version =0L;
+    private Long version = 0L;
     
     public MatchRequest(Member member, Situation situation) {
         this.member = member;

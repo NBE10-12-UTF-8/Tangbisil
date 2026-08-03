@@ -1,12 +1,19 @@
 package com.back.domain.member.member.controller;
 
+import com.back.domain.chat.chatRoom.repository.ChatRoomRepository;
+import com.back.domain.chat.chatRoomParticipant.repository.ChatRoomParticipantRepository;
+import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
+import com.back.domain.match.matchRequest.repository.MatchingOutboxRepository;
+import com.back.domain.match.matchRequest.service.RedisMatchQueue;
 import com.back.domain.member.emailVerification.entity.EmailVerificationToken;
 import com.back.domain.member.emailVerification.repository.EmailVerificationTokenRepository;
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.member.service.MemberService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,14 +22,21 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.back.domain.member.member.entity.Industry.*;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -39,6 +53,41 @@ public class ApiV1MemberControllerTest {
 
     @Autowired
     EmailVerificationTokenRepository emailVerificationTokenRepository;
+
+    @Autowired
+    private MemberRepository memberRepository;
+    @Autowired
+    private MatchRequestRepository matchRequestRepository;
+    @Autowired
+    private MatchingOutboxRepository matchingOutboxRepository;
+    @Autowired
+    private ChatRoomParticipantRepository chatRoomParticipantRepository;
+    @Autowired
+    private ChatRoomRepository chatRoomRepository;
+    @Autowired
+    private RedisMatchQueue redisMatchQueue;
+
+    // t9만 TestTransaction.flagForCommit()+end()로 실제 커밋한다. 그 데이터는 기본 롤백으로 안 지워지므로 수동 정리한다.
+    // (ApiV1MatchControllerTest에서 쓴 것과 동일한 정리 패턴)
+    private final List<Member> createdMembers = new ArrayList<>();
+
+    @AfterEach
+    void cleanUp() {
+        if (TestTransaction.isActive()) {
+            TestTransaction.end();
+        }
+        TestTransaction.start();
+        matchRequestRepository.findAll().forEach(mr ->
+                redisMatchQueue.remove(mr.getIndustry(), mr.getSituation(), mr.getId()));
+        matchRequestRepository.deleteAll();
+        matchingOutboxRepository.deleteAll();
+        chatRoomParticipantRepository.deleteAll();
+        chatRoomRepository.deleteAll();
+        createdMembers.forEach(memberRepository::delete);
+        createdMembers.clear();
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+    }
 
     private void preVerifyEmail(String email) {
         EmailVerificationToken token = new EmailVerificationToken(email, "000000", 10);
@@ -343,6 +392,8 @@ public class ApiV1MemberControllerTest {
         // Given - 두 유저 직접 생성 후 매칭
         Member member1 = memberService.joinWithoutEmailVerification("history1@test.com", "1234", IT, "USER");
         Member member2 = memberService.joinWithoutEmailVerification("history2@test.com", "1234", IT, "USER");
+        createdMembers.add(member1);
+        createdMembers.add(member2);
         String accessToken1 = memberService.genAccessToken(member1);
         String accessToken2 = memberService.genAccessToken(member2);
 
@@ -366,12 +417,23 @@ public class ApiV1MemberControllerTest {
 
         String matchRequestId = new ObjectMapper().readTree(matchResponse).path("data").path("matchRequestId").asText();
 
-        String statusResponse = mvc.perform(
-                get("/api/v1/matches/" + matchRequestId)
-                        .header("Authorization", "Bearer " + accessToken2)
-        ).andReturn().getResponse().getContentAsString();
+        // 매칭은 트랜잭션 커밋 이후 AFTER_COMMIT 핸들러에서 비동기로 처리되므로,
+        // 테스트 트랜잭션을 강제 커밋하고 실제로 MATCHED(+채팅방 생성)될 때까지 폴링으로 기다린다.
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
 
-        String roomId = new ObjectMapper().readTree(statusResponse).path("data").path("chatRoomId").asText();
+        AtomicReference<String> roomIdRef = new AtomicReference<>();
+        await().atMost(5, SECONDS).untilAsserted(() -> {
+            String statusResponse = mvc.perform(
+                    get("/api/v1/matches/" + matchRequestId)
+                            .header("Authorization", "Bearer " + accessToken2)
+            ).andReturn().getResponse().getContentAsString();
+
+            String roomId = new ObjectMapper().readTree(statusResponse).path("data").path("chatRoomId").asText();
+            assertThat(roomId).isNotBlank();
+            roomIdRef.set(roomId);
+        });
+        String roomId = roomIdRef.get();
 
         // Given - 채팅방 종료
         mvc.perform(
