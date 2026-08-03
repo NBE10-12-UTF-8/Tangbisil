@@ -1,5 +1,6 @@
 package com.back.domain.trend.snapshot.scheduler;
 
+import com.back.domain.trend.snapshot.repository.DailyCooccurrenceCountRepository;
 import com.back.domain.trend.snapshot.repository.DailyKeywordCountRepository;
 import com.back.domain.trend.snapshot.repository.DailyMessageCountRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -38,15 +39,20 @@ class TrendSnapshotSchedulerTest {
     @Autowired
     private DailyMessageCountRepository dailyMessageCountRepository;
 
+    @Autowired
+    private DailyCooccurrenceCountRepository dailyCooccurrenceCountRepository;
+
     private static final LocalDate YESTERDAY = LocalDate.now(ZoneId.of("Asia/Seoul")).minusDays(1);
     private static final String KEYWORD_KEY = "trend:keyword:" + YESTERDAY;
     private static final String MESSAGE_KEY = "trend:messages:" + YESTERDAY;
+    private static final String COOCCUR_KEY = "trend:cooccur:" + YESTERDAY;
 
     @AfterEach
     void cleanUp() {
         // DB는 @Transactional로 각 테스트 후 롤백되지만, Redis는 트랜잭션 밖이라 직접 지운다.
         redisTemplate.delete(KEYWORD_KEY);
         redisTemplate.delete(MESSAGE_KEY);
+        redisTemplate.delete(COOCCUR_KEY);
     }
 
     @Test
@@ -117,5 +123,46 @@ class TrendSnapshotSchedulerTest {
         assertThat(dailyMessageCountRepository.findAll()).hasSize(1);
         assertThat(dailyMessageCountRepository.findByDate(YESTERDAY))
                 .hasValueSatisfying(row -> assertThat(row.getTotalMessages()).isEqualTo(8));
+    }
+
+    @Test
+    @DisplayName("어제 동시출현 ZSET에 쌓인 쌍마다 DailyCooccurrenceCount 행이 하나씩 생긴다")
+    void t6() {
+        redisTemplate.opsForZSet().add(COOCCUR_KEY, "장마::우산", 4);
+        redisTemplate.opsForValue().set(MESSAGE_KEY, "10");
+
+        trendSnapshotScheduler.snapshotYesterday();
+
+        assertThat(dailyCooccurrenceCountRepository.findByDateAndKeywordAAndKeywordB(YESTERDAY, "장마", "우산"))
+                .hasValueSatisfying(row -> assertThat(row.getFrequency()).isEqualTo(4));
+    }
+
+    @Test
+    @DisplayName("어제 동시출현 ZSET이 비어있어도(쌍이 없는 날) 나머지 스냅샷은 정상 처리된다")
+    void t7() {
+        redisTemplate.opsForValue().set(MESSAGE_KEY, "4");
+        // COOCCUR_KEY는 의도적으로 채우지 않는다.
+
+        trendSnapshotScheduler.snapshotYesterday();
+
+        assertThat(dailyCooccurrenceCountRepository.findAll()).isEmpty();
+        assertThat(dailyMessageCountRepository.findByDate(YESTERDAY))
+                .hasValueSatisfying(row -> assertThat(row.getTotalMessages()).isEqualTo(4));
+    }
+
+    @Test
+    @DisplayName("같은 날짜에 스냅샷을 두 번 실행해도 동시출현 행이 중복되지 않고 최신 값으로 갱신된다")
+    void t8() {
+        redisTemplate.opsForZSet().add(COOCCUR_KEY, "장마::우산", 3);
+        redisTemplate.opsForValue().set(MESSAGE_KEY, "5");
+        trendSnapshotScheduler.snapshotYesterday();
+
+        redisTemplate.opsForZSet().incrementScore(COOCCUR_KEY, "장마::우산", 2); // 누적 5로
+        redisTemplate.opsForValue().set(MESSAGE_KEY, "8");
+        trendSnapshotScheduler.snapshotYesterday();
+
+        assertThat(dailyCooccurrenceCountRepository.findAll()).hasSize(1);
+        assertThat(dailyCooccurrenceCountRepository.findByDateAndKeywordAAndKeywordB(YESTERDAY, "장마", "우산"))
+                .hasValueSatisfying(row -> assertThat(row.getFrequency()).isEqualTo(5));
     }
 }
