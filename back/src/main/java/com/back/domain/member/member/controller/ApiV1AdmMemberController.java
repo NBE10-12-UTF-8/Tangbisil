@@ -30,11 +30,12 @@ public class ApiV1AdmMemberController {
     @GetMapping
     @Operation(summary = "회원 다건 조회")
     public RsData<Page<MemberAdmDto>> getItems(
+            @RequestParam(required = false) Boolean isSuspended,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<MemberAdmDto> members = memberService.findAll(pageable)
+        Page<MemberAdmDto> members = memberService.findAll(isSuspended, pageable)
                 .map(MemberAdmDto::new);
 
         return new RsData<>(
@@ -43,6 +44,7 @@ public class ApiV1AdmMemberController {
                 members
         );
     }
+
     @GetMapping("/{memberId}")
     @Operation(summary = "회원 단건 조회 (UUID 또는 이메일)")
     public RsData<MemberAdmDto> getItem(@PathVariable String memberId) {

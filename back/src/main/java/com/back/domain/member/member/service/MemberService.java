@@ -149,8 +149,11 @@ public class MemberService {
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
         findMember.updateRefreshToken(null);
     }
-    public Page<Member> findAll(Pageable pageable) {
-        return memberRepository.findAll(pageable);
+    public Page<Member> findAll(Boolean isSuspended, Pageable pageable) {
+        if (isSuspended == null) {
+            return memberRepository.findAll(pageable);
+        }
+        return memberRepository.findAllByIsSuspended(isSuspended, pageable);
     }
 
     @Transactional
