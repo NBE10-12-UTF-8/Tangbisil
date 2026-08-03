@@ -378,13 +378,24 @@ export const apiGetDashboard = () =>
     recentMatchLogs: Array<{ matchedAt: string; industry: string; situation: string }>;
   }>("/api/v1/admin/dashboard");
 
-export const apiGetAdminMembers = (page = 0, size = 10) =>
+// startDate/endDate는 "YYYY-MM-DD" 형식, 둘 다 포함(inclusive) 범위.
+// 해당 기간에 가입자가 없는 산업군은 industryStatistics에서 아예 빠진다(0으로 채워지지 않음).
+export const apiGetIndustrySignupStats = (startDate: string, endDate: string) =>
+  req<{
+    startDate: string;
+    endDate: string;
+    industryStatistics: Array<{ industry: string; count: number }>;
+  }>(`/api/v1/admin/dashboard/industry-signups?startDate=${startDate}&endDate=${endDate}`);
+
+export const apiGetAdminMembers = (page = 0, size = 10, isSuspended?: boolean) =>
   req<{
     content: AdminMember[];
     totalPages: number;
     totalElements: number;
     pageable: { pageNumber: number; pageSize: number };
-  }>(`/api/v1/admin/members?page=${page}&size=${size}`);
+  }>(
+    `/api/v1/admin/members?page=${page}&size=${size}${isSuspended !== undefined ? `&isSuspended=${isSuspended}` : ""}`,
+  );
 
 export const apiGetAdminMember = (identifier: string) =>
   req<AdminMember>(`/api/v1/admin/members/${identifier}`);

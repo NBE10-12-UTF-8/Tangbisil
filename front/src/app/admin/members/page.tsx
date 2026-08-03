@@ -14,6 +14,13 @@ import AdminHeader from "@/components/AdminHeader";
 
 const PAGE_SIZE = 10;
 
+type SuspendFilter = "ALL" | "ACTIVE" | "SUSPENDED";
+const FILTER_TO_PARAM: Record<SuspendFilter, boolean | undefined> = {
+  ALL: undefined,
+  ACTIVE: false,
+  SUSPENDED: true,
+};
+
 export default function AdminMembersPage() {
   const router = useRouter();
   const [members, setMembers] = useState<AdminMember[]>([]);
@@ -28,6 +35,7 @@ export default function AdminMembersPage() {
   const [searchResult, setSearchResult] = useState<AdminMember[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [suspendFilter, setSuspendFilter] = useState<SuspendFilter>("ALL");
 
   useEffect(() => {
     if (!isAdmin()) {
@@ -36,7 +44,7 @@ export default function AdminMembersPage() {
     }
     setLoading(true);
     setError("");
-    apiGetAdminMembers(page, PAGE_SIZE)
+    apiGetAdminMembers(page, PAGE_SIZE, FILTER_TO_PARAM[suspendFilter])
       .then((data) => {
         const sorted = [...data.content].sort((a, b) => {
           if (a.role === "ADMIN" && b.role !== "ADMIN") return -1;
@@ -49,7 +57,12 @@ export default function AdminMembersPage() {
       })
       .catch(() => setError("데이터를 불러오지 못했어요"))
       .finally(() => setLoading(false));
-  }, [page, router]);
+  }, [page, suspendFilter, router]);
+
+  const changeFilter = (f: SuspendFilter) => {
+    setSuspendFilter(f);
+    setPage(0);
+  };
 
   const toggleSuspend = async (memberId: string, currentSuspended: boolean) => {
     setSuspending(memberId);
@@ -321,6 +334,35 @@ export default function AdminMembersPage() {
                 ✕
               </button>
             )}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {(
+              [
+                { key: "ALL", label: "전체" },
+                { key: "ACTIVE", label: "활성" },
+                { key: "SUSPENDED", label: "정지" },
+              ] as const
+            ).map((f) => {
+              const active = suspendFilter === f.key;
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => changeFilter(f.key)}
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 16,
+                    fontSize: 12.5,
+                    fontWeight: active ? 600 : 400,
+                    border: `1px solid ${active ? "#3b7ff2" : "#dadce0"}`,
+                    background: active ? "#e8f0fe" : "#fff",
+                    color: active ? "#3b7ff2" : "#5f6368",
+                    cursor: "pointer",
+                  }}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
           </div>
           <span
             style={{ marginLeft: "auto", fontSize: 12.5, color: "#9aa0a6" }}
