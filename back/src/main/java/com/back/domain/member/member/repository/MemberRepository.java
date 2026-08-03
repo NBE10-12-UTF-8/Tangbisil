@@ -31,7 +31,7 @@ public interface MemberRepository extends JpaRepository<Member, UUID> {
            WHERE m.createdAt >= :start AND m.createdAt < :end
            GROUP BY m.industry
            """)
-    List<IndustryStatisticsDto> countByIndustryAndCreatedAtBetween(
+    List<IndustryStatisticsDto> countByIndustryAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end);
 }

@@ -81,8 +81,7 @@ public class DashboardService {
         LocalDateTime end = endDate.plusDays(1).atStartOfDay();
 
         List<IndustryStatisticsDto> industryStatistics =
-                memberRepository.countByIndustryAndCreatedAtBetween(start, end);
-
+                memberRepository.countByIndustryAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(start, end);
         return new IndustrySignupStatisticsResponseDto(startDate, endDate, industryStatistics);
     }
 }
