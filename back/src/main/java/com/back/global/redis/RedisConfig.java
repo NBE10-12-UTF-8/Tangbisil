@@ -19,6 +19,9 @@ public class RedisConfig {
     @Value("${spring.data.redis.port:6379}")
     private int redisPort;
 
+    @Value("${spring.data.redis.password:}")
+    private String redisPassword;
+
     /**
      * Spring Boot 4.x 및 코틀린 마이그레이션 호환성을 보장하기 위해
      * application.yml 설정을 기반으로 RedissonClient 빈을 수동으로 안전하게 기동합니다.
@@ -26,8 +29,11 @@ public class RedisConfig {
     @Bean
     public RedissonClient redissonClient() {
         Config config = new Config();
-        config.useSingleServer()
+        var serverConfig = config.useSingleServer()
                 .setAddress("redis://" + redisHost + ":" + redisPort);
+        if (redisPassword != null && !redisPassword.isBlank()) {
+            serverConfig.setPassword(redisPassword);
+        }
         return Redisson.create(config);
     }
 
