@@ -12,10 +12,10 @@ public class NpmiCalculator {
         if (stats.totalMessages() <= 0) {
             return 0.0;
         }
-        if (stats.freqXY() == 0 ) {
+        if (stats.freqXY() == 0) {
             return -1.0;
         }
-        if(stats.freqXY() == stats.totalMessages()){
+        if (stats.freqXY() == stats.totalMessages()) {
             return 1.0;
         }
 
