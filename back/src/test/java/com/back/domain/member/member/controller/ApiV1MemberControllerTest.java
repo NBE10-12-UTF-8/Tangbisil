@@ -60,7 +60,8 @@ public class ApiV1MemberControllerTest {
                                         {
                                              "email": "test@test.com",
                                              "password": "1234",
-                                             "industry": "IT/개발"
+                                             "industry": "IT/개발",
+                                             "agreedToTerms": true
                                         }
                                         """)
                 )
@@ -89,7 +90,8 @@ public class ApiV1MemberControllerTest {
                                 {
                                      "email": "test@test.com",
                                      "password": "1234",
-                                     "industry": "IT/개발"
+                                     "industry": "IT/개발",
+                                     "agreedToTerms": true
                                 }
                                 """)
         );
@@ -131,7 +133,8 @@ public class ApiV1MemberControllerTest {
                                         {
                                              "email": "invalid-email-format",
                                              "password": "1234",
-                                             "industry": "IT/개발"
+                                             "industry": "IT/개발",
+                                             "agreedToTerms": true
                                         }
                                         """)
                 )
@@ -176,7 +179,8 @@ public class ApiV1MemberControllerTest {
                             {
                                  "email": "test@test.com",
                                  "password": "1234",
-                                 "industry": "IT/개발"
+                                 "industry": "IT/개발",
+                                 "agreedToTerms": true
                             }
                             """)
         );
@@ -229,7 +233,8 @@ public class ApiV1MemberControllerTest {
                             {
                                  "email": "test@test.com",
                                  "password": "1234",
-                                 "industry": "IT/개발"
+                                 "industry": "IT/개발",
+                                 "agreedToTerms": true
                             }
                             """)
         );
@@ -284,7 +289,8 @@ public class ApiV1MemberControllerTest {
                             {
                                  "email": "test@test.com",
                                  "password": "1234",
-                                 "industry": "IT/개발"
+                                 "industry": "IT/개발",
+                                 "agreedToTerms": true
                             }
                             """)
         );
@@ -477,7 +483,8 @@ public class ApiV1MemberControllerTest {
                             {
                                  "email": "test@test.com",
                                  "password": "1234",
-                                 "industry": "IT/개발"
+                                 "industry": "IT/개발",
+                                 "agreedToTerms": true
                             }
                             """)
         );
@@ -592,7 +599,8 @@ public class ApiV1MemberControllerTest {
                             {
                                  "email": "test@test.com",
                                  "password": "1234",
-                                 "industry": "IT/개발"
+                                 "industry": "IT/개발",
+                                 "agreedToTerms": true
                             }
                             """)
         );
@@ -631,5 +639,56 @@ public class ApiV1MemberControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.email").value("test@test.com"))
                 .andExpect(jsonPath("$.data.role").value("USER"));
+    }
+    
+    @Test
+    @DisplayName("개인정보 동의 안 하면 회원가입 실패")
+    void t17() throws Exception {
+        preVerifyEmail("test@test.com");
+
+        // When - agreedToTerms: false
+        ResultActions resultActions = mvc
+                .perform(
+                        post("/api/v1/members/signup")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                         "email": "test@test.com",
+                                         "password": "1234",
+                                         "industry": "IT/개발",
+                                         "agreedToTerms": false
+                                    }
+                                    """)
+                )
+                .andDo(print());
+
+        // Then
+        resultActions
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("agreedToTerms 필드 누락 시 회원가입 실패")
+    void t18() throws Exception {
+        preVerifyEmail("test@test.com");
+
+        // When - agreedToTerms 필드 자체를 안 보냄
+        ResultActions resultActions = mvc
+                .perform(
+                        post("/api/v1/members/signup")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                         "email": "test@test.com",
+                                         "password": "1234",
+                                         "industry": "IT/개발"
+                                    }
+                                    """)
+                )
+                .andDo(print());
+
+        // Then
+        resultActions
+                .andExpect(status().isBadRequest());
     }
 }

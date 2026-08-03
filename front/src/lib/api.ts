@@ -176,10 +176,15 @@ export const apiLogin = (email: string, password: string) =>
     body: JSON.stringify({ email, password }),
   });
 
-export const apiSignup = (email: string, password: string, industry: string) =>
+export const apiSignup = (
+  email: string,
+  password: string,
+  industry: string,
+  agreedToTerms: boolean,
+) =>
   req<{ id: string; email: string; industry: string }>(
     "/api/v1/members/signup",
-    { method: "POST", body: JSON.stringify({ email, password, industry }) },
+    { method: "POST", body: JSON.stringify({ email, password, industry, agreedToTerms }) },
   );
 
 export const apiLogout = () =>
@@ -334,6 +339,21 @@ export async function apiGetMessages(
   if (body.resultCode === "200-3") return { msgs: null, closed: true };
   return { msgs: body.data as ChatMsg[] | null, closed: false };
 }
+
+/* ── Notifications ──────────────────────────────────────────────── */
+export type MatchNotification = {
+  type: string;
+  roomId: string;
+  message: string;
+  createdAt: string;
+};
+
+// 매칭 성사 등 실시간 알림 폴링. after 생략 시 TTL(3일) 내 전체, 지정 시 그 이후만 조회.
+// 신규 알림이 없으면 백엔드가 resultCode "200-2"로 data: null을 내려준다.
+export const apiGetNotifications = (after?: string) =>
+  req<MatchNotification[] | null>(
+    `/api/v1/notifications${after ? `?after=${encodeURIComponent(after)}` : ""}`,
+  );
 
 /* ── Admin ──────────────────────────────────────────────────────── */
 export type AdminMember = {

@@ -8,6 +8,7 @@ import com.back.domain.match.matchRequest.entity.Situation;
 import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.notification.service.MatchNotificationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,8 @@ public class MatchRequestServiceTest {
     private ChatRoomParticipantRepository chatRoomParticipantRepository;
     @Autowired
     private ChatRoomRepository chatRoomRepository;
+    @Autowired
+    private MatchNotificationService matchNotificationService;
 
     private final List<Member> createdMembers = new ArrayList<>();
 
@@ -74,6 +77,8 @@ public class MatchRequestServiceTest {
 
         assertThat(matchRequestRepository.findById(reqA.getId()).get().getStatus()).isEqualTo(MatchStatus.MATCHED);
         assertThat(matchRequestRepository.findById(reqB.getId()).get().getStatus()).isEqualTo(MatchStatus.MATCHED);
+
+        assertThat(matchNotificationService.getNotifications(memberA.getId(), null)).hasSize(1);
     }
 
     @Test

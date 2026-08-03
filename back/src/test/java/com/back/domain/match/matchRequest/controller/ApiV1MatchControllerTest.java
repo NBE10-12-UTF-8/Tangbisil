@@ -71,7 +71,8 @@ public class ApiV1MatchControllerTest {
                                 {
                                     "email": "%s",
                                     "password": "1234",
-                                    "industry": "%s"
+                                    "industry": "%s",
+                                    "agreedToTerms": true
                                 }
                                 """.formatted(email, industry))
         );
