@@ -37,8 +37,8 @@ public class ApiV1DashboardController {
     @GetMapping("/industry-signups")
     @Operation(summary = "기간별 산업군 가입 통계 조회")
     public RsData<IndustrySignupStatisticsResponseDto> getIndustrySignupStatistics(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
     ) {
         return new RsData<>(
                 "200-1",

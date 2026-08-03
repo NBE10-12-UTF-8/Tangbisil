@@ -287,4 +287,16 @@ public class ApiV1DashboardControllerTest {
         ReflectionTestUtils.setField(member, "createdAt", createdAt);
         memberRepository.save(member);
     }
+
+    @Test
+    @DisplayName("기간별 산업군 가입 통계 조회 - 파라미터 누락 시 400")
+    void t7() throws Exception {
+        String adminToken = loginAndGetToken("admin@test.com");
+
+        mvc.perform(get("/api/v1/admin/dashboard/industry-signups")
+                        .param("startDate", "2020-01-01")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
 }
