@@ -92,6 +92,9 @@ public class TrendSnapshotScheduler {
                 String pair = tuple.getValue();
                 long frequency = tuple.getScore().longValue();
                 String[] parts = pair.split("::");
+                if (parts.length < 2) {
+                    continue;
+                }
                 DailyCooccurrenceCount existingCooccurrence = existingCooccurrences.get(pair);
                 if (existingCooccurrence != null) {
                     existingCooccurrence.updateFrequency(frequency);
