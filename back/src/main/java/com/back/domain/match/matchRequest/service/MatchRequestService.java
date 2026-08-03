@@ -120,6 +120,7 @@ public class MatchRequestService {
                 new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
+                        boolean isLoaded = false;
                         try {
                             // Redis ZSet 대기열 적재
                             redisMatchQueue.add(
@@ -134,12 +135,19 @@ public class MatchRequestService {
                             // processMatch()와 동일하게, 프록시를 거쳐 REQUIRES_NEW 트랜잭션으로 실행해야
                             // 확실히 커밋된다.
                             applicationContext.getBean(MatchRequestService.class).markOutboxSuccess(outbox.getId());
-
-                            // ZADD 적재 성공 직후, 별도 스케줄러 대기 없이 비동기로 즉시 1차 매칭 시도
-                            retryProcessor.retryOne(matchRequest.getId());
+                            isLoaded = true;
                         } catch (Exception e) {
                             // 적재 실패 시 FAIL 마킹 (마찬가지로 REQUIRES_NEW로 확실히 반영)
                             applicationContext.getBean(MatchRequestService.class).markOutboxFailed(outbox.getId());
+                        }
+
+                        if (isLoaded) {
+                            try {
+                                // ZADD 적재 성공 직후, 별도 스케줄러 대기 없이 비동기로 즉시 1차 매칭 시도
+                                retryProcessor.retryOne(matchRequest.getId());
+                            } catch (Exception e) {
+                                log.error("[MatchRequestService] 1차 즉시 매칭 시도 중 오류 발생 - matchRequestId: {}", matchRequest.getId(), e);
+                            }
                         }
                     }
                 }
