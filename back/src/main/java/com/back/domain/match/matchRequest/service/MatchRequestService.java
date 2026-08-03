@@ -20,6 +20,7 @@ import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -253,9 +254,11 @@ public class MatchRequestService {
 
     // 채팅방 입장 시 상대방이 선택한 상황을 노출하기 위한 조회
     public Situation findOpponentSituation(UUID roomId, UUID memberId) {
-                return matchRequestRepository.findByRoomIdAndMemberIdNot(roomId, memberId)
-                                .map(MatchRequest::getSituation)
-                                .orElse(null);
+        return matchRequestRepository.findByRoomIdAndMemberIdNot(roomId, memberId, PageRequest.of(0, 1))
+                .stream()
+                .findFirst()
+                .map(MatchRequest::getSituation)
+                .orElse(null);
     }
 
     @Transactional

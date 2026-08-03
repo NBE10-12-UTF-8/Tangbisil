@@ -141,8 +141,10 @@ public interface MatchRequestRepository extends JpaRepository<MatchRequest, UUID
     @Query("""
        SELECT r FROM MatchRequest r
        WHERE r.room.id = :roomId AND r.member.id <> :memberId
+       ORDER BY r.createdAt DESC
        """)
-   Optional<MatchRequest> findByRoomIdAndMemberIdNot(
-           @Param("roomId") UUID roomId,
-           @Param("memberId") UUID memberId);
+    List<MatchRequest> findByRoomIdAndMemberIdNot(
+            @Param("roomId") UUID roomId,
+            @Param("memberId") UUID memberId,
+            Pageable pageable);
 }
