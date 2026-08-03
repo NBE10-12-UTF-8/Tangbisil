@@ -26,11 +26,11 @@ public interface MemberRepository extends JpaRepository<Member, UUID> {
     // 기간별 산업군 가입 통계 - 종료일 다음날 00:00을 배타적 상한으로 써서
     // 시/분/초 단위 오차 없이 종료일 하루 전체를 온전히 포함한다.
     @Query("""
-           SELECT new com.back.domain.dashboard.dashboard.dto.IndustryStatisticsDto(m.industry, COUNT(m))
-           FROM Member m
-           WHERE m.createdAt >= :start AND m.createdAt < :end
-           GROUP BY m.industry
-           """)
+       SELECT new com.back.domain.dashboard.dashboard.dto.IndustryStatisticsDto(m.industry, COUNT(m))
+       FROM Member m
+       WHERE m.createdAt >= :start AND m.createdAt < :end AND m.role != 'ADMIN'
+       GROUP BY m.industry
+       """)
     List<IndustryStatisticsDto> countByIndustryAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end);
