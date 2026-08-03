@@ -40,13 +40,20 @@ public class TrendAggregationEventHandler {
         String content = event.getMessageDto() != null ? event.getMessageDto().getContent() : null;
         List<String> nouns = nounExtractor.extract(content).stream().distinct().toList();
 
+
         LocalDate today = LocalDate.now(KST);
         String keywordKey = "trend:keyword:" + today;
         String messageKey = "trend:messages:" + today;
 
         try {
+            String cooccurKey = "trend:cooccur:" + pairKey(nouns.get(0), nouns.get(1));
             for (String noun : nouns) {
                 redisTemplate.opsForZSet().incrementScore(keywordKey, noun, 1);
+            }
+            for (int i = 0; i < nouns.size(); i++) {      // 신규 — 쌍 카운트
+                for (int j = i + 1; j < nouns.size(); j++) {
+                    redisTemplate.opsForZSet().incrementScore(cooccurKey, pairKey(nouns.get(i), nouns.get(j)), 1);
+                }
             }
             redisTemplate.opsForValue().increment(messageKey);
 
@@ -60,5 +67,10 @@ public class TrendAggregationEventHandler {
             log.error("트렌드 키워드 집계 실패 - keywordKey={}, messageKey={}", keywordKey, messageKey, e);
         }
     }
+
+    private String pairKey(String keywordA, String keywordB) {
+        return keywordA.compareTo(keywordB) <= 0 ? keywordA + "::" + keywordB : keywordB + "::" + keywordA;
+    }
+
 
 }
