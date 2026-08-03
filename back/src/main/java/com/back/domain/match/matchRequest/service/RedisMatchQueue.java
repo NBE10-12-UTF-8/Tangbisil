@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -46,19 +46,16 @@ public class RedisMatchQueue {
         }
     }
 
-    public Optional<UUID> getOldest(Industry industry, Situation situation) {
+    public List<UUID> getOldestTwo(Industry industry, Situation situation) {
         String key = getQueueKey(industry, situation);
         try {
-            Set<String> range = redisTemplate.opsForZSet().range(key, 0, 0);
-
+            Set<String> range = redisTemplate.opsForZSet().range(key, 0, 1);
             if (range == null || range.isEmpty()) {
-                return Optional.empty();
+                return List.of();
             }
-
-            String oldestId = range.iterator().next();
-            return Optional.of(UUID.fromString(oldestId));
+            return range.stream().map(UUID::fromString).toList();
         } catch (Exception e) {
-            log.error("[RedisMatchQueue] 대기열 조회 실패 (ZRANGE) - key: {}", key, e);
+            log.error("[RedisMatchQueue] 대기열 후보 조회 실패 (ZRANGE) - key: {}", key, e);
             throw e;
         }
     }

@@ -251,9 +251,7 @@ public class MatchRequestService {
      */
     private Optional<MatchRequest> findOldestInSituations(Industry industry, java.util.Collection<Situation> situations, UUID excludeId) {
         return situations.stream()
-                .map(s -> redisMatchQueue.getOldest(industry, s))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
+                .flatMap(s -> redisMatchQueue.getOldestTwo(industry, s).stream())
                 .filter(id -> !id.equals(excludeId))
                 .flatMap(id -> matchRequestRepository.findByIdWithMember(id).stream())
                 .filter(mr -> mr.getStatus() == MatchStatus.PENDING)
