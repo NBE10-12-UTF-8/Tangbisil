@@ -57,10 +57,8 @@ public class MatchScheduler {
      */
     @Scheduled(fixedDelay = 10000)
     public void retryOutboxEvents() {
-        List<MatchingOutbox> failedEvents = matchingOutboxRepository.findAll().stream()
-                .filter(o -> o.getStatus() == MatchingOutbox.OutboxStatus.INIT || o.getStatus() == MatchingOutbox.OutboxStatus.FAIL)
-                .filter(o -> o.getRetryCount() < 5)
-                .toList();
+        List<MatchingOutbox> failedEvents = matchingOutboxRepository.findByStatusInAndRetryCountLessThan(
+                List.of(MatchingOutbox.OutboxStatus.INIT, MatchingOutbox.OutboxStatus.FAIL), 5);
 
         for (MatchingOutbox outbox : failedEvents) {
             try {
