@@ -1,7 +1,9 @@
 package com.back.domain.trend.snapshot.scheduler;
 
+import com.back.domain.trend.snapshot.entity.DailyCooccurrenceCount;
 import com.back.domain.trend.snapshot.entity.DailyKeywordCount;
 import com.back.domain.trend.snapshot.entity.DailyMessageCount;
+import com.back.domain.trend.snapshot.repository.DailyCooccurrenceCountRepository;
 import com.back.domain.trend.snapshot.repository.DailyKeywordCountRepository;
 import com.back.domain.trend.snapshot.repository.DailyMessageCountRepository;
 import org.slf4j.Logger;
@@ -28,11 +30,16 @@ public class TrendSnapshotScheduler {
 
     private final DailyKeywordCountRepository dailyKeywordCountRepository;
     private final DailyMessageCountRepository dailyMessageCountRepository;
+    private final DailyCooccurrenceCountRepository dailyCooccurrenceCountRepository;
     private final RedisTemplate<String, String> redisTemplate;
 
-    public TrendSnapshotScheduler(DailyKeywordCountRepository dailyKeywordCountRepository, DailyMessageCountRepository dailyMessageCountRepository, RedisTemplate<String, String> redisTemplate) {
+    public TrendSnapshotScheduler(DailyKeywordCountRepository dailyKeywordCountRepository,
+                                   DailyMessageCountRepository dailyMessageCountRepository,
+                                   DailyCooccurrenceCountRepository dailyCooccurrenceCountRepository,
+                                   RedisTemplate<String, String> redisTemplate) {
         this.dailyKeywordCountRepository = dailyKeywordCountRepository;
         this.dailyMessageCountRepository = dailyMessageCountRepository;
+        this.dailyCooccurrenceCountRepository = dailyCooccurrenceCountRepository;
         this.redisTemplate = redisTemplate;
     }
 
@@ -73,7 +80,27 @@ public class TrendSnapshotScheduler {
                 } else {
                     dailyKeywordCountRepository.save(new DailyKeywordCount(yesterday, keyword, frequency));
                 }
+            }
 
+            Set<ZSetOperations.TypedTuple<String>> cooccurScores =
+                    redisTemplate.opsForZSet().rangeWithScores("trend:cooccur:" + yesterday, 0, -1);
+            if (cooccurScores == null) { cooccurScores = Set.of(); }
+            Map<String, DailyCooccurrenceCount> existingCooccurrences = dailyCooccurrenceCountRepository.findAllByDate(yesterday)
+                    .stream()
+                    .collect(Collectors.toMap(row -> row.getKeywordA() + "::" + row.getKeywordB(), Function.identity()));
+            for (ZSetOperations.TypedTuple<String> tuple : cooccurScores) {
+                String pair = tuple.getValue();
+                long frequency = tuple.getScore().longValue();
+                String[] parts = pair.split("::");
+                if (parts.length < 2) {
+                    continue;
+                }
+                DailyCooccurrenceCount existingCooccurrence = existingCooccurrences.get(pair);
+                if (existingCooccurrence != null) {
+                    existingCooccurrence.updateFrequency(frequency);
+                } else {
+                    dailyCooccurrenceCountRepository.save(new DailyCooccurrenceCount(yesterday, parts[0], parts[1], frequency));
+                }
             }
         } catch (Exception e) {
             // 이 배치가 실패해도 다음 스케줄 실행 자체는 끊기지 않지만(Spring 기본 동작),
