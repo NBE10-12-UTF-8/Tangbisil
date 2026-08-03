@@ -16,8 +16,13 @@ public class DailyCooccurrenceCount {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private LocalDate date;
+
+    @Column(name = "keyword_a")
     private String keywordA;
+
+    @Column(name = "keyword_b")
     private String keywordB;
+
     private long frequency;
 
     public void updateFrequency(long frequency) {
