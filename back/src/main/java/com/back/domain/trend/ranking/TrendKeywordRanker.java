@@ -55,6 +55,6 @@ public class TrendKeywordRanker {
                 .collect(Collectors.toList());
 
         ranked.sort((a, b) -> Double.compare(b.zScore(), a.zScore()));
-        return ranked.subList(0, Math.min(topN, ranked.size()));
+        return ranked.subList(0, Math.max(0, Math.min(topN, ranked.size())));
     }
 }
