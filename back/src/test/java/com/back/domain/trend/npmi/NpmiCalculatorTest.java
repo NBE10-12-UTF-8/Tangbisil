@@ -44,6 +44,16 @@ class NpmiCalculatorTest {
     }
 
     @Test
+    @DisplayName("두 단어가 모든 메시지에 항상 같이 등장했다면(freqXY == totalMessages) NPMI는 정확히 1이다")
+    void alwaysCooccurringWordsProduceOne() {
+        CooccurrenceStatsDto stats = new CooccurrenceStatsDto(1000, 1000, 1000, 1000);
+
+        double npmi = calculator.calculate(stats);
+
+        assertThat(npmi).isEqualTo(1.0);
+    }
+
+    @Test
     @DisplayName("totalMessages가 0 이하이면 NaN/Infinity 대신 0을 반환한다")
     void nonPositiveTotalMessagesReturnsZeroNotNaN() {
         CooccurrenceStatsDto stats = new CooccurrenceStatsDto(10, 10, 5, 0);
