@@ -10,7 +10,7 @@ import java.time.LocalDate;
 @Getter
 @NoArgsConstructor
 @Table(name = "daily_cooccurrence_count",
-        uniqueConstraints = @UniqueConstraint(columnNames ={"date","keywordA","keywordB"}))
+        uniqueConstraints = @UniqueConstraint(columnNames ={"date","keyword_a","keyword_b"}))
 public class DailyCooccurrenceCount {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,5 +19,15 @@ public class DailyCooccurrenceCount {
     private String keywordA;
     private String keywordB;
     private long frequency;
-    private long updateFrequency;
+
+    public void updateFrequency(long frequency) {
+        this.frequency = frequency;
+    }
+
+    public DailyCooccurrenceCount(LocalDate date, String keywordA, String keywordB, long frequency) {
+        this.date = date;
+        this.keywordA = keywordA;
+        this.keywordB = keywordB;
+        this.frequency = frequency;
+    }
 }
