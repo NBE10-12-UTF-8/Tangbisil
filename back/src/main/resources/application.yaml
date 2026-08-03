@@ -3,6 +3,9 @@ server:
 spring:
   application:
     name: back
+  threads:
+    virtual:
+      enabled: true
   profiles:
     active: dev
   data:
