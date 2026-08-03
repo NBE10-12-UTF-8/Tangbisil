@@ -1,10 +1,14 @@
 package com.back.domain.chat.chatRoom.controller;
 
+import com.back.domain.bot.BotAccounts;
 import com.back.domain.chat.chatRoom.entity.ChatRoom;
 import com.back.domain.chat.chatRoom.entity.ChatRoomStatus;
 import com.back.domain.chat.chatRoom.repository.ChatRoomRepository;
 import com.back.domain.chat.chatRoomParticipant.entity.ChatRoomParticipant;
 import com.back.domain.chat.chatRoomParticipant.repository.ChatRoomParticipantRepository;
+import com.back.domain.match.matchRequest.entity.MatchRequest;
+import com.back.domain.match.matchRequest.entity.Situation;
+import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
 import jakarta.servlet.http.Cookie;
@@ -45,6 +49,9 @@ public class ApiV1ChatRoomControllerTest {
 
     @Autowired
     private ChatRoomParticipantRepository chatRoomParticipantRepository;
+
+    @Autowired
+    private MatchRequestRepository matchRequestRepository;
 
     @Test
     @DisplayName("채팅방 정보 조회 성공")
@@ -312,5 +319,107 @@ public class ApiV1ChatRoomControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.resultCode").value("401-1"))
                 .andExpect(jsonPath("$.msg").value("로그인 후 이용해주세요."));
+    }
+
+    @Test
+    @DisplayName("채팅방 조회 시 상대방이 선택한 상황이 노출된다")
+    void t11() throws Exception {
+        // Given
+        Member member = memberService.joinWithoutEmailVerification("oppuser1@test.com", "1234", IT, "USER");
+        Member opponent = memberService.joinWithoutEmailVerification("oppuser2@test.com", "1234", IT, "USER");
+        String accessToken = memberService.genAccessToken(member);
+
+        ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
+        UUID roomId = chatRoom.getId();
+
+        chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
+        chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, opponent, "익명의 동료"));
+
+        MatchRequest myRequest = new MatchRequest(member, Situation.NIGHT_WORK);
+        myRequest.matchWith(chatRoom);
+        matchRequestRepository.save(myRequest);
+
+        MatchRequest opponentRequest = new MatchRequest(opponent, Situation.MEETING_BOMB);
+        opponentRequest.matchWith(chatRoom);
+        matchRequestRepository.save(opponentRequest);
+
+        // When
+        ResultActions resultActions = mvc
+                .perform(
+                        get("/api/v1/rooms/" + roomId)
+                                .cookie(new Cookie("accessToken", accessToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                )
+                .andDo(print());
+
+        // Then - 내가 고른 상황이 아니라 상대방(opponent)이 고른 상황이 내려와야 한다
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.opponentSituation").value("회의 폭탄"));
+    }
+
+    @Test
+    @DisplayName("봇과 매칭된 경우에도 상대방이 선택한 상황이 노출된다")
+    void t12() throws Exception {
+        // Given - matchWithBot()이 실제로 하듯, 봇의 MatchRequest도 요청자와 같은 situation으로 생성
+        Member member = memberService.joinWithoutEmailVerification("oppuser3@test.com", "1234", IT, "USER");
+        Member bot = memberService.findByEmail(BotAccounts.emailFor(IT))
+                .orElseThrow();
+        String accessToken = memberService.genAccessToken(member);
+
+        ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
+        UUID roomId = chatRoom.getId();
+
+        chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
+        chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, bot, "익명의 동료"));
+
+        MatchRequest myRequest = new MatchRequest(member, Situation.BOSS_BLAME);
+        myRequest.matchWith(chatRoom);
+        matchRequestRepository.save(myRequest);
+
+        MatchRequest botRequest = new MatchRequest(bot, Situation.BOSS_BLAME);
+        botRequest.matchWith(chatRoom);
+        matchRequestRepository.save(botRequest);
+
+        // When
+        ResultActions resultActions = mvc
+                .perform(
+                        get("/api/v1/rooms/" + roomId)
+                                .cookie(new Cookie("accessToken", accessToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                )
+                .andDo(print());
+
+        // Then
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.opponentSituation").value("상사 억까"));
+    }
+
+    @Test
+    @DisplayName("상대방 매칭 요청 정보가 없으면 opponentSituation 없이 응답한다")
+    void t13() throws Exception {
+        // Given - MatchRequest 없이 채팅방/참여자만 존재하는 상황(t1과 동일한 셋업)
+        Member member = memberService.joinWithoutEmailVerification("oppuser4@test.com", "1234", IT, "USER");
+        String accessToken = memberService.genAccessToken(member);
+
+        ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
+        UUID roomId = chatRoom.getId();
+
+        chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
+
+        // When
+        ResultActions resultActions = mvc
+                .perform(
+                        get("/api/v1/rooms/" + roomId)
+                                .cookie(new Cookie("accessToken", accessToken))
+                                .contentType(MediaType.APPLICATION_JSON)
+                )
+                .andDo(print());
+
+        // Then - @JsonInclude(NON_NULL)이라 값이 없으면 필드 자체가 응답에서 빠진다
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.opponentSituation").doesNotExist());
     }
 }
