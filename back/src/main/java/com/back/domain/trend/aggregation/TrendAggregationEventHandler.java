@@ -43,15 +43,24 @@ public class TrendAggregationEventHandler {
         LocalDate today = LocalDate.now(KST);
         String keywordKey = "trend:keyword:" + today;
         String messageKey = "trend:messages:" + today;
+        String cooccurKey = "trend:cooccur:" + today;
 
         try {
             for (String noun : nouns) {
                 redisTemplate.opsForZSet().incrementScore(keywordKey, noun, 1);
             }
+            for (int i = 0; i < nouns.size(); i++) {
+                for (int j = i + 1; j < nouns.size(); j++) {
+                    redisTemplate.opsForZSet().incrementScore(cooccurKey, pairKey(nouns.get(i), nouns.get(j)), 1);
+                }
+            }
             redisTemplate.opsForValue().increment(messageKey);
 
             if (!nouns.isEmpty()) {
                 redisTemplate.expire(keywordKey, KEY_TTL);
+            }
+            if (nouns.size() >= 2) {
+                redisTemplate.expire(cooccurKey, KEY_TTL);
             }
             redisTemplate.expire(messageKey, KEY_TTL);
         } catch (Exception e) {
@@ -61,4 +70,7 @@ public class TrendAggregationEventHandler {
         }
     }
 
+    private String pairKey(String keywordA, String keywordB) {
+        return keywordA.compareTo(keywordB) <= 0 ? keywordA + "::" + keywordB : keywordB + "::" + keywordA;
+    }
 }
