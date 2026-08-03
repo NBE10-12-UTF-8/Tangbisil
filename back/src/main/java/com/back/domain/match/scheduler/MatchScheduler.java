@@ -74,11 +74,15 @@ public class MatchScheduler {
                 matchingOutboxRepository.save(outbox);
                 log.info("[MatchScheduler] 아웃박스 재적재 성공 - requestId: {}", outbox.getMatchRequestId());
             } catch (Exception e) {
-                // 실패 시 재시도 횟수 증가 및 FAIL 상태 유지
                 outbox.markFailed();
                 matchingOutboxRepository.save(outbox);
-                log.error("[MatchScheduler] 아웃박스 재적재 실패 - requestId: {}, retryCount: {}",
-                        outbox.getMatchRequestId(), outbox.getRetryCount(), e);
+                if (outbox.getRetryCount() >= 5) {
+                    log.error("[CRITICAL] [MatchScheduler] 아웃박스 적재 실패 횟수 초과(5회). Redis 적재 포기됨 - requestId: {}",
+                            outbox.getMatchRequestId(), e);
+                } else {
+                    log.error("[MatchScheduler] 아웃박스 재적재 실패 - requestId: {}, retryCount: {}",
+                            outbox.getMatchRequestId(), outbox.getRetryCount(), e);
+                }
             }
         }
     }
