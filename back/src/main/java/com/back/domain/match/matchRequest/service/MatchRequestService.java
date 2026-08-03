@@ -209,18 +209,18 @@ public class MatchRequestService {
         if (opponentOpt.isPresent()) {
             MatchRequest opponent = opponentOpt.get();
 
+            // RDB 매칭 성공 처리 및 방 생성 진행
+            connect(currentRequest, opponent);
             // Redis ZSet 대기열에서 나와 상대방을 즉시 원자적으로 선점 제거 (ZREM)
             redisMatchQueue.remove(industry, situation, currentRequest.getId());
             redisMatchQueue.remove(industry, opponent.getSituation(), opponent.getId());
-            // RDB 매칭 성공 처리 및 방 생성 진행
-            connect(currentRequest, opponent);
             return;
         }
         // 봇 매칭 폴백
         if (elapsedSeconds >= BOT_FALLBACK_THRESHOLD_SECONDS) {
+            matchWithBot(currentRequest);
             // ZSet 대기열에서 나 자신을 제거하고 봇 매칭 진행
             redisMatchQueue.remove(industry, situation, currentRequest.getId());
-            matchWithBot(currentRequest);
         }
     }
 
