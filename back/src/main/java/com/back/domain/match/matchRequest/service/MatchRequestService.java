@@ -129,21 +129,35 @@ public class MatchRequestService {
                                     epochMilli
                             );
                             // 적재 성공 시 아웃박스 상태 SUCCESS 마킹
-                            outbox.markSuccess();
-                            matchingOutboxRepository.save(outbox);
+                            // 주의: AFTER_COMMIT 시점엔 활성 트랜잭션이 없어서(원본 트랜잭션은 이미 끝남)
+                            // 일반 save()/saveAndFlush() 호출로는 반영이 보장되지 않는다(TransactionRequiredException).
+                            // processMatch()와 동일하게, 프록시를 거쳐 REQUIRES_NEW 트랜잭션으로 실행해야
+                            // 확실히 커밋된다.
+                            applicationContext.getBean(MatchRequestService.class).markOutboxSuccess(outbox.getId());
 
                             // ZADD 적재 성공 직후, 별도 스케줄러 대기 없이 비동기로 즉시 1차 매칭 시도
                             retryProcessor.retryOne(matchRequest.getId());
                         } catch (Exception e) {
-                            // 적재 실패 시 FAIL 마킹
-                            outbox.markFailed();
-                            matchingOutboxRepository.save(outbox);
+                            // 적재 실패 시 FAIL 마킹 (마찬가지로 REQUIRES_NEW로 확실히 반영)
+                            applicationContext.getBean(MatchRequestService.class).markOutboxFailed(outbox.getId());
                         }
                     }
                 }
         );
 
         return matchRequest;
+    }
+
+    // AFTER_COMMIT 콜백(활성 트랜잭션이 없는 시점)에서 호출되므로, 독립적인 REQUIRES_NEW 트랜잭션으로
+    // 실행해 확실히 커밋되도록 한다. 반드시 프록시(applicationContext.getBean)를 거쳐 호출해야 한다.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markOutboxSuccess(UUID outboxId) {
+        matchingOutboxRepository.findById(outboxId).ifPresent(MatchingOutbox::markSuccess);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markOutboxFailed(UUID outboxId) {
+        matchingOutboxRepository.findById(outboxId).ifPresent(MatchingOutbox::markFailed);
     }
 
     public void tryMatch(UUID matchRequestId) {
