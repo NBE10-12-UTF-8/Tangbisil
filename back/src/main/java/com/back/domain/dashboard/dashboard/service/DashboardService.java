@@ -70,6 +70,9 @@ public class DashboardService {
     // 기간별 산업군 가입 통계 - startDate 00:00부터 endDate 다음날 00:00 직전까지
     // (endDate 하루 전체를 포함하도록 배타적 상한을 하루 뒤로 잡음)
     public IndustrySignupStatisticsResponseDto getIndustrySignupStatistics(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null) {
+            throw new ServiceException("400-1", "시작일과 종료일은 필수 입력값입니다.");
+        }
         if (startDate.isAfter(endDate)) {
             throw new ServiceException("400-1", "시작일은 종료일보다 늦을 수 없습니다.");
         }

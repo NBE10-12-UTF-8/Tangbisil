@@ -223,6 +223,9 @@ public class ApiV1DashboardControllerTest {
         Member outOfRange = memberService.joinWithoutEmailVerification("signup4@test.com", "1234", IT, "USER");
         backdateCreatedAt(outOfRange, LocalDateTime.of(2020, 2, 1, 0, 0));
 
+        createdMembers.addAll(List.of(it1, it2, office1, outOfRange));
+
+
         String adminToken = loginAndGetToken("admin@test.com");
 
         // When
@@ -267,7 +270,7 @@ public class ApiV1DashboardControllerTest {
     @Test
     @DisplayName("기간별 산업군 가입 통계 조회 - 일반 유저는 접근 불가")
     void t6() throws Exception {
-        memberService.joinWithoutEmailVerification("normaluser2@test.com", "1234", IT, "USER");
+        createdMembers.add(memberService.joinWithoutEmailVerification("normaluser2@test.com", "1234", IT, "USER"));
         String userToken = loginAndGetToken("normaluser2@test.com");
 
         mvc.perform(get("/api/v1/admin/dashboard/industry-signups")
