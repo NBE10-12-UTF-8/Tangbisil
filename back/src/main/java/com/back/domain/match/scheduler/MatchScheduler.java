@@ -5,6 +5,9 @@ import com.back.domain.match.matchRequest.entity.Situation;
 import com.back.domain.match.matchRequest.repository.MatchingOutboxRepository;
 import com.back.domain.match.matchRequest.service.MatchRequestService;
 import com.back.domain.match.matchRequest.service.RedisMatchQueue;
+import com.back.domain.match.matchRequest.entity.MatchRequest;
+import com.back.domain.match.matchRequest.entity.MatchStatus;
+import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
 import com.back.domain.member.member.entity.Industry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +27,7 @@ public class MatchScheduler {
     private final MatchRequestService matchRequestService;
     private final RedisMatchQueue redisMatchQueue;
     private final MatchingOutboxRepository matchingOutboxRepository;
+    private final MatchRequestRepository matchRequestRepository;
 
     /**
      * 10초마다 매칭 재시도를 수행합니다.
@@ -70,6 +74,14 @@ public class MatchScheduler {
 
         for (MatchingOutbox outbox : failedEvents) {
             try {
+                MatchRequest matchRequest = matchRequestRepository.findById(outbox.getMatchRequestId()).orElse(null);
+                if (matchRequest == null || matchRequest.getStatus() != MatchStatus.PENDING) {
+                    outbox.markSuccess();
+                    matchingOutboxRepository.save(outbox);
+                    log.info("[MatchScheduler] 취소 또는 이미 처리 완료된 요청의 아웃박스 이벤트 종결 처리 - requestId: {}", outbox.getMatchRequestId());
+                    continue;
+                }
+
                 // 원본 가중치(Score)를 그대로 사용하여 ZSet에 다시 적재 시도
                 redisMatchQueue.add(
                         outbox.getIndustry(),
