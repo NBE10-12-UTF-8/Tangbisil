@@ -508,4 +508,98 @@ public class ApiV1AdmMemberControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.resultCode").value("403-1"));
     }
+
+    @Test
+    @DisplayName("관리자용 회원 목록 isSuspended=true 필터링 조회 성공")
+    void t11() throws Exception {
+        // Given - 관리자 로그인
+        String loginResponse = mvc.perform(
+                        post("/api/v1/members/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                         "email": "admin@test.com",
+                                         "password": "1234"
+                                    }
+                                    """)
+                )
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(loginResponse)
+                .path("data")
+                .path("accessToken")
+                .asText();
+
+        // Given - 정지 상태인 검증용 회원 생성
+        Member suspended = memberService.joinWithoutEmailVerification("suspended_t11@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+        suspended.toggleSuspended();
+        memberRepository.saveAndFlush(suspended);
+
+        // When - isSuspended=true 필터 얹어서 목록 조회 요청
+        ResultActions resultActions = mvc
+                .perform(
+                        get("/api/v1/admin/members")
+                                .param("isSuspended", "true")
+                                .header("Authorization", "Bearer " + accessToken)
+                )
+                .andDo(print());
+
+        // Then - 오직 정지된 회원만 내려오는지 검증 (공허한 참 방지를 위해 isNotEmpty도 같이 검증)
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.msg").value("회원 다건 조회 성공"))
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[*].isSuspended", org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is(true))));
+    }
+
+    @Test
+    @DisplayName("관리자용 회원 목록 isSuspended=false 필터링 조회 성공")
+    void t12() throws Exception {
+        // Given - 관리자 로그인
+        String loginResponse = mvc.perform(
+                        post("/api/v1/members/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                         "email": "admin@test.com",
+                                         "password": "1234"
+                                    }
+                                    """)
+                )
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(loginResponse)
+                .path("data")
+                .path("accessToken")
+                .asText();
+
+        // Given - 정상(비정지) 상태인 검증용 회원 생성
+        memberService.joinWithoutEmailVerification("active_t12@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
+
+        // When - isSuspended=false 필터 얹어서 목록 조회 요청
+        ResultActions resultActions = mvc
+                .perform(
+                        get("/api/v1/admin/members")
+                                .param("isSuspended", "false")
+                                .header("Authorization", "Bearer " + accessToken)
+                )
+                .andDo(print());
+
+        // Then - 오직 비정지 회원만 내려오는지 검증 (공허한 참 방지를 위해 isNotEmpty도 같이 검증)
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.msg").value("회원 다건 조회 성공"))
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content").isNotEmpty())
+                .andExpect(jsonPath("$.data.content[*].isSuspended", org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is(false))));
+    }
 }
