@@ -178,7 +178,9 @@ public class MatchRequestService {
                     // 항상 "커밋 이후"에만 일어남을 보장한다.
                     applicationContext.getBean(MatchRequestService.class).processMatch(matchRequestId, industry);
                 } finally {
-                    lock.unlock(); // 락 반납 (커밋 완료 이후에만 실행됨이 보장됨)
+                    if (lock.isHeldByCurrentThread()) {
+                        lock.unlock();
+                    }
                 }
             }
         } catch (InterruptedException e) {
@@ -254,6 +256,7 @@ public class MatchRequestService {
                 .map(Optional::get)
                 .filter(id -> !id.equals(excludeId))
                 .flatMap(id -> matchRequestRepository.findByIdWithMember(id).stream())
+                .filter(mr -> mr.getStatus() == MatchStatus.PENDING)
                 .min(Comparator.comparing(MatchRequest::getRequestedAt));
     }
 
