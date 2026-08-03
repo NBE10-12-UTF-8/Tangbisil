@@ -5,6 +5,7 @@ import com.back.domain.chat.chatRoomParticipant.repository.ChatRoomParticipantRe
 import com.back.domain.match.matchRequest.entity.MatchRequest;
 import com.back.domain.match.matchRequest.entity.Situation;
 import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
+import com.back.domain.match.matchRequest.service.RedisMatchQueue;
 import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
@@ -18,8 +19,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -41,6 +44,8 @@ class MatchRequestConcurrencyTest {
     @Autowired
     private MatchRequestService matchRequestService;
     @Autowired
+    private RedisMatchQueue redisMatchQueue;
+    @Autowired
     private MatchRequestRepository matchRequestRepository;
     @Autowired
     private ChatRoomParticipantRepository chatRoomParticipantRepository;
@@ -48,9 +53,15 @@ class MatchRequestConcurrencyTest {
     private ChatRoomRepository chatRoomRepository;
 
     private final List<Member> createdMembers = new ArrayList<>();
+    // createPendingRequest()로 Redis ZSet에 직접 시딩한 항목들 - 매칭 성공 시 이미 ZREM됐을 수도 있어서
+    // 테스트 종료 시점에 남아있는 것만 정리한다 (이미 없는 멤버 제거는 no-op).
+    private record QueueEntry(Industry industry, Situation situation, UUID id) {}
+    private final List<QueueEntry> queuedEntries = new ArrayList<>();
 
     @AfterEach
     void cleanUp() {
+        queuedEntries.forEach(e -> redisMatchQueue.remove(e.industry(), e.situation(), e.id()));
+        queuedEntries.clear();
         matchRequestRepository.deleteAll();
         chatRoomParticipantRepository.deleteAll();
         chatRoomRepository.deleteAll();
@@ -61,10 +72,18 @@ class MatchRequestConcurrencyTest {
     // 팀의 3단계 매칭 알고리즘(Tier0/1/2가 elapsed 시간에 따라 후보 범위를 넓힘)을 고려해서,
     // 이미 산업군 전체 매칭(Tier2, 30초 이상)이 적용되는 시점으로 미리 만들어둔다.
     // 그래야 상황(situation)이 서로 달라도 후보로 잡혀서 실제 매칭 시도가 일어난다.
+    // 매칭 후보 조회는 이제 Redis ZSet만 보므로, DB 저장과 함께 ZADD도 직접 해준다.
     private MatchRequest createPendingRequest(Member member, Situation situation, long secondsAgo) {
         MatchRequest matchRequest = matchRequestRepository.save(new MatchRequest(member, situation));
-        ReflectionTestUtils.setField(matchRequest, "requestedAt", LocalDateTime.now().minusSeconds(secondsAgo));
-        return matchRequestRepository.saveAndFlush(matchRequest);
+        LocalDateTime requestedAt = LocalDateTime.now().minusSeconds(secondsAgo);
+        ReflectionTestUtils.setField(matchRequest, "requestedAt", requestedAt);
+        MatchRequest saved = matchRequestRepository.saveAndFlush(matchRequest);
+
+        long epochMilli = requestedAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        redisMatchQueue.add(member.getIndustry(), situation, saved.getId(), epochMilli);
+        queuedEntries.add(new QueueEntry(member.getIndustry(), situation, saved.getId()));
+
+        return saved;
     }
 
     @Test

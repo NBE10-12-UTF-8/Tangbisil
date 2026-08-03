@@ -59,8 +59,10 @@ public class MatchRequestService {
 
     private void connect(MatchRequest matchRequest, MatchRequest other) {
         ChatRoom chatRoom = chatRoomService.createChatRoom(List.of(matchRequest.getMember(), other.getMember()));
-        matchRequestRepository.assignRoom(matchRequest.getId(), chatRoom.getId());
-        matchRequestRepository.assignRoom(other.getId(), chatRoom.getId());
+        // matchRequest/other는 이 트랜잭션에서 로딩된 영속 상태이므로,
+        // matchWith()로 필드를 바꾸면 커밋 시점에 더티 체킹으로 room/status가 함께 반영된다.
+        // (예전엔 assignRoom 네이티브 UPDATE로 room만 먼저 반영했는데, 그 벌크 쿼리가
+        // 영속성 컨텍스트를 비워버려서 뒤이은 matchWith()의 status 변경이 유실되는 버그가 있었다.)
         matchRequest.matchWith(chatRoom);
         other.matchWith(chatRoom);
         triggerBotReplyIfNeeded(matchRequest.getMember(), other.getMember(), chatRoom.getId());
