@@ -287,6 +287,7 @@ export type ChatRoom = {
   createdAt: string;
   closedAt?: string;
   isBot: boolean;
+  opponentSituation?: string;
 };
 
 export const apiGetRoom = (roomId: string) =>
