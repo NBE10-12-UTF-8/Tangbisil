@@ -4,6 +4,8 @@ import com.back.domain.chat.chatRoom.dto.ChatRoomDto;
 import com.back.domain.chat.chatRoom.entity.ChatRoom;
 import com.back.domain.chat.chatRoom.service.ChatRoomService;
 import com.back.domain.chat.chatRoomParticipant.service.ChatRoomParticipantService;
+import com.back.domain.match.matchRequest.entity.Situation;
+import com.back.domain.match.matchRequest.service.MatchRequestService;
 import com.back.domain.member.member.entity.Member;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
@@ -25,6 +27,7 @@ public class ApiV1ChatRoomController {
 
     private final ChatRoomService chatRoomService;
     private final ChatRoomParticipantService chatRoomParticipantService;
+    private final MatchRequestService matchRequestService;
     private final Rq rq;
 
     @GetMapping("/{roomId}")
@@ -39,11 +42,12 @@ public class ApiV1ChatRoomController {
 
         chatRoomParticipantService.validateAccess(roomId, actor);
         boolean isBot = chatRoomService.hasBotParticipant(roomId);
+        Situation opponentSituation = matchRequestService.findOpponentSituation(roomId, actor.getId());
 
         return new RsData<>(
                 "200-1",
                 "채팅방 정보 조회 성공",
-                new ChatRoomDto(chatRoom, isBot)
+                new ChatRoomDto(chatRoom, isBot, opponentSituation)
         );
     }
 
@@ -57,11 +61,12 @@ public class ApiV1ChatRoomController {
 
         ChatRoom chatRoom = chatRoomService.closeChatRoom(roomId, actor);
         boolean isBot = chatRoomService.hasBotParticipant(roomId);
+        Situation opponentSituation = matchRequestService.findOpponentSituation(roomId, actor.getId());
 
         return new RsData<>(
                 "200-1",
                 "채팅방 상태 수정 성공 (채팅방 종료)",
-                new ChatRoomDto(chatRoom, isBot)
+                new ChatRoomDto(chatRoom, isBot, opponentSituation)
         );
     }
 
@@ -77,7 +82,9 @@ public class ApiV1ChatRoomController {
                 .map(chatRoom -> new RsData<>(
                         "200-1",
                         "현재 활성화된 채팅방 조회 성공",
-                        new ChatRoomDto(chatRoom, chatRoomService.hasBotParticipant(chatRoom.getId()))
+                        new ChatRoomDto(chatRoom, chatRoomService.hasBotParticipant(chatRoom.getId()),
+                        matchRequestService.findOpponentSituation(chatRoom.getId(), actor.getId())
+                        )
                 ))
                 .orElseGet(() -> new RsData<>(
                         "200-2",

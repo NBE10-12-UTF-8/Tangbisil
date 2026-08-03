@@ -134,4 +134,15 @@ public interface MatchRequestRepository extends JpaRepository<MatchRequest, UUID
        GROUP BY r.industry
        """)
     List<IndustryStatisticsDto> countMatchedRoomsByIndustry(@Param("status") MatchStatus status);
+
+    // 매칭 상대의 MatchRequest 조회 - 같은 방(room)에서 나를 제외한 상대방의
+    // situation을 노출하기 위한 용도 (봇 상대여도 matchWithBot에서 MatchRequest를
+    // 만들어두므로 항상 존재함)
+    @Query("""
+       SELECT r FROM MatchRequest r
+       WHERE r.room.id = :roomId AND r.member.id <> :memberId
+       """)
+   Optional<MatchRequest> findByRoomIdAndMemberIdNot(
+           @Param("roomId") UUID roomId,
+           @Param("memberId") UUID memberId);
 }

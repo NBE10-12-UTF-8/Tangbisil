@@ -251,6 +251,13 @@ public class MatchRequestService {
         return matchRequestRepository.existsByMemberAndStatus(member, MatchStatus.PENDING);
     }
 
+    // 채팅방 입장 시 상대방이 선택한 상황을 노출하기 위한 조회
+    public Situation findOpponentSituation(UUID roomId, UUID memberId) {
+                return matchRequestRepository.findByRoomIdAndMemberIdNot(roomId, memberId)
+                                .map(MatchRequest::getSituation)
+                                .orElse(null);
+    }
+
     @Transactional
     public void deleteAllByMember(Member member) {
         matchRequestRepository.deleteByMember(member);
