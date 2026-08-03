@@ -44,11 +44,13 @@ public class TrendKeywordRanker {
                 .stream()
                 .collect(Collectors.toMap(DailyKeywordCount::getKeyword, DailyKeywordCount::getFrequency));
 
+        long currentTotalMessages = messageCount.get().getTotalMessages();
+
         List<RankedKeywordDto> ranked = dailyKeywordCountRepository.findAllByDate(targetDate).stream()
                 .map(dkc -> {
                     long baselineFrequency = baselineFrequencies.getOrDefault(dkc.getKeyword(), 0L);
                     WordFrequencyStatsDto baseline = new WordFrequencyStatsDto(baselineFrequency, baselineTotalMessages);
-                    WordFrequencyStatsDto current = new WordFrequencyStatsDto(dkc.getFrequency(), messageCount.get().getTotalMessages());
+                    WordFrequencyStatsDto current = new WordFrequencyStatsDto(dkc.getFrequency(), currentTotalMessages);
                     double zScore = trendZScoreCalculator.calculate(baseline, current);
                     return new RankedKeywordDto(dkc.getKeyword(), dkc.getFrequency(), zScore);
                 })
