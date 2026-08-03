@@ -58,6 +58,8 @@ public class TrendAggregationEventHandler {
 
             if (!nouns.isEmpty()) {
                 redisTemplate.expire(keywordKey, KEY_TTL);
+            }
+            if (nouns.size() >= 2) {
                 redisTemplate.expire(cooccurKey, KEY_TTL);
             }
             redisTemplate.expire(messageKey, KEY_TTL);
