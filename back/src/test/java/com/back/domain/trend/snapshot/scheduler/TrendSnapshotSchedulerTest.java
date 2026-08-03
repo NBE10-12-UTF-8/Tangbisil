@@ -165,4 +165,21 @@ class TrendSnapshotSchedulerTest {
         assertThat(dailyCooccurrenceCountRepository.findByDateAndKeywordAAndKeywordB(YESTERDAY, "장마", "우산"))
                 .hasValueSatisfying(row -> assertThat(row.getFrequency()).isEqualTo(5));
     }
+
+    @Test
+    @DisplayName("동시출현 ZSET에 구분자(::)가 없는 잘못된 형식의 멤버가 섞여 있어도, 그 건만 건너뛰고 나머지는 정상 처리되며 스케줄러 전체가 중단되지 않는다")
+    void t9() {
+        redisTemplate.opsForZSet().add(COOCCUR_KEY, "장마::우산", 3);
+        redisTemplate.opsForZSet().add(COOCCUR_KEY, "형식이잘못된멤버", 1); // 구분자 없음
+        redisTemplate.opsForValue().set(MESSAGE_KEY, "10");
+
+        trendSnapshotScheduler.snapshotYesterday();
+
+        // rangeWithScores는 score 오름차순이라 점수가 낮은 "형식이잘못된멤버"(1점)가 "장마::우산"(3점)보다 먼저 순회된다.
+        // continue 방어가 없다면 첫 번째(잘못된 멤버) 처리에서 예외가 나서 그 뒤 "장마::우산"까지 통째로 저장되지 않는다 —
+        // 그래서 이 값이 정상 저장돼 있다는 건 잘못된 멤버 하나만 건너뛰고 나머지는 계속 처리됐다는 증거가 된다.
+        assertThat(dailyCooccurrenceCountRepository.findAll()).hasSize(1);
+        assertThat(dailyCooccurrenceCountRepository.findByDateAndKeywordAAndKeywordB(YESTERDAY, "장마", "우산"))
+                .hasValueSatisfying(row -> assertThat(row.getFrequency()).isEqualTo(3));
+    }
 }
