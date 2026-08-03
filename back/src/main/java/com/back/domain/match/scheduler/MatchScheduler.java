@@ -8,6 +8,7 @@ import com.back.domain.match.matchRequest.service.RedisMatchQueue;
 import com.back.domain.member.member.entity.Industry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.back.global.exception.ServiceException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -43,6 +44,13 @@ public class MatchScheduler {
                     for (String idStr : allIds) {
                         try {
                             matchRequestService.tryMatch(UUID.fromString(idStr));
+                        } catch (ServiceException e) {
+                            if ("404-1".equals(e.getRsData().resultCode())) {
+                                redisMatchQueue.remove(industry, situation, UUID.fromString(idStr));
+                                log.info("[MatchScheduler] DB에 존재하지 않는 대기 요청 자동 정리 완료 - id: {}", idStr);
+                            } else {
+                                log.error("[MatchScheduler] 재매칭 처리 중 오류 발생 - matchRequestId: {}", idStr, e);
+                            }
                         } catch (Exception e) {
                             log.error("[MatchScheduler] 재매칭 처리 중 오류 발생 - matchRequestId: {}", idStr, e);
                         }
