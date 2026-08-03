@@ -2,19 +2,18 @@ package com.back.domain.dashboard.dashboard.service;
 
 import com.back.domain.chat.chatRoom.entity.ChatRoomStatus;
 import com.back.domain.chat.chatRoom.repository.ChatRoomRepository;
-import com.back.domain.dashboard.dashboard.dto.DashboardResponseDto;
-import com.back.domain.dashboard.dashboard.dto.IndustryStatisticsDto;
-import com.back.domain.dashboard.dashboard.dto.MatchStatisticsDto;
-import com.back.domain.dashboard.dashboard.dto.RecentMatchLogDto;
+import com.back.domain.dashboard.dashboard.dto.*;
 import com.back.domain.match.matchRequest.entity.MatchStatus;
 import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
 import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -66,5 +65,21 @@ public class DashboardService {
                 .limit(RECENT_MATCH_LOG_SIZE)
                 .map(r -> new RecentMatchLogDto(r.getModifiedAt(), r.getIndustry(), r.getSituation()))
                 .toList();
+    }
+
+    // 기간별 산업군 가입 통계 - startDate 00:00부터 endDate 다음날 00:00 직전까지
+    // (endDate 하루 전체를 포함하도록 배타적 상한을 하루 뒤로 잡음)
+    public IndustrySignupStatisticsResponseDto getIndustrySignupStatistics(LocalDate startDate, LocalDate endDate) {
+        if (startDate.isAfter(endDate)) {
+            throw new ServiceException("400-1", "시작일은 종료일보다 늦을 수 없습니다.");
+        }
+
+        LocalDateTime start = startDate.atStartOfDay();
+        LocalDateTime end = endDate.plusDays(1).atStartOfDay();
+
+        List<IndustryStatisticsDto> industryStatistics =
+                memberRepository.countByIndustryAndCreatedAtBetween(start, end);
+
+        return new IndustrySignupStatisticsResponseDto(startDate, endDate, industryStatistics);
     }
 }
