@@ -18,9 +18,11 @@ import com.back.global.exception.ServiceException;
 import com.back.domain.match.matchRequest.event.MatchSuccessEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -47,6 +49,7 @@ public class MatchRequestService {
     private final RedisMatchQueue redisMatchQueue;
     private final MatchingOutboxRepository matchingOutboxRepository;
     private final RedissonClient redissonClient;
+    private final ApplicationContext applicationContext;
 
     private static final long TIER1_THRESHOLD_SECONDS = 15; // 15초 후 유사 상황 매칭
     private static final long TIER2_THRESHOLD_SECONDS = 30; // 30초 후 산업군 전체 매칭
@@ -126,6 +129,9 @@ public class MatchRequestService {
                             // 적재 성공 시 아웃박스 상태 SUCCESS 마킹
                             outbox.markSuccess();
                             matchingOutboxRepository.save(outbox);
+
+                            // ZADD 적재 성공 직후, 별도 스케줄러 대기 없이 비동기로 즉시 1차 매칭 시도
+                            retryProcessor.retryOne(matchRequest.getId());
                         } catch (Exception e) {
                             // 적재 실패 시 FAIL 마킹
                             outbox.markFailed();
@@ -138,7 +144,6 @@ public class MatchRequestService {
         return matchRequest;
     }
 
-    @Transactional
     public void tryMatch(UUID matchRequestId) {
         MatchRequest matchRequest = matchRequestRepository.findByIdWithMember(matchRequestId)
                 .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
@@ -146,39 +151,18 @@ public class MatchRequestService {
             return; // 이미 매칭되었거나 취소된 유저면 조용히 탈출 (Early Exit)
         }
         Industry industry = matchRequest.getMember().getIndustry();
-        Situation situation = matchRequest.getSituation();
         String lockKey = "match:lock:" + industry.name();
         RLock lock = redissonClient.getLock(lockKey);
         try {
             // 락 획득 시도 (대기 최대 5초, 락 소유 최대 10초)
             if (lock.tryLock(5, 10, TimeUnit.SECONDS)) {
                 try {
-                    // [중요] 락에 들어온 순간, DB의 최신 상태를 단건 인덱스로 초고속 검증합니다.
-                    MatchRequest currentRequest = matchRequestRepository.findByIdWithMember(matchRequestId)
-                            .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
-                    if (currentRequest.getStatus() != MatchStatus.PENDING) {
-                        return; // 대기 도중 취소되었거나 이미 다른 사람과 매칭이 끝난 상태면 스킵 (Early Exit)
-                    }
-                    long elapsedSeconds = Duration.between(currentRequest.getRequestedAt(), LocalDateTime.now()).getSeconds();
-                    Optional<MatchRequest> opponentOpt = findOpponent(currentRequest, elapsedSeconds);
-                    if (opponentOpt.isPresent()) {
-                        MatchRequest opponent = opponentOpt.get();
-
-                        // Redis ZSet 대기열에서 나와 상대방을 즉시 원자적으로 선점 제거 (ZREM)
-                        redisMatchQueue.remove(industry, situation, currentRequest.getId());
-                        redisMatchQueue.remove(industry, opponent.getSituation(), opponent.getId());
-                        // RDB 매칭 성공 처리 및 방 생성 진행
-                        connect(currentRequest, opponent);
-                        return;
-                    }
-                    // 봇 매칭 폴백
-                    if (elapsedSeconds >= BOT_FALLBACK_THRESHOLD_SECONDS) {
-                        // ZSet 대기열에서 나 자신을 제거하고 봇 매칭 진행
-                        redisMatchQueue.remove(industry, situation, currentRequest.getId());
-                        matchWithBot(currentRequest);
-                    }
+                    // 프록시를 거쳐 REQUIRES_NEW 트랜잭션으로 실행 - 이 호출이 반환된 시점에는
+                    // DB 반영이 이미 100% 커밋 완료된 상태이므로, 그 뒤에 오는 unlock()이
+                    // 항상 "커밋 이후"에만 일어남을 보장한다.
+                    applicationContext.getBean(MatchRequestService.class).processMatch(matchRequestId, industry);
                 } finally {
-                    lock.unlock(); // 락 반납
+                    lock.unlock(); // 락 반납 (커밋 완료 이후에만 실행됨이 보장됨)
                 }
             }
         } catch (InterruptedException e) {
@@ -187,39 +171,72 @@ public class MatchRequestService {
         }
     }
 
-    @Transactional
     public void tryMatch(MatchRequest matchRequestParam) {
         tryMatch(matchRequestParam.getId());
+    }
+
+    // 분산 락을 쥔 상태에서만 호출되는 실제 매칭 처리 트랜잭션.
+    // REQUIRES_NEW로 독립 커밋시켜, tryMatch()의 락 해제가 이 메서드의 커밋 이후에만 일어나도록 강제한다.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void processMatch(UUID matchRequestId, Industry industry) {
+        // [중요] 락에 들어온 순간, DB의 최신 상태를 단건 인덱스로 초고속 검증합니다.
+        MatchRequest currentRequest = matchRequestRepository.findByIdWithMember(matchRequestId)
+                .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
+        if (currentRequest.getStatus() != MatchStatus.PENDING) {
+            return; // 대기 도중 취소되었거나 이미 다른 사람과 매칭이 끝난 상태면 스킵 (Early Exit)
+        }
+        Situation situation = currentRequest.getSituation();
+        long elapsedSeconds = Duration.between(currentRequest.getRequestedAt(), LocalDateTime.now()).getSeconds();
+        Optional<MatchRequest> opponentOpt = findOpponent(currentRequest, elapsedSeconds);
+        if (opponentOpt.isPresent()) {
+            MatchRequest opponent = opponentOpt.get();
+
+            // Redis ZSet 대기열에서 나와 상대방을 즉시 원자적으로 선점 제거 (ZREM)
+            redisMatchQueue.remove(industry, situation, currentRequest.getId());
+            redisMatchQueue.remove(industry, opponent.getSituation(), opponent.getId());
+            // RDB 매칭 성공 처리 및 방 생성 진행
+            connect(currentRequest, opponent);
+            return;
+        }
+        // 봇 매칭 폴백
+        if (elapsedSeconds >= BOT_FALLBACK_THRESHOLD_SECONDS) {
+            // ZSet 대기열에서 나 자신을 제거하고 봇 매칭 진행
+            redisMatchQueue.remove(industry, situation, currentRequest.getId());
+            matchWithBot(currentRequest);
+        }
     }
 
     // 상황 조건(Tier 1~3)에 맞는 대기열들을 찾아 가장 대기 시간이 오래된 상대를 탐색합니다.
     private Optional<MatchRequest> findOpponent(MatchRequest request, long elapsedSeconds) {
         Industry industry = request.getMember().getIndustry();
         Situation situation = request.getSituation();
+        UUID excludeId = request.getId();
         // Tier 1: 동일 상황 ZSet에서 가장 오래 기다린 사람
         if (elapsedSeconds < TIER1_THRESHOLD_SECONDS) {
-            return findOldestInSituations(industry, List.of(situation));
+            return findOldestInSituations(industry, List.of(situation), excludeId);
         }
 
         // Tier 2: 유사 상황 ZSet 그룹들에서 가장 오래 기다린 사람
         if (elapsedSeconds < TIER2_THRESHOLD_SECONDS) {
             Set<Situation> similarGroup = SituationSimilarity.getSimilarGroup(situation);
-            return findOldestInSituations(industry, similarGroup);
+            return findOldestInSituations(industry, similarGroup, excludeId);
         }
 
         // Tier 3: 업종 내 모든 상황 ZSet 중에서 가장 오래 기다린 사람
-        return findOldestInSituations(industry, Arrays.asList(Situation.values()));
+        return findOldestInSituations(industry, Arrays.asList(Situation.values()), excludeId);
     }
 
     /**
      * 지정된 여러 상황(Situations)의 Redis ZSet 키들을 전수 검사하여,
      * 각 대기열 1등들 중 가중치(Score)가 가장 오래된 사용자 1명을 최종 선출합니다.
+     * 본인(excludeId)은 후보에서 제외하여 셀프 매칭을 방지합니다.
      */
-    private Optional<MatchRequest> findOldestInSituations(Industry industry, java.util.Collection<Situation> situations) {
+    private Optional<MatchRequest> findOldestInSituations(Industry industry, java.util.Collection<Situation> situations, UUID excludeId) {
         return situations.stream()
                 .map(s -> redisMatchQueue.getOldest(industry, s))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
+                .filter(id -> !id.equals(excludeId))
                 .flatMap(id -> matchRequestRepository.findByIdWithMember(id).stream())
                 .min(Comparator.comparing(MatchRequest::getRequestedAt));
     }
