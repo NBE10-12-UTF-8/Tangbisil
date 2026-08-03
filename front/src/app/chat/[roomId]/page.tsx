@@ -67,6 +67,7 @@ export default function ChatPage() {
   const [userIndustry, setUserIndustry] = useState('');
   const [partnerLeft, setPartnerLeft]   = useState(false);
   const [chatExpired, setChatExpired]   = useState(false);
+  const [roomError, setRoomError]       = useState<'NOT_FOUND' | 'FORBIDDEN' | 'ALREADY_CLOSED' | null>(null);
   const [totalActiveUsers, setTotalActiveUsers] = useState(0);
   const [isBot, setIsBot]               = useState(false);
 
@@ -160,7 +161,7 @@ export default function ChatPage() {
     apiGetRoom(roomId)
       .then(room => {
         setIsBot(room.isBot);
-        if (room.status === 'CLOSED') { endChat(); return; }
+        if (room.status === 'CLOSED') { stopTimers(); setRoomError('ALREADY_CLOSED'); return; }
         const endTime = new Date(room.createdAt).getTime() + 10 * 60 * 1000;
         const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
         if (remaining <= 0) { setChatExpired(true); stopTimers(); return; }
@@ -171,7 +172,12 @@ export default function ChatPage() {
           if (left <= 0) { setChatExpired(true); stopTimers(); }
         }, 1000);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        const status = (err as { status?: number })?.status;
+        if (status === 404) { stopTimers(); setRoomError('NOT_FOUND'); return; }
+        if (status === 403) { stopTimers(); setRoomError('FORBIDDEN'); return; }
+        // 방 조회 자체가 네트워크 문제 등으로 실패한 경우(상태를 알 수 없음)엔
+        // 기존처럼 채팅을 계속 쓸 수 있다고 보고 클라이언트 타이머로 대체한다.
         setChatTimeLeft(600);
         chatTimerRef.current = setInterval(() => {
           setChatTimeLeft(prev => {
@@ -226,6 +232,30 @@ export default function ChatPage() {
     hintRow: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 4, padding: '9px 18px' } as const,
     hintText: { fontSize: 11, color: '#bdc1c6' } as const,
   };
+
+  if (roomError) {
+    const info = {
+      ALREADY_CLOSED: { icon: '👋', title: '종료된 채팅방입니다', desc: '이미 끝난 대화예요. 새로운 상황으로 다시 매칭해보세요.' },
+      NOT_FOUND: { icon: '❓', title: '존재하지 않는 채팅방입니다', desc: '링크가 잘못됐거나 삭제된 채팅방일 수 있어요.' },
+      FORBIDDEN: { icon: '🔒', title: '접근할 수 없는 채팅방입니다', desc: '이 채팅방에 참여했던 계정으로 로그인해주세요.' },
+    }[roomError];
+    return (
+      <AppShell>
+        <div style={{ marginBottom: 18 }}><TangbisilLogo size={52} /></div>
+        <div style={{ ...s.card, padding: '40px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: 32, marginBottom: 14 }}>{info.icon}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#202124', marginBottom: 6 }}>{info.title}</div>
+          <div style={{ fontSize: 13, color: '#9aa0a6', marginBottom: 22 }}>{info.desc}</div>
+          <button
+            onClick={() => router.push('/')}
+            style={{ padding: '10px 24px', background: '#3b7ff2', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+          >
+            홈으로 가기
+          </button>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
