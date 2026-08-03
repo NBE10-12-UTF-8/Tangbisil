@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   apiGetRoom, apiCloseRoom, apiSendMessage, apiGetMessages, apiGetMe, apiSubmitReport,
-  apiGetHomeStats, isLoggedIn, INDUSTRY_NAMES, type ChatMsg,
+  apiGetHomeStats, isLoggedIn, INDUSTRY_NAMES, subscribeRoom, type ChatMsg,
 } from '@/lib/api';
 import { AppShell } from '@/components/AppShell';
 import { TangbisilLogo } from '@/components/TangbisilLogo';
@@ -78,7 +78,6 @@ export default function ChatPage() {
   const [reportDone, setReportDone]               = useState(false);
 
   const chatTimerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const msgPollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
   const seenMsgIds     = useRef<Set<string>>(new Set());
   const lastMsgTimeRef = useRef<string | null>(null);
   const inputRef       = useRef<HTMLInputElement>(null);
@@ -88,7 +87,6 @@ export default function ChatPage() {
 
   const stopTimers = useCallback(() => {
     if (chatTimerRef.current) { clearInterval(chatTimerRef.current); chatTimerRef.current = null; }
-    if (msgPollRef.current)   { clearInterval(msgPollRef.current);   msgPollRef.current   = null; }
   }, []);
 
   const notifyPartnerLeft = useCallback(() => {
@@ -124,7 +122,10 @@ export default function ChatPage() {
   }, [input, roomId, chatClosed, notifyPartnerLeft]);
 
   useEffect(() => {
-    if (!roomId) { router.push('/'); return; }
+    if (!roomId) {
+      router.push('/');
+      return;
+    }
 
     if (!isLoggedIn()) { router.push('/login'); return; }
 
@@ -134,30 +135,27 @@ export default function ChatPage() {
       .then(me => setUserIndustry(me.industry ? (INDUSTRY_NAMES[me.industry] ?? me.industry) : ''))
       .catch(() => {});
 
-    apiGetMessages(roomId).then(({ msgs: initial, closed }) => {
-      if (closed) { notifyPartnerLeft(); return; }
+    apiGetMessages(roomId).then(({msgs: initial, closed}) => {
+      if (closed) {
+        notifyPartnerLeft();
+        return;
+      }
       if (initial && initial.length > 0) {
         const fresh = initial.filter(m => !seenMsgIds.current.has(m.messageId));
         fresh.forEach(m => seenMsgIds.current.add(m.messageId));
         setMessages(prev => [...prev, ...fresh]);
         lastMsgTimeRef.current = initial[initial.length - 1].createdAt;
       }
-    }).catch(() => {});
+    }).catch(() => {
+    });
 
-    msgPollRef.current = setInterval(async () => {
-      try {
-        const { msgs: newMsgs, closed } = await apiGetMessages(roomId, lastMsgTimeRef.current ?? undefined);
-        if (closed) { notifyPartnerLeft(); return; }
-        if (newMsgs && newMsgs.length > 0) {
-          const fresh = newMsgs.filter(m => !seenMsgIds.current.has(m.messageId));
-          fresh.forEach(m => seenMsgIds.current.add(m.messageId));
-          if (fresh.length > 0) {
-            setMessages(prev => [...prev, ...fresh]);
-            lastMsgTimeRef.current = newMsgs[newMsgs.length - 1].createdAt;
-          }
-        }
-      } catch { /* ignore */ }
-    }, 2000);
+    const stompClient = subscribeRoom(roomId, (msg) => {
+      if (!seenMsgIds.current.has(msg.messageId)) {
+        seenMsgIds.current.add(msg.messageId);
+        setMessages(prev => [...prev, msg]);
+        lastMsgTimeRef.current = msg.createdAt;
+      }
+    });
 
     apiGetRoom(roomId)
       .then(room => {
@@ -190,7 +188,10 @@ export default function ChatPage() {
         }, 1000);
       });
 
-    return () => stopTimers();
+    return () => {
+      stompClient.deactivate();
+      stopTimers();
+    };
   }, [roomId]);
 
   useEffect(() => { inputRef.current?.focus(); }, []);

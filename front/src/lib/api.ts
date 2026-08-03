@@ -1,4 +1,6 @@
 import isEmail from "validator/lib/isEmail";
+import { Client } from "@stomp/stompjs";
+import SockJS from "sockjs-client";
 
 const BASE = "";
 
@@ -55,6 +57,20 @@ export const getRoleFromToken = (token: string): string | null => {
         .join(""),
     );
     return (JSON.parse(json).role as string) ?? null;
+  } catch {
+    return null;
+  }
+};
+
+export const getMyMemberId = (): string | null => {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(atob(base64).split("").map(
+        (c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0")).join(""));
+    const payload = JSON.parse(json);
+    return payload.id ?? payload.sub ?? null;
   } catch {
     return null;
   }
@@ -365,6 +381,27 @@ export const apiGetNotifications = (after?: string) =>
   req<MatchNotification[] | null>(
     `/api/v1/notifications${after ? `?after=${encodeURIComponent(after)}` : ""}`,
   );
+
+export function subscribeRoom(
+    roomId: string,
+    onMessage: (msg: ChatMsg) => void,
+): Client {
+  const token = getToken();
+  const client = new Client({
+    webSocketFactory: () => new SockJS(`${OAUTH_SERVER_BASE}/ws`),
+    connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+    onConnect: () => {
+      client.subscribe(`/topic/rooms/${roomId}`, (frame) => {
+        const raw = JSON.parse(frame.body);
+        // 백엔드 BroadcastDto엔 isMine이 없으니 프론트가 직접 계산
+        const myId = getMyMemberId();   // ↓ 아래 설명
+        onMessage({ ...raw, isMine: raw.senderMemberId === myId });
+      });
+    },
+  });
+  client.activate();
+  return client;
+}
 
 /* ── Admin ──────────────────────────────────────────────────────── */
 export type AdminMember = {

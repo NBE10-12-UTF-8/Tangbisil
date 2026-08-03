@@ -81,6 +81,8 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(
                         auth -> auth
+                                .requestMatchers("/ws/**").permitAll()
+                                .requestMatchers("/actuator/**").permitAll()
                                 .requestMatchers(
                                         "/api/*/members/login",
                                         "/api/*/members/refresh",
@@ -166,6 +168,7 @@ public class SecurityConfig {
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);
+        source.registerCorsConfiguration("/ws/**", configuration);
         return source;
     }
 }
