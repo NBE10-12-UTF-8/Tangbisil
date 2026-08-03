@@ -39,7 +39,8 @@ public class BotAiClient {
     private String apiKey;
 
     // Groq가 llama-3.x 계열을 deprecate하면서 권장하는 범용 모델.
-    // 우리는 1~2문장 짧은 응답만 필요해서 작은 모델(20b)로도 충분함.
+    // 1~2문장 짧은 응답만 필요해서 더 작은 모델(20b)로도 충분하지만,
+    // 응답 품질을 위해 현재는 70b를 사용 중.
     private static final String MODEL = "llama-3.3-70b-versatile";
     private static final String ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 
