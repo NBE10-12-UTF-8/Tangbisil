@@ -1,5 +1,6 @@
 package com.back.domain.trend.mmr;
 
+import com.back.domain.trend.KeywordPairKey;
 import com.back.domain.trend.mmr.dto.MmrConfig;
 import com.back.domain.trend.ranking.dto.RankedKeywordDto;
 import org.junit.jupiter.api.DisplayName;
@@ -14,13 +15,6 @@ class MmrDiversifierTest {
 
     private final MmrDiversifier diversifier = new MmrDiversifier();
 
-    // TrendAggregationEventHandler.pairKey()와 같은 정규화 규칙 —
-    // 두 키워드를 결정적 순서로 정렬해 이어붙인다. 어느 쪽이 먼저인지는
-    // 테스트와 프로덕션 구현이 같은 규칙만 따르면 되므로 여기서 직접 재정의한다.
-    private String pairKey(String a, String b) {
-        return a.compareTo(b) <= 0 ? a + "::" + b : b + "::" + a;
-    }
-
     @Test
     @DisplayName("이미 뽑힌 키워드와 유사도가 높은 후보는 원점수가 더 높아도 순위가 밀려난다")
     void similarCandidateGetsPenalizedBelowLessSimilarLowerScoreOne() {
@@ -30,9 +24,9 @@ class MmrDiversifierTest {
         List<RankedKeywordDto> candidates = List.of(rain, typhoon, umbrella);
 
         Map<String, Double> similarities = Map.of(
-                pairKey("장마", "태풍"), 0.9,
-                pairKey("장마", "우산"), 0.1,
-                pairKey("태풍", "우산"), 0.1
+                KeywordPairKey.of("장마", "태풍"), 0.9,
+                KeywordPairKey.of("장마", "우산"), 0.1,
+                KeywordPairKey.of("태풍", "우산"), 0.1
         );
         MmrConfig config = new MmrConfig(2.0, 1.0); // threshold=1.0이라 이 테스트에선 제외는 발생하지 않음
 
@@ -52,7 +46,7 @@ class MmrDiversifierTest {
         RankedKeywordDto typhoon = new RankedKeywordDto("태풍", 45, 9.0);
         List<RankedKeywordDto> candidates = List.of(rain, typhoon);
 
-        Map<String, Double> similarities = Map.of(pairKey("장마", "태풍"), 0.95);
+        Map<String, Double> similarities = Map.of(KeywordPairKey.of("장마", "태풍"), 0.95);
         MmrConfig config = new MmrConfig(2.0, 0.9);
 
         List<RankedKeywordDto> result = diversifier.diversify(candidates, similarities, config, 2);

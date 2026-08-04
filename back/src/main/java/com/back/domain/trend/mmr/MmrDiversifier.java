@@ -1,5 +1,6 @@
 package com.back.domain.trend.mmr;
 
+import com.back.domain.trend.KeywordPairKey;
 import com.back.domain.trend.mmr.dto.MmrConfig;
 import com.back.domain.trend.ranking.dto.RankedKeywordDto;
 import org.springframework.stereotype.Component;
@@ -48,14 +49,10 @@ public class MmrDiversifier {
         return selected;
     }
 
-    private String pairKey(String keywordA, String keywordB) {
-        return keywordA.compareTo(keywordB) <= 0 ? keywordA + "::" + keywordB : keywordB + "::" + keywordA;
-    }
-
     private double maxSimilarityToSelected(RankedKeywordDto candidate, List<RankedKeywordDto> selected, Map<String, Double> similarities) {
         double maxSim = 0.0;
         for (RankedKeywordDto other : selected) {
-            double sim = similarities.getOrDefault(pairKey(candidate.keyword(), other.keyword()), 0.0);
+            double sim = similarities.getOrDefault(KeywordPairKey.of(candidate.keyword(), other.keyword()), 0.0);
             if (sim > maxSim) {
                 maxSim = sim;
             }
