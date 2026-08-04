@@ -48,7 +48,10 @@ public class TrendKeywordService {
         long totalMessages = dailyMessageCountRepository.findByDate(targetDate)
                 .map(DailyMessageCount::getTotalMessages)
                 .orElse(0L);
-        Map<String, Long> cooccurFrequencies = dailyCooccurrenceCountRepository.findAllByDate(targetDate)
+
+        List<String> candidateKeywords = candidates.stream().map(RankedKeywordDto::keyword).toList();
+        Map<String, Long> cooccurFrequencies = dailyCooccurrenceCountRepository
+                .findAllByDateAndKeywordAInAndKeywordBIn(targetDate, candidateKeywords, candidateKeywords)
                 .stream()
                 .collect(Collectors.toMap(
                         row -> KeywordPairKey.of(row.getKeywordA(), row.getKeywordB()),

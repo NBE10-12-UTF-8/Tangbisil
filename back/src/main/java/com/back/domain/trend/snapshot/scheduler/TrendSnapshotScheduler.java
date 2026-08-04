@@ -1,26 +1,13 @@
 package com.back.domain.trend.snapshot.scheduler;
 
-import com.back.domain.trend.snapshot.entity.DailyCooccurrenceCount;
-import com.back.domain.trend.snapshot.entity.DailyKeywordCount;
-import com.back.domain.trend.snapshot.entity.DailyMessageCount;
-import com.back.domain.trend.snapshot.repository.DailyCooccurrenceCountRepository;
-import com.back.domain.trend.snapshot.repository.DailyKeywordCountRepository;
-import com.back.domain.trend.snapshot.repository.DailyMessageCountRepository;
+import com.back.domain.trend.snapshot.service.TrendSnapshotService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Component
 public class TrendSnapshotScheduler {
@@ -28,83 +15,22 @@ public class TrendSnapshotScheduler {
     private static final Logger log = LoggerFactory.getLogger(TrendSnapshotScheduler.class);
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
-    private final DailyKeywordCountRepository dailyKeywordCountRepository;
-    private final DailyMessageCountRepository dailyMessageCountRepository;
-    private final DailyCooccurrenceCountRepository dailyCooccurrenceCountRepository;
-    private final RedisTemplate<String, String> redisTemplate;
+    private final TrendSnapshotService trendSnapshotService;
 
-    public TrendSnapshotScheduler(DailyKeywordCountRepository dailyKeywordCountRepository,
-                                   DailyMessageCountRepository dailyMessageCountRepository,
-                                   DailyCooccurrenceCountRepository dailyCooccurrenceCountRepository,
-                                   RedisTemplate<String, String> redisTemplate) {
-        this.dailyKeywordCountRepository = dailyKeywordCountRepository;
-        this.dailyMessageCountRepository = dailyMessageCountRepository;
-        this.dailyCooccurrenceCountRepository = dailyCooccurrenceCountRepository;
-        this.redisTemplate = redisTemplate;
+    public TrendSnapshotScheduler(TrendSnapshotService trendSnapshotService) {
+        this.trendSnapshotService = trendSnapshotService;
     }
 
     @Scheduled(cron = "0 5 0 * * *", zone = "Asia/Seoul")
-    @Transactional
     public void snapshotYesterday() {
         LocalDate yesterday = LocalDate.now(KST).minusDays(1);
         try {
-            String totalMessagesStr = redisTemplate.opsForValue().get("trend:messages:" + yesterday);
-
-            if (totalMessagesStr == null) {
-                return;
-            }
-            long totalMessages = Long.parseLong(totalMessagesStr);
-
-            Optional<DailyMessageCount> existing = dailyMessageCountRepository.findByDate(yesterday);
-            if (existing.isPresent()) {
-                existing.get().updateTotalMessages(totalMessages);
-            } else {
-                dailyMessageCountRepository.save(new DailyMessageCount(yesterday, totalMessages));
-            }
-
-            Set<ZSetOperations.TypedTuple<String>> keywordScores =
-                    redisTemplate.opsForZSet().rangeWithScores("trend:keyword:" + yesterday, 0, -1);
-            if (keywordScores == null) { keywordScores = Set.of(); }
-
-            Map<String, DailyKeywordCount> existingKeywords = dailyKeywordCountRepository.findAllByDate(yesterday)
-                    .stream()
-                    .collect(Collectors.toMap(DailyKeywordCount::getKeyword, Function.identity()));
-
-            for (ZSetOperations.TypedTuple<String> tuple : keywordScores) {
-                String keyword = tuple.getValue();
-                long frequency = tuple.getScore().longValue();
-
-                DailyKeywordCount existingKeyword = existingKeywords.get(keyword);
-                if (existingKeyword != null) {
-                    existingKeyword.updateFrequency(frequency);
-                } else {
-                    dailyKeywordCountRepository.save(new DailyKeywordCount(yesterday, keyword, frequency));
-                }
-            }
-
-            Set<ZSetOperations.TypedTuple<String>> cooccurScores =
-                    redisTemplate.opsForZSet().rangeWithScores("trend:cooccur:" + yesterday, 0, -1);
-            if (cooccurScores == null) { cooccurScores = Set.of(); }
-            Map<String, DailyCooccurrenceCount> existingCooccurrences = dailyCooccurrenceCountRepository.findAllByDate(yesterday)
-                    .stream()
-                    .collect(Collectors.toMap(row -> row.getKeywordA() + "::" + row.getKeywordB(), Function.identity()));
-            for (ZSetOperations.TypedTuple<String> tuple : cooccurScores) {
-                String pair = tuple.getValue();
-                long frequency = tuple.getScore().longValue();
-                String[] parts = pair.split("::");
-                if (parts.length < 2) {
-                    continue;
-                }
-                DailyCooccurrenceCount existingCooccurrence = existingCooccurrences.get(pair);
-                if (existingCooccurrence != null) {
-                    existingCooccurrence.updateFrequency(frequency);
-                } else {
-                    dailyCooccurrenceCountRepository.save(new DailyCooccurrenceCount(yesterday, parts[0], parts[1], frequency));
-                }
-            }
+            trendSnapshotService.snapshotDate(yesterday);
         } catch (Exception e) {
             // 이 배치가 실패해도 다음 스케줄 실행 자체는 끊기지 않지만(Spring 기본 동작),
             // 어제 날짜는 다시 스냅샷되지 않으므로 실패를 놓치지 않도록 로그를 남긴다.
+            // try가 트랜잭션 경계 밖에 있어서, snapshotDate 내부에서 예외가 나면
+            // TrendSnapshotService의 @Transactional이 정상적으로 롤백을 수행한 뒤 여기로 전파된다.
             log.error("트렌드 스냅샷 실패 - date={}", yesterday, e);
         }
     }
