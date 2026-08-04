@@ -16,7 +16,8 @@ public record ChatRoomDto(
         LocalDateTime createdAt,
         LocalDateTime closedAt,
         boolean isBot,
-        Situation opponentSituation
+        Situation opponentSituation,
+        UUID myParticipantId
 ) {
     public ChatRoomDto(ChatRoom chatRoom, boolean isBot, Situation opponentSituation) {
         this(
@@ -26,7 +27,21 @@ public record ChatRoomDto(
                 chatRoom.getCreatedAt(),
                 chatRoom.getClosedAt(),
                 isBot,
-                opponentSituation
+                opponentSituation,
+                null
+        );
+    }
+
+    public ChatRoomDto(ChatRoom chatRoom, boolean isBot, Situation opponentSituation, UUID myParticipantId) {
+        this(
+                chatRoom.getId(),
+                chatRoom.getStatus(),
+                chatRoom.getMaxParticipants(),
+                chatRoom.getCreatedAt(),
+                chatRoom.getClosedAt(),
+                isBot,
+                opponentSituation,
+                myParticipantId
         );
     }
 }

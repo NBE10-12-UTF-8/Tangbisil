@@ -77,12 +77,12 @@ export default function ChatPage() {
   const [reportSubmitting, setReportSubmitting]   = useState(false);
   const [reportDone, setReportDone]               = useState(false);
 
-  const chatTimerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const seenMsgIds     = useRef<Set<string>>(new Set());
-  const lastMsgTimeRef = useRef<string | null>(null);
-  const inputRef       = useRef<HTMLInputElement>(null);
-  const isLeavingRef   = useRef(false);
-  const stompClientRef = useRef<import('@stomp/stompjs').Client | null>(null);
+  const chatTimerRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const seenMsgIds          = useRef<Set<string>>(new Set());
+  const lastMsgTimeRef      = useRef<string | null>(null);
+  const inputRef            = useRef<HTMLInputElement>(null);
+  const isLeavingRef        = useRef(false);
+  const stompClientRef      = useRef<import('@stomp/stompjs').Client | null>(null);
 
   const chatClosed = chatExpired || partnerLeft;
 
@@ -117,10 +117,7 @@ export default function ChatPage() {
   }, [input, roomId, chatClosed]);
 
   useEffect(() => {
-    if (!roomId) {
-      router.push('/');
-      return;
-    }
+    if (!roomId) { router.push('/'); return; }
 
     if (!isLoggedIn()) { router.push('/login'); return; }
 
@@ -131,35 +128,26 @@ export default function ChatPage() {
       .catch(() => {});
 
     apiGetMessages(roomId).then(({msgs: initial, closed}) => {
-      if (closed) {
-        notifyPartnerLeft();
-        return;
-      }
+      if (closed) { notifyPartnerLeft(); return; }
       if (initial && initial.length > 0) {
         const fresh = initial.filter(m => !seenMsgIds.current.has(m.messageId));
         fresh.forEach(m => seenMsgIds.current.add(m.messageId));
         setMessages(prev => [...prev, ...fresh]);
         lastMsgTimeRef.current = initial[initial.length - 1].createdAt;
       }
-    }).catch(() => {
-    });
+    }).catch(() => {});
 
+    // isMine은 서버가 계산해서 전달하므로 클라이언트 participantId 불필요
     const stompClient = subscribeRoom(roomId, (msg) => {
       if (!seenMsgIds.current.has(msg.messageId)) {
         seenMsgIds.current.add(msg.messageId);
         setMessages(prev => [...prev, msg]);
         lastMsgTimeRef.current = msg.createdAt;
       }
-    },
-    (errorMsg) => {
+    }, (errorMsg) => {
       const code = errorMsg.split(' : ')[0];
-      if(code === '409-1') {
-        notifyPartnerLeft();
-      } else if(code === '403-1') {
-        notifyPartnerLeft();
-      }
-    }
-    );
+      if (code === '409-1' || code === '403-1') notifyPartnerLeft();
+    });
     stompClientRef.current = stompClient;
 
     apiGetRoom(roomId)

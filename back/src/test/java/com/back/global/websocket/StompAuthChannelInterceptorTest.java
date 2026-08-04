@@ -103,7 +103,7 @@ public class StompAuthChannelInterceptorTest {
     }
 
     @Test
-    @DisplayName("SUBSCRIBE시 채팅방 참여자가 아니면 AccessDeniedException")
+    @DisplayName("SUBSCRIBE 시 채팅방 참여자가 아니면 AccessDeniedException")
     void t5() {
         UUID roomId = UUID.randomUUID();
         UUID memberId = UUID.randomUUID();
@@ -113,7 +113,7 @@ public class StompAuthChannelInterceptorTest {
         );
         auth.setDetails(memberId);
         StompHeaderAccessor accessor = mutableAccessor(StompCommand.SUBSCRIBE);
-        accessor.setDestination("/topic/rooms/" + roomId);
+        accessor.setDestination("/user/queue/rooms/" + roomId);
         accessor.setUser(auth);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
@@ -135,7 +135,7 @@ public class StompAuthChannelInterceptorTest {
         );
         auth.setDetails(memberId);
         StompHeaderAccessor accessor = mutableAccessor(StompCommand.SUBSCRIBE);
-        accessor.setDestination("/topic/rooms/" + roomId);
+        accessor.setDestination("/user/queue/rooms/" + roomId);
         accessor.setUser(auth);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
@@ -144,7 +144,27 @@ public class StompAuthChannelInterceptorTest {
 
         assertThatCode(() -> interceptor.preSend(message, mock(MessageChannel.class)))
                 .doesNotThrowAnyException();
+    }
 
+    @Test
+    @DisplayName("/user/queue/errors 구독은 인증 없이도 통과한다")
+    void t7() {
+        StompHeaderAccessor accessor = mutableAccessor(StompCommand.SUBSCRIBE);
+        accessor.setDestination("/user/queue/errors");
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
+        assertThatCode(() -> interceptor.preSend(message, mock(MessageChannel.class)))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("허용되지 않은 구독 경로이면 AccessDeniedException")
+    void t8() {
+        StompHeaderAccessor accessor = mutableAccessor(StompCommand.SUBSCRIBE);
+        accessor.setDestination("/topic/admin");
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+        assertThatThrownBy(() -> interceptor.preSend(message, mock(MessageChannel.class)))
+                .isInstanceOf(AccessDeniedException.class);
     }
 }

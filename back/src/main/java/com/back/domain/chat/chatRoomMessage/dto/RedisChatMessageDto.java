@@ -15,7 +15,7 @@ public class RedisChatMessageDto implements Serializable {
     private UUID messageId;
     private UUID roomId;
     private String senderNickname;
-    private UUID senderMemberId;
+    private UUID senderParticipantId;
     private String content;
 
     @JsonSerialize(using = LocalDateTimeSerializer.class)
@@ -25,11 +25,11 @@ public class RedisChatMessageDto implements Serializable {
     public RedisChatMessageDto() {
     }
 
-    public RedisChatMessageDto(UUID messageId, UUID roomId, String senderNickname, UUID senderMemberId, String content, LocalDateTime createdAt) {
+    public RedisChatMessageDto(UUID messageId, UUID roomId, String senderNickname, UUID senderParticipantId, String content, LocalDateTime createdAt) {
         this.messageId = messageId;
         this.roomId = roomId;
         this.senderNickname = senderNickname;
-        this.senderMemberId = senderMemberId;
+        this.senderParticipantId = senderParticipantId;
         this.content = content;
         this.createdAt = createdAt;
     }
@@ -39,7 +39,7 @@ public class RedisChatMessageDto implements Serializable {
         this.messageId = message.getId();
         this.roomId = message.getChatRoom().getId();
         this.senderNickname = message.getParticipant().getNickname();
-        this.senderMemberId = message.getParticipant().getMember().getId();
+        this.senderParticipantId = message.getParticipant().getId();
         this.content = message.getContent();
         this.createdAt = message.getCreatedAt();
     }
@@ -53,8 +53,8 @@ public class RedisChatMessageDto implements Serializable {
     public String getSenderNickname() { return senderNickname; }
     public void setSenderNickname(String senderNickname) { this.senderNickname = senderNickname; }
 
-    public UUID getSenderMemberId() { return senderMemberId; }
-    public void setSenderMemberId(UUID senderMemberId) { this.senderMemberId = senderMemberId; }
+    public UUID getSenderParticipantId() { return senderParticipantId; }
+    public void setSenderParticipantId(UUID senderParticipantId) { this.senderParticipantId = senderParticipantId; }
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }

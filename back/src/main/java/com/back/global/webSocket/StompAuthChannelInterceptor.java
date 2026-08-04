@@ -21,6 +21,8 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
+    private static final String ROOM_QUEUE_PREFIX = "/user/queue/rooms/";
+
     private final MemberService memberService;
     private final ChatRoomParticipantRepository chatRoomParticipantRepository;
 
@@ -56,27 +58,27 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             accessor.setUser(auth);
         }
 
-
         if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             String destination = accessor.getDestination();
+            if (destination == null) throw new AccessDeniedException("구독 경로가 필요합니다.");
+            if (destination.equals("/user/queue/errors")) return message;
+            if (!destination.startsWith(ROOM_QUEUE_PREFIX)) throw new AccessDeniedException("허용되지 않은 구독 경로입니다.");
 
-            if (destination != null && destination.startsWith("/topic/rooms/")) {
-                String roomIdStr = destination.replace("/topic/rooms/", "");
-                try {
-                    UUID roomId = UUID.fromString(roomIdStr);
-                    UsernamePasswordAuthenticationToken auth =
-                            (UsernamePasswordAuthenticationToken) accessor.getUser();
-                    if (auth == null) {
-                        throw new AccessDeniedException("인증이 필요합니다.");
-                    }
+            String roomIdStr = destination.substring(ROOM_QUEUE_PREFIX.length());
+            UUID roomId;
+            try {
+                roomId = UUID.fromString(roomIdStr);
+            } catch (IllegalArgumentException e) {
+                throw new AccessDeniedException("유효하지 않은 구독 경로입니다.");
+            }
 
-                    UUID memberId = (UUID) auth.getDetails();
-                    if (!chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(roomId, memberId)) {
-                        throw new AccessDeniedException("해당 채팅방의 참여자가 아닙니다.");
-                    }
-                } catch (IllegalArgumentException e) {
-                    throw new AccessDeniedException("유효하지 않은 구독 경로입니다.");
-                }
+            if (!(accessor.getUser() instanceof UsernamePasswordAuthenticationToken auth)
+                    || !(auth.getDetails() instanceof UUID memberId)) {
+                throw new AccessDeniedException("인증 정보가 올바르지 않습니다.");
+            }
+
+            if (!chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(roomId, memberId)) {
+                throw new AccessDeniedException("해당 채팅방의 참여자가 아닙니다.");
             }
         }
         return message;

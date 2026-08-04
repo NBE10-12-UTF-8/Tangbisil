@@ -111,11 +111,10 @@ public class ChatMessageService {
     public List<ChatRoomMessageResponseDto> getMessages(UUID roomId, Member requester, LocalDateTime after) {
         ChatRoom chatRoom = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ServiceException("404-1", "채팅방을 찾을 수 없습니다."));
-        boolean isParticipant = chatRoomParticipantRepository
-                .existsByChatRoomIdAndMemberId(roomId, requester.getId());
-        if(!isParticipant){
-            throw new ServiceException("403-1", "해당 채팅방에 접근 권한이 없습니다.");
-        }
+        UUID requesterParticipantId = chatRoomParticipantRepository
+                .findByChatRoomIdAndMemberId(roomId, requester.getId())
+                .map(p -> p.getId())
+                .orElseThrow(() -> new ServiceException("403-1", "해당 채팅방에 접근 권한이 없습니다."));
 
         if(chatRoom.getStatus() == ChatRoomStatus.CLOSED) {
             throw new ServiceException("200-3", "종료된 채팅방입니다.");
@@ -160,7 +159,7 @@ public class ChatMessageService {
                         .toList();
             }
             return cachedMessages.stream()
-                    .map(cache -> new ChatRoomMessageResponseDto(cache, requester.getId()))
+                    .map(cache -> new ChatRoomMessageResponseDto(cache, requesterParticipantId))
                     .toList();
         }
 

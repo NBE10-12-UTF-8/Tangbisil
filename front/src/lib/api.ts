@@ -315,6 +315,7 @@ export type ChatRoom = {
   closedAt?: string;
   isBot: boolean;
   opponentSituation?: string;
+  myParticipantId?: string;
 };
 
 export const apiGetRoom = (roomId: string) =>
@@ -338,6 +339,7 @@ export type ChatMsg = {
   messageId: string;
   roomId: string;
   senderNickname: string;
+  senderParticipantId: string;
   content: string;
   createdAt: string;
   isMine: boolean;
@@ -393,11 +395,10 @@ export function subscribeRoom(
     webSocketFactory: () => new SockJS(`${OAUTH_SERVER_BASE}/ws`),
     connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
     onConnect: () => {
-      client.subscribe(`/topic/rooms/${roomId}`, (frame) => {
+      // isMine은 서버가 참여자별로 계산해서 내려줌
+      client.subscribe(`/user/queue/rooms/${roomId}`, (frame) => {
         const raw = JSON.parse(frame.body);
-        // 백엔드 BroadcastDto엔 isMine이 없으니 프론트가 직접 계산
-        const myId = getMyMemberId();
-        onMessage({ ...raw, isMine: raw.senderMemberId === myId });
+        onMessage(raw);
       });
       client.subscribe('/user/queue/errors', (frame) => {
         const error = JSON.parse(frame.body);
