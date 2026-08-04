@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   apiCreateMatch, apiGetMatch, apiGetActiveRoom,
-  apiGetMe, apiGetHomeStats, isLoggedIn, INDUSTRY_NAMES,
+  apiGetMe, apiGetHomeStats, apiGetTrendKeywords, isLoggedIn, INDUSTRY_NAMES,
+  type TrendKeyword,
 } from '@/lib/api';
 import { AppShell } from '@/components/AppShell';
 import { TangbisilLogo } from '@/components/TangbisilLogo';
@@ -25,20 +26,8 @@ const TOPICS = [
   { label: '기타' },
 ];
 
-// TODO: 백엔드에 실시간 HOT 키워드 API가 아직 없어서 임시로 하드코딩. 구현되면 apiGetHomeStats류로 교체.
 const TREND_ICON: Record<'up' | 'down' | 'flat', string> = { up: '▲', down: '▼', flat: '—' };
 const TREND_COLOR: Record<'up' | 'down' | 'flat', string> = { up: '#ea4c4c', down: '#3b7ff2', flat: '#9aa0a6' };
-const HOT_KEYWORDS = ([
-  { label: '퇴사', trend: 'up' }, { label: '팀장', trend: 'down' }, { label: '치킨', trend: 'flat' },
-  { label: '재택', trend: 'up' }, { label: '연봉', trend: 'up' }, { label: '회식', trend: 'up' },
-  { label: '야근수당', trend: 'up' }, { label: '이직', trend: 'up' }, { label: '상여금', trend: 'up' }, { label: '점심', trend: 'up' },
-] as const).map((k, idx) => ({
-  label: k.label,
-  rank: idx + 1,
-  trendIcon: TREND_ICON[k.trend],
-  trendColor: TREND_COLOR[k.trend],
-  rankColor: idx < 3 ? '#1a56c4' : '#9aa0a6',
-}));
 
 function SearchIcon({ onClick }: { onClick?: () => void }) {
   return (
@@ -89,6 +78,7 @@ export default function HomePage() {
   const [showTimeout, setShowTimeout]     = useState(false);
   const [totalActiveUsers, setTotalActiveUsers] = useState(0);
   const [situationCounts, setSituationCounts]   = useState<Record<string, number>>({});
+  const [hotKeywords, setHotKeywords]           = useState<TrendKeyword[]>([]);
 
   useEffect(() => {
     apiGetHomeStats()
@@ -100,6 +90,12 @@ export default function HomePage() {
       })
       .catch((err) => {
         console.error('Failed to fetch home stats:', err);
+      });
+
+    apiGetTrendKeywords()
+      .then(setHotKeywords)
+      .catch((err) => {
+        console.error('Failed to fetch trend keywords:', err);
       });
   }, []);
 
@@ -291,17 +287,21 @@ export default function HomePage() {
                 <div style={{ marginTop: 10, fontSize: 12, color: '#ea4c4c' }}>{matchError}</div>
               ) : null}
 
-              <div style={{ height: 1, background: '#e8eaed', margin: '18px 0 16px' }} />
-              <div style={{ fontSize: 12.5, color: '#202124', fontWeight: 700, marginBottom: 11 }}>실시간 HOT 키워드</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridAutoFlow: 'column', gridTemplateRows: 'repeat(5, auto)', columnGap: 20 }}>
-                {HOT_KEYWORDS.map(k => (
-                  <div key={k.rank} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
-                    <span style={{ width: 16, fontSize: 13, color: k.rankColor, fontWeight: 700 }}>{k.rank}</span>
-                    <span style={{ flex: 1, fontSize: 13.5, color: '#202124' }}>{k.label}</span>
-                    <span style={{ fontSize: 10, color: k.trendColor }}>{k.trendIcon}</span>
+              {hotKeywords.length > 0 && (
+                <>
+                  <div style={{ height: 1, background: '#e8eaed', margin: '18px 0 16px' }} />
+                  <div style={{ fontSize: 12.5, color: '#202124', fontWeight: 700, marginBottom: 11 }}>실시간 HOT 키워드</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridAutoFlow: 'column', gridTemplateRows: 'repeat(5, auto)', columnGap: 20 }}>
+                    {hotKeywords.map(k => (
+                      <div key={k.rank} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
+                        <span style={{ width: 16, fontSize: 13, color: k.rank <= 3 ? '#1a56c4' : '#9aa0a6', fontWeight: 700 }}>{k.rank}</span>
+                        <span style={{ flex: 1, fontSize: 13.5, color: '#202124' }}>{k.label}</span>
+                        <span style={{ fontSize: 10, color: TREND_COLOR[k.trend] }}>{TREND_ICON[k.trend]}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </>
+              )}
             </div>
 
             <div style={s.sep} />
