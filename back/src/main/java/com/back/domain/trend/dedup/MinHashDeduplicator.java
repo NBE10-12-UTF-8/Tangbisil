@@ -81,6 +81,13 @@ public class MinHashDeduplicator {
         return estimateSimilarity(signatureA, signatureB) >= DUPLICATE_THRESHOLD;
     }
 
+    // SHINGLE_SIZE보다 짧은 텍스트는 shingle을 하나도 못 만들어 전부 같은(EMPTY_SENTINEL) 시그니처가 된다.
+    // 그런 텍스트끼리는 실제로 다른 내용이어도 서로 "중복"으로 잘못 판정될 수 있으므로,
+    // 호출하는 쪽에서 이 메서드로 먼저 걸러내고 그런 텍스트는 중복 검사 대상에서 아예 제외해야 한다.
+    public boolean canFingerprint(String text) {
+        return text != null && text.length() >= SHINGLE_SIZE;
+    }
+
     private Set<String> extractShingles(String text) {
         Set<String> shingles = new HashSet<>();
         if (text == null) {

@@ -37,12 +37,14 @@ class TrendAggregationEventHandlerTest {
     private static final String KEYWORD_KEY = "trend:keyword:" + TODAY;
     private static final String MESSAGE_KEY = "trend:messages:" + TODAY;
     private static final String COOCCUR_KEY = "trend:cooccur:" + TODAY;
+    private static final String SIGNATURE_KEY = "trend:signatures:" + TODAY;
 
     @AfterEach
     void cleanUp() {
         redisTemplate.delete(KEYWORD_KEY);
         redisTemplate.delete(MESSAGE_KEY);
         redisTemplate.delete(COOCCUR_KEY);
+        redisTemplate.delete(SIGNATURE_KEY);
     }
 
     private ChatMessageSentEvent eventWithContent(String content) {
@@ -147,5 +149,24 @@ class TrendAggregationEventHandlerTest {
         await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
                 assertThat(redisTemplate.opsForValue().get(MESSAGE_KEY)).isEqualTo("1"));
         assertThat(redisTemplate.opsForZSet().size(COOCCUR_KEY)).isIn(0L, null);
+    }
+
+    @Test
+    @DisplayName("완전히 같은 메시지가 반복되면(도배), 두 번째부터는 전체 메시지 수·키워드 집계 어디에도 반영되지 않는다")
+    void t10() {
+        // 첫 메시지가 완전히 처리(=시그니처가 Redis에 저장)된 뒤에 반복 메시지를 보내야
+        // @Async 스레드 경합 없이 "먼저 저장된 시그니처와 비교"라는 조건이 보장된다.
+        trendAggregationEventHandler.handleChatMessageSent(eventWithContent("장마 진짜 심하다 다들 우산 챙기세요"));
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
+                assertThat(redisTemplate.opsForValue().get(MESSAGE_KEY)).isEqualTo("1"));
+
+        trendAggregationEventHandler.handleChatMessageSent(eventWithContent("장마 진짜 심하다 다들 우산 챙기세요"));
+        trendAggregationEventHandler.handleChatMessageSent(eventWithContent("장마 진짜 심하다 다들 우산 챙기세요"));
+
+        // 중복 처리는 아무것도 증가시키지 않으므로, 일정 시간 뒤에도 그대로인지 확인한다.
+        await().pollDelay(Duration.ofMillis(500)).atMost(Duration.ofSeconds(2)).untilAsserted(() -> {
+            assertThat(redisTemplate.opsForValue().get(MESSAGE_KEY)).isEqualTo("1");
+            assertThat(redisTemplate.opsForZSet().score(KEYWORD_KEY, "장마")).isEqualTo(1.0);
+        });
     }
 }

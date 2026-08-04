@@ -66,4 +66,19 @@ class MinHashDeduplicatorTest {
 
         assertThat(minHashDeduplicator.isDuplicate(blankSignature, normalSignature)).isFalse();
     }
+
+    @Test
+    @DisplayName("shingle 크기(3자)보다 짧은 텍스트나 null은 지문을 만들 수 없다")
+    void canFingerprintReturnsFalseForTooShortText() {
+        assertThat(minHashDeduplicator.canFingerprint(null)).isFalse();
+        assertThat(minHashDeduplicator.canFingerprint("")).isFalse();
+        assertThat(minHashDeduplicator.canFingerprint("ㅋㅋ")).isFalse();
+    }
+
+    @Test
+    @DisplayName("shingle 크기 이상인 텍스트는 지문을 만들 수 있다")
+    void canFingerprintReturnsTrueForLongEnoughText() {
+        assertThat(minHashDeduplicator.canFingerprint("ㅋㅋㅋ")).isTrue();
+        assertThat(minHashDeduplicator.canFingerprint("오늘 점심 뭐 먹지")).isTrue();
+    }
 }
