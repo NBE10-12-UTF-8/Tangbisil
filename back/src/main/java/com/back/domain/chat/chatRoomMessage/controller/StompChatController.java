@@ -8,12 +8,15 @@ import com.back.global.exception.ServiceException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
+import java.util.Map;
 import java.util.UUID;
 
 @Controller
@@ -36,5 +39,11 @@ public class StompChatController {
         Member actor = memberService.findById(memberId)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
         chatMessageService.sendMessage(roomId, actor, requestDto.getContent());
+    }
+
+    @MessageExceptionHandler(ServiceException.class)
+    @SendToUser("/queue/errors")
+    public Map<String, String> handleException(ServiceException e) {
+        return Map.of("code", e.getRsData().resultCode(), "message", e.getRsData().msg());
     }
 }

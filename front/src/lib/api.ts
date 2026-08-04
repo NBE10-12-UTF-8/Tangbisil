@@ -399,6 +399,10 @@ export function subscribeRoom(
         const myId = getMyMemberId();
         onMessage({ ...raw, isMine: raw.senderMemberId === myId });
       });
+      client.subscribe('/user/queue/errors', (frame) => {
+        const error = JSON.parse(frame.body);
+        onError?.(error.code + ' : ' + error.message);
+      });
     },
     onStompError: (frame) => {
       client.deactivate();
