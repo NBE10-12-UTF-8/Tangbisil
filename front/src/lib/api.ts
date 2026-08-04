@@ -279,6 +279,16 @@ export type HomeStats = {
 export const apiGetHomeStats = () =>
   req<HomeStats>("/api/v1/matches/stats/home");
 
+export type TrendKeyword = {
+  rank: number;
+  label: string;
+  trend: "up" | "down" | "flat";
+};
+
+// 어제(KST) 기준 집계된 실시간 HOT 키워드 최대 10개 — 비로그인 사용자도 호출 가능, 데이터 없으면 빈 배열
+export const apiGetTrendKeywords = () =>
+  req<TrendKeyword[]>("/api/v1/trend-keywords");
+
 /* ── Chat ───────────────────────────────────────────────────────── */
 export type ChatRoom = {
   roomId: string;
