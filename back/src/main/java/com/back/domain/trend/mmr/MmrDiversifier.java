@@ -22,9 +22,9 @@ public class MmrDiversifier {
         List<RankedKeywordDto> selected = new ArrayList<>();
         List<RankedKeywordDto> remaining = new ArrayList<>(candidates);
         remaining.sort((a, b) -> Double.compare(b.zScore(), a.zScore()));
-        RankedKeywordDto rMax = remaining.get(0);
-        selected.add(rMax);
-        remaining.remove(rMax);
+        RankedKeywordDto topCandidate = remaining.get(0);
+        selected.add(topCandidate);
+        remaining.remove(topCandidate);
 
         while (selected.size() < topN && !remaining.isEmpty()) {
             RankedKeywordDto best = null;
