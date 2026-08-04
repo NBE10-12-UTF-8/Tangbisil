@@ -37,14 +37,14 @@ class TrendAggregationEventHandlerTest {
     private static final String KEYWORD_KEY = "trend:keyword:" + TODAY;
     private static final String MESSAGE_KEY = "trend:messages:" + TODAY;
     private static final String COOCCUR_KEY = "trend:cooccur:" + TODAY;
-    private static final String SIGNATURE_KEY = "trend:signatures:" + TODAY;
+    private static final String FINGERPRINT_KEY = "trend:fingerprints:" + TODAY;
 
     @AfterEach
     void cleanUp() {
         redisTemplate.delete(KEYWORD_KEY);
         redisTemplate.delete(MESSAGE_KEY);
         redisTemplate.delete(COOCCUR_KEY);
-        redisTemplate.delete(SIGNATURE_KEY);
+        redisTemplate.delete(FINGERPRINT_KEY);
     }
 
     private ChatMessageSentEvent eventWithContent(String content) {

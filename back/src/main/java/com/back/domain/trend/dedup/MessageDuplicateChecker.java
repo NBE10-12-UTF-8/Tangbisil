@@ -3,62 +3,48 @@ package com.back.domain.trend.dedup;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Component
 public class MessageDuplicateChecker {
 
-    private static final int MAX_RECENT_SIGNATURES = 2000;
-    private static final Duration KEY_TTL = Duration.ofDays(7);
-    private static final String SIGNATURE_KEY_PREFIX = "trend:signatures:";
+    private static final Duration KEY_TTL = Duration.ofDays(2);
+    private static final String FINGERPRINT_KEY_PREFIX = "trend:fingerprints:";
 
     private final RedisTemplate<String, String> redisTemplate;
-    private final MinHashDeduplicator minHashDeduplicator;
 
-    public MessageDuplicateChecker(RedisTemplate<String, String> redisTemplate, MinHashDeduplicator minHashDeduplicator) {
+    public MessageDuplicateChecker(RedisTemplate<String, String> redisTemplate) {
         this.redisTemplate = redisTemplate;
-        this.minHashDeduplicator = minHashDeduplicator;
     }
 
     public boolean isDuplicate(LocalDate date, String content) {
-        if (!minHashDeduplicator.canFingerprint(content)) {
+        if (content == null || content.isBlank()) {
             return false;
         }
 
-        long[] signature = minHashDeduplicator.computeSignature(content);
-        String key = SIGNATURE_KEY_PREFIX + date;
-
-        List<String> recentSignatures = redisTemplate.opsForList().range(key, 0, -1);
-        if (recentSignatures != null) {
-            for (String stored : recentSignatures) {
-                if (minHashDeduplicator.isDuplicate(signature, deserialize(stored))) {
-                    return true;
-                }
-            }
-        }
-
-        redisTemplate.opsForList().leftPush(key, serialize(signature));
-        redisTemplate.opsForList().trim(key, 0, MAX_RECENT_SIGNATURES - 1);
+        String key = FINGERPRINT_KEY_PREFIX + date;
+        Long added = redisTemplate.opsForSet().add(key, fingerprint(content));
         redisTemplate.expire(key, KEY_TTL);
-        return false;
+
+        return added != null && added == 0L;
     }
 
-    private String serialize(long[] signature) {
-        return Arrays.stream(signature)
-                .mapToObj(String::valueOf)
-                .collect(Collectors.joining(","));
-    }
-
-    private long[] deserialize(String stored) {
-        String[] parts = stored.split(",");
-        long[] signature = new long[parts.length];
-        for (int i = 0; i < parts.length; i++) {
-            signature[i] = Long.parseLong(parts[i]);
+    private String fingerprint(String content) {
+        String normalized = content.replaceAll("\\s+", "").toLowerCase();
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(normalized.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256을 사용할 수 없습니다", e);
         }
-        return signature;
     }
 }
