@@ -24,7 +24,7 @@ public class MinHashDeduplicator {
         this.coefficientA = new long[SIGNATURE_LENGTH];
         this.coefficientB = new long[SIGNATURE_LENGTH];
         for (int i = 0; i < SIGNATURE_LENGTH; i++) {
-            coefficientA[i] = 1 + (Math.abs(random.nextLong()) % (HASH_PRIME - 1));
+            coefficientA[i] = 1 + ((random.nextLong() & Long.MAX_VALUE) % (HASH_PRIME - 1));
             coefficientB[i] = random.nextLong() % HASH_PRIME;
             if (coefficientB[i] < 0) {
                 coefficientB[i] += HASH_PRIME;
