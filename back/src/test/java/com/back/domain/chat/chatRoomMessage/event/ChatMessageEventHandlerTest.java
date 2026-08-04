@@ -51,6 +51,16 @@ public class ChatMessageEventHandlerTest {
         return participant;
     }
 
+    // 봇 참여자는 이메일 체크 후 필터되어 getId()가 호출되지 않으므로 별도 헬퍼 사용
+    private ChatRoomParticipant mockBotParticipant(String email) {
+        Member member = mock(Member.class);
+        when(member.getEmail()).thenReturn(email);
+
+        ChatRoomParticipant participant = mock(ChatRoomParticipant.class);
+        when(participant.getMember()).thenReturn(member);
+        return participant;
+    }
+
     @Test
     @DisplayName("Redis 적재 후 각 참여자에게 isMine이 설정된 메시지를 개별 전송한다")
     void t1() {
@@ -100,11 +110,12 @@ public class ChatMessageEventHandlerTest {
                 UUID.randomUUID(), roomId2, "유저B", participantId2, "방2 메시지", LocalDateTime.now()
         );
 
+        ChatRoomParticipant p1 = mockParticipant(participantId1, "a@test.com");
+        ChatRoomParticipant p2 = mockParticipant(participantId2, "b@test.com");
+
         when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
-        when(chatRoomParticipantRepository.findByChatRoomId(roomId1))
-                .thenReturn(List.of(mockParticipant(participantId1, "a@test.com")));
-        when(chatRoomParticipantRepository.findByChatRoomId(roomId2))
-                .thenReturn(List.of(mockParticipant(participantId2, "b@test.com")));
+        when(chatRoomParticipantRepository.findByChatRoomId(roomId1)).thenReturn(List.of(p1));
+        when(chatRoomParticipantRepository.findByChatRoomId(roomId2)).thenReturn(List.of(p2));
 
         handler.handleChatMessageSent(new ChatMessageSentEvent(dto1));
         handler.handleChatMessageSent(new ChatMessageSentEvent(dto2));
@@ -126,11 +137,12 @@ public class ChatMessageEventHandlerTest {
                 UUID.randomUUID(), roomId, "테스트닉네임", participantId, "테스트 메시지", LocalDateTime.now()
         );
 
+        ChatRoomParticipant p = mockParticipant(participantId, "user@test.com");
+
         when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
         doThrow(new RuntimeException("Redis 다운")).when(zSetOperations)
                 .add(anyString(), anyString(), anyDouble());
-        when(chatRoomParticipantRepository.findByChatRoomId(roomId))
-                .thenReturn(List.of(mockParticipant(participantId, "user@test.com")));
+        when(chatRoomParticipantRepository.findByChatRoomId(roomId)).thenReturn(List.of(p));
 
         handler.handleChatMessageSent(new ChatMessageSentEvent(dto));
 
@@ -143,14 +155,13 @@ public class ChatMessageEventHandlerTest {
     void t4() {
         UUID roomId = UUID.randomUUID();
         UUID humanParticipantId = UUID.randomUUID();
-        UUID botParticipantId = UUID.randomUUID();
 
         RedisChatMessageDto dto = new RedisChatMessageDto(
                 UUID.randomUUID(), roomId, "사람닉네임", humanParticipantId, "메시지", LocalDateTime.now()
         );
 
         ChatRoomParticipant human = mockParticipant(humanParticipantId, "human@test.com");
-        ChatRoomParticipant bot = mockParticipant(botParticipantId, "bot.it@tangbisil.bot");
+        ChatRoomParticipant bot = mockBotParticipant("bot.it@tangbisil.bot");
 
         when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
         when(chatRoomParticipantRepository.findByChatRoomId(roomId))
