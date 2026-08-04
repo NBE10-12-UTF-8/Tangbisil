@@ -15,6 +15,9 @@ public class MmrDiversifier {
                                              Map<String, Double> similarities,
                                              MmrConfig config,
                                              int topN) {
+        if (candidates.isEmpty() || topN <= 0) {
+            return List.of();
+        }
         List<RankedKeywordDto> selected = new ArrayList<>();
         List<RankedKeywordDto> remaining = new ArrayList<>(candidates);
         remaining.sort((a, b) -> Double.compare(b.zScore(), a.zScore()));

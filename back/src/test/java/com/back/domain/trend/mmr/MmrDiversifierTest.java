@@ -90,4 +90,22 @@ class MmrDiversifierTest {
 
         assertThat(result).extracting(RankedKeywordDto::keyword).containsExactly("A", "B", "C");
     }
+
+    @Test
+    @DisplayName("후보 목록이 비어 있으면 빈 리스트를 반환한다")
+    void emptyCandidatesReturnsEmptyList() {
+        List<RankedKeywordDto> result = diversifier.diversify(List.of(), Map.of(), new MmrConfig(2.0, 0.9), 3);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("topN이 0 이하이면 빈 리스트를 반환한다")
+    void nonPositiveTopNReturnsEmptyList() {
+        List<RankedKeywordDto> candidates = List.of(new RankedKeywordDto("A", 10, 5.0));
+
+        List<RankedKeywordDto> result = diversifier.diversify(candidates, Map.of(), new MmrConfig(2.0, 0.9), 0);
+
+        assertThat(result).isEmpty();
+    }
 }
