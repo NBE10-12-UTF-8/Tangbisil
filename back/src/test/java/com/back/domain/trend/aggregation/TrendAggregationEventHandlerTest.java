@@ -2,6 +2,7 @@ package com.back.domain.trend.aggregation;
 
 import com.back.domain.chat.chatRoomMessage.dto.RedisChatMessageDto;
 import com.back.domain.chat.chatRoomMessage.event.ChatMessageSentEvent;
+import com.back.domain.trend.KeywordPairKey;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -48,13 +49,6 @@ class TrendAggregationEventHandlerTest {
         RedisChatMessageDto dto = new RedisChatMessageDto(
                 UUID.randomUUID(), UUID.randomUUID(), "익명", UUID.randomUUID(), content, null);
         return new ChatMessageSentEvent(dto);
-    }
-
-    // 두 단어를 결정적인 순서로 정렬해 하나의 ZSET 멤버 키로 합친다.
-    // 프로덕션 코드도 이와 동일한 규칙(String 자연 순서 + "::" 구분자)을 따라야
-    // "A 다음에 B가 나온 메시지"와 "B 다음에 A가 나온 메시지"가 같은 쌍으로 누적된다.
-    private String pairKey(String a, String b) {
-        return a.compareTo(b) <= 0 ? a + "::" + b : b + "::" + a;
     }
 
     @Test
@@ -117,7 +111,7 @@ class TrendAggregationEventHandlerTest {
         trendAggregationEventHandler.handleChatMessageSent(eventWithContent("장마 우산"));
 
         await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
-                assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, pairKey("장마", "우산"))).isEqualTo(1.0));
+                assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, KeywordPairKey.of("장마", "우산"))).isEqualTo(1.0));
     }
 
     @Test
@@ -127,9 +121,9 @@ class TrendAggregationEventHandlerTest {
                 eventWithContent("오늘 장마 시작이래ㅋㅋㅋ 다들 우산 챙기세요"));
 
         await().atMost(Duration.ofSeconds(2)).untilAsserted(() -> {
-            assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, pairKey("장마", "시작"))).isEqualTo(1.0);
-            assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, pairKey("장마", "우산"))).isEqualTo(1.0);
-            assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, pairKey("시작", "우산"))).isEqualTo(1.0);
+            assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, KeywordPairKey.of("장마", "시작"))).isEqualTo(1.0);
+            assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, KeywordPairKey.of("장마", "우산"))).isEqualTo(1.0);
+            assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, KeywordPairKey.of("시작", "우산"))).isEqualTo(1.0);
         });
         assertThat(redisTemplate.opsForZSet().size(COOCCUR_KEY)).isEqualTo(3L);
     }
@@ -141,7 +135,7 @@ class TrendAggregationEventHandlerTest {
         trendAggregationEventHandler.handleChatMessageSent(eventWithContent("우산 장마"));
 
         await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
-                assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, pairKey("장마", "우산"))).isEqualTo(2.0));
+                assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, KeywordPairKey.of("장마", "우산"))).isEqualTo(2.0));
         assertThat(redisTemplate.opsForZSet().size(COOCCUR_KEY)).isEqualTo(1L);
     }
 
