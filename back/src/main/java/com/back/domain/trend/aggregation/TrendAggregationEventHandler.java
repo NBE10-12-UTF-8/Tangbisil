@@ -46,7 +46,6 @@ public class TrendAggregationEventHandler {
         String content = event.getMessageDto() != null ? event.getMessageDto().getContent() : null;
         LocalDate today = LocalDate.now(KST);
 
-        // 복사-붙여넣기로 도배된 메시지는 "1개의 의견"으로 취급해 집계에서 완전히 제외한다.
         if (messageDuplicateChecker.isDuplicate(today, content)) {
             return;
         }

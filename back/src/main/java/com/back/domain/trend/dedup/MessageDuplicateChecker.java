@@ -9,13 +9,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// 오늘 하루 동안 이미 본 메시지의 MinHash 시그니처를 Redis에 쌓아두고,
-// 새 메시지가 그중 하나와 90% 이상 겹치면 "복사-붙여넣기로 도배된 메시지"로 보고 집계에서 제외한다.
 @Component
 public class MessageDuplicateChecker {
 
-    // 하루치 서명을 무한정 쌓아두지 않기 위한 상한선(오래된 것부터 버림).
-    // 완벽한 전수 비교는 아니지만, 도배는 보통 짧은 시간에 몰리므로 최근 것과의 비교만으로도 충분하다.
     private static final int MAX_RECENT_SIGNATURES = 2000;
     private static final Duration KEY_TTL = Duration.ofDays(7);
     private static final String SIGNATURE_KEY_PREFIX = "trend:signatures:";
