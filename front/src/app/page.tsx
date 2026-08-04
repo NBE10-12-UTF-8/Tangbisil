@@ -287,20 +287,20 @@ export default function HomePage() {
                 <div style={{ marginTop: 10, fontSize: 12, color: '#ea4c4c' }}>{matchError}</div>
               ) : null}
 
-              {hotKeywords.length > 0 && (
-                <>
-                  <div style={{ height: 1, background: '#e8eaed', margin: '18px 0 16px' }} />
-                  <div style={{ fontSize: 12.5, color: '#202124', fontWeight: 700, marginBottom: 11 }}>실시간 HOT 키워드</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridAutoFlow: 'column', gridTemplateRows: 'repeat(5, auto)', columnGap: 20 }}>
-                    {hotKeywords.map(k => (
-                      <div key={k.rank} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
-                        <span style={{ width: 16, fontSize: 13, color: k.rank <= 3 ? '#1a56c4' : '#9aa0a6', fontWeight: 700 }}>{k.rank}</span>
-                        <span style={{ flex: 1, fontSize: 13.5, color: '#202124' }}>{k.label}</span>
-                        <span style={{ fontSize: 10, color: TREND_COLOR[k.trend] }}>{TREND_ICON[k.trend]}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
+              <div style={{ height: 1, background: '#e8eaed', margin: '18px 0 16px' }} />
+              <div style={{ fontSize: 12.5, color: '#202124', fontWeight: 700, marginBottom: 11 }}>실시간 HOT 키워드</div>
+              {hotKeywords.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridAutoFlow: 'column', gridTemplateRows: 'repeat(5, auto)', columnGap: 20 }}>
+                  {hotKeywords.map(k => (
+                    <div key={k.rank} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
+                      <span style={{ width: 16, fontSize: 13, color: k.rank <= 3 ? '#1a56c4' : '#9aa0a6', fontWeight: 700 }}>{k.rank}</span>
+                      <span style={{ flex: 1, fontSize: 13.5, color: '#202124' }}>{k.label}</span>
+                      <span style={{ fontSize: 10, color: TREND_COLOR[k.trend] }}>{TREND_ICON[k.trend]}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12.5, color: '#9aa0a6', textAlign: 'center', padding: '14px 0' }}>데이터 집계중입니다</div>
               )}
             </div>
 
