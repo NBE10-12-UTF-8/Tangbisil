@@ -9,6 +9,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 @Component
@@ -39,7 +40,7 @@ public class MessageDuplicateChecker {
     }
 
     private String fingerprint(String content) {
-        String normalized = WHITESPACE_PATTERN.matcher(content).replaceAll("").toLowerCase();
+        String normalized = WHITESPACE_PATTERN.matcher(content).replaceAll("").toLowerCase(Locale.ROOT);
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(normalized.getBytes(StandardCharsets.UTF_8));
