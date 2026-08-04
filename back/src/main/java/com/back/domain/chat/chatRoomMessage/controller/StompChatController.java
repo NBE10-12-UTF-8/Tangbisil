@@ -5,6 +5,7 @@ import com.back.domain.chat.chatRoomMessage.service.ChatMessageService;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
 import com.back.global.exception.ServiceException;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -24,7 +25,7 @@ public class StompChatController {
     @MessageMapping("/rooms/{roomId}/messages")
     public void sendMessage(
             @DestinationVariable UUID roomId,
-            @Payload ChatRoomMessageRequestDto requestDto,
+            @Payload @Valid ChatRoomMessageRequestDto requestDto,
             Principal principal
     ) {
         if(principal == null) {

@@ -81,8 +81,7 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(
                         auth -> auth
-                                .requestMatchers("/ws/**").permitAll()
-                                .requestMatchers("/actuator/**").permitAll()
+                                .requestMatchers("/actuator/prometheus").permitAll()
                                 .requestMatchers(
                                         "/api/*/members/login",
                                         "/api/*/members/refresh",

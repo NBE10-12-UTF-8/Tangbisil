@@ -75,8 +75,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                         throw new AccessDeniedException("해당 채팅방의 참여자가 아닙니다.");
                     }
                 } catch (IllegalArgumentException e) {
-                    // roomId 파싱 실패 시 그냥 통과 (잘못된 경로)
-                    return message;
+                    throw new AccessDeniedException("유효하지 않은 구독 경로입니다.");
                 }
             }
         }
