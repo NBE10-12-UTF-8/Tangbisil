@@ -66,7 +66,8 @@ export const getMyMemberId = (): string | null => {
   const token = getToken();
   if (!token) return null;
   try {
-    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const raw = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const base64 = raw + "=".repeat((4 - raw.length % 4) % 4);
     const json = decodeURIComponent(atob(base64).split("").map(
         (c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0")).join(""));
     const payload = JSON.parse(json);
@@ -385,6 +386,7 @@ export const apiGetNotifications = (after?: string) =>
 export function subscribeRoom(
     roomId: string,
     onMessage: (msg: ChatMsg) => void,
+    onError?: (errorMsg: string) => void,
 ): Client {
   const token = getToken();
   const client = new Client({
@@ -394,9 +396,13 @@ export function subscribeRoom(
       client.subscribe(`/topic/rooms/${roomId}`, (frame) => {
         const raw = JSON.parse(frame.body);
         // 백엔드 BroadcastDto엔 isMine이 없으니 프론트가 직접 계산
-        const myId = getMyMemberId();   // ↓ 아래 설명
+        const myId = getMyMemberId();
         onMessage({ ...raw, isMine: raw.senderMemberId === myId });
       });
+    },
+    onStompError: (frame) => {
+      client.deactivate();
+      onError?.(frame.headers['message'] ?? '전송 오류가 발생했습니다.');
     },
   });
   client.activate();

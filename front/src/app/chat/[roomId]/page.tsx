@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
-  apiGetRoom, apiCloseRoom, apiSendMessage, apiGetMessages, apiGetMe, apiSubmitReport,
+  apiGetRoom, apiCloseRoom, apiGetMessages, apiGetMe, apiSubmitReport,
   apiGetHomeStats, isLoggedIn, INDUSTRY_NAMES, subscribeRoom, type ChatMsg,
 } from '@/lib/api';
 import { AppShell } from '@/components/AppShell';
@@ -82,6 +82,7 @@ export default function ChatPage() {
   const lastMsgTimeRef = useRef<string | null>(null);
   const inputRef       = useRef<HTMLInputElement>(null);
   const isLeavingRef   = useRef(false);
+  const stompClientRef = useRef<import('@stomp/stompjs').Client | null>(null);
 
   const chatClosed = chatExpired || partnerLeft;
 
@@ -103,23 +104,17 @@ export default function ChatPage() {
     router.push('/');
   }, [roomId, router, stopTimers]);
 
-  const send = useCallback(async () => {
+  const send = useCallback(() => {
     if (chatClosed) return;
     const content = input.trim();
     if (!content) return;
+    if (!stompClientRef.current?.connected) return;
     setInput('');
-    try {
-      const sent = await apiSendMessage(roomId, content);
-      if (!seenMsgIds.current.has(sent.messageId)) {
-        seenMsgIds.current.add(sent.messageId);
-        setMessages(prev => [...prev, { ...sent, isMine: true }]);
-      }
-    } catch (err) {
-      const status = (err as { status?: number })?.status;
-      if (status === 409) notifyPartnerLeft();
-      else setInput(content);
-    }
-  }, [input, roomId, chatClosed, notifyPartnerLeft]);
+    stompClientRef.current.publish({
+      destination: `/app/rooms/${roomId}/messages`,
+      body: JSON.stringify({ content }),
+    });
+  }, [input, roomId, chatClosed]);
 
   useEffect(() => {
     if (!roomId) {
@@ -155,7 +150,17 @@ export default function ChatPage() {
         setMessages(prev => [...prev, msg]);
         lastMsgTimeRef.current = msg.createdAt;
       }
-    });
+    },
+    (errorMsg) => {
+      const code = errorMsg.split(' : ')[0];
+      if(code === '409-1') {
+        notifyPartnerLeft();
+      } else if(code === '403-1') {
+        notifyPartnerLeft();
+      }
+    }
+    );
+    stompClientRef.current = stompClient;
 
     apiGetRoom(roomId)
       .then(room => {
@@ -192,7 +197,7 @@ export default function ChatPage() {
       stompClient.deactivate();
       stopTimers();
     };
-  }, [roomId]);
+  }, [roomId, notifyPartnerLeft]);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
