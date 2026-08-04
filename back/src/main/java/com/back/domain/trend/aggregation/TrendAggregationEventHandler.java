@@ -1,6 +1,7 @@
 package com.back.domain.trend.aggregation;
 
 import com.back.domain.chat.chatRoomMessage.event.ChatMessageSentEvent;
+import com.back.domain.trend.KeywordPairKey;
 import com.back.domain.trend.keyword.NounExtractor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,15 +44,24 @@ public class TrendAggregationEventHandler {
         LocalDate today = LocalDate.now(KST);
         String keywordKey = "trend:keyword:" + today;
         String messageKey = "trend:messages:" + today;
+        String cooccurKey = "trend:cooccur:" + today;
 
         try {
             for (String noun : nouns) {
                 redisTemplate.opsForZSet().incrementScore(keywordKey, noun, 1);
             }
+            for (int i = 0; i < nouns.size(); i++) {
+                for (int j = i + 1; j < nouns.size(); j++) {
+                    redisTemplate.opsForZSet().incrementScore(cooccurKey, KeywordPairKey.of(nouns.get(i), nouns.get(j)), 1);
+                }
+            }
             redisTemplate.opsForValue().increment(messageKey);
 
             if (!nouns.isEmpty()) {
                 redisTemplate.expire(keywordKey, KEY_TTL);
+            }
+            if (nouns.size() >= 2) {
+                redisTemplate.expire(cooccurKey, KEY_TTL);
             }
             redisTemplate.expire(messageKey, KEY_TTL);
         } catch (Exception e) {
@@ -60,5 +70,4 @@ public class TrendAggregationEventHandler {
             log.error("트렌드 키워드 집계 실패 - keywordKey={}, messageKey={}", keywordKey, messageKey, e);
         }
     }
-
 }

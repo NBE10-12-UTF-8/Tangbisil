@@ -2,6 +2,7 @@ package com.back.domain.chat.chatRoom.dto;
 
 import com.back.domain.chat.chatRoom.entity.ChatRoom;
 import com.back.domain.chat.chatRoom.entity.ChatRoomStatus;
+import com.back.domain.match.matchRequest.entity.Situation;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.LocalDateTime;
@@ -14,16 +15,18 @@ public record ChatRoomDto(
         int maxParticipants,
         LocalDateTime createdAt,
         LocalDateTime closedAt,
-        boolean isBot
+        boolean isBot,
+        Situation opponentSituation
 ) {
-    public ChatRoomDto(ChatRoom chatRoom, boolean isBot) {
+    public ChatRoomDto(ChatRoom chatRoom, boolean isBot, Situation opponentSituation) {
         this(
                 chatRoom.getId(),
                 chatRoom.getStatus(),
                 chatRoom.getMaxParticipants(),
                 chatRoom.getCreatedAt(),
                 chatRoom.getClosedAt(),
-                isBot
+                isBot,
+                opponentSituation
         );
     }
 }

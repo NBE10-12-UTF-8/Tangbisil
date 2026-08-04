@@ -6,6 +6,9 @@ import com.back.domain.match.matchRequest.entity.MatchRequest;
 import com.back.domain.match.matchRequest.entity.MatchStatus;
 import com.back.domain.match.matchRequest.entity.Situation;
 import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
+import com.back.domain.match.matchRequest.service.RedisMatchQueue;
+import com.back.domain.match.scheduler.MatchScheduler;
+import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.notification.service.MatchNotificationService;
@@ -17,13 +20,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static com.back.domain.match.matchRequest.entity.Situation.*;
 import static com.back.domain.member.member.entity.Industry.IT;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -31,6 +38,10 @@ public class MatchRequestServiceTest {
 
     @Autowired
     private MatchRequestService matchRequestService;
+    @Autowired
+    private MatchScheduler matchScheduler;
+    @Autowired
+    private RedisMatchQueue redisMatchQueue;
     @Autowired
     private MatchRequestRepository matchRequestRepository;
     @Autowired
@@ -44,9 +55,15 @@ public class MatchRequestServiceTest {
     private MatchNotificationService matchNotificationService;
 
     private final List<Member> createdMembers = new ArrayList<>();
+    // createPendingRequest()로 Redis ZSet에 직접 시딩한 항목들 - 매칭돼서 이미 ZREM된 것도 있고
+    // PENDING으로 남은 것도 있어서, 테스트 간 오염 방지를 위해 남은 게 있으면 정리한다 (이미 없는 멤버 제거는 no-op).
+    private record QueueEntry(Industry industry, Situation situation, UUID id) {}
+    private final List<QueueEntry> queuedEntries = new ArrayList<>();
 
     @AfterEach
     void cleanUp() {
+        queuedEntries.forEach(e -> redisMatchQueue.remove(e.industry(), e.situation(), e.id()));
+        queuedEntries.clear();
         matchRequestRepository.deleteAll();
         chatRoomParticipantRepository.deleteAll();
         chatRoomRepository.deleteAll();
@@ -59,10 +76,19 @@ public class MatchRequestServiceTest {
         return member;
     }
 
+    // 매칭 후보 조회는 이제 DB가 아니라 Redis ZSet(match:queue:{industry}:{situation})만 보므로,
+    // 테스트 요청도 저장과 동시에 실제 create()의 AFTER_COMMIT이 하는 것과 같은 방식으로 ZADD까지 직접 해준다.
     private MatchRequest createPendingRequest(Member member, Situation situation, long secondsAgo) {
         MatchRequest matchRequest = matchRequestRepository.save(new MatchRequest(member, situation));
-        ReflectionTestUtils.setField(matchRequest, "requestedAt", LocalDateTime.now().minusSeconds(secondsAgo));
-        return matchRequestRepository.saveAndFlush(matchRequest);
+        LocalDateTime requestedAt = LocalDateTime.now().minusSeconds(secondsAgo);
+        ReflectionTestUtils.setField(matchRequest, "requestedAt", requestedAt);
+        MatchRequest saved = matchRequestRepository.saveAndFlush(matchRequest);
+
+        long epochMilli = requestedAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        redisMatchQueue.add(member.getIndustry(), situation, saved.getId(), epochMilli);
+        queuedEntries.add(new QueueEntry(member.getIndustry(), situation, saved.getId()));
+
+        return saved;
     }
 
     @Test
@@ -73,12 +99,14 @@ public class MatchRequestServiceTest {
         MatchRequest reqA = createPendingRequest(memberA, NIGHT_WORK, 0);
         MatchRequest reqB = createPendingRequest(memberB, NIGHT_WORK, 0);
 
-        matchRequestService.retryPendingMatches();
+        matchScheduler.retryPendingMatches();
 
         assertThat(matchRequestRepository.findById(reqA.getId()).get().getStatus()).isEqualTo(MatchStatus.MATCHED);
         assertThat(matchRequestRepository.findById(reqB.getId()).get().getStatus()).isEqualTo(MatchStatus.MATCHED);
 
-        assertThat(matchNotificationService.getNotifications(memberA.getId(), null)).hasSize(1);
+        // 알림은 MatchSuccessEvent -> @Async 리스너로 비동기 처리되므로 폴링으로 대기한다.
+        await().atMost(Duration.ofSeconds(3)).untilAsserted(() ->
+                assertThat(matchNotificationService.getNotifications(memberA.getId(), null)).hasSize(1));
     }
 
     @Test
@@ -89,7 +117,7 @@ public class MatchRequestServiceTest {
         MatchRequest reqA = createPendingRequest(memberA, NIGHT_WORK, 10);
         MatchRequest reqB = createPendingRequest(memberB, MEETING_BOMB, 10);
 
-        matchRequestService.retryPendingMatches();
+        matchScheduler.retryPendingMatches();
 
         assertThat(matchRequestRepository.findById(reqA.getId()).get().getStatus()).isEqualTo(MatchStatus.PENDING);
         assertThat(matchRequestRepository.findById(reqB.getId()).get().getStatus()).isEqualTo(MatchStatus.PENDING);
@@ -103,7 +131,7 @@ public class MatchRequestServiceTest {
         MatchRequest reqA = createPendingRequest(memberA, NIGHT_WORK, 16);
         MatchRequest reqB = createPendingRequest(memberB, MEETING_BOMB, 16);
 
-        matchRequestService.retryPendingMatches();
+        matchScheduler.retryPendingMatches();
 
         assertThat(matchRequestRepository.findById(reqA.getId()).get().getStatus()).isEqualTo(MatchStatus.MATCHED);
         assertThat(matchRequestRepository.findById(reqB.getId()).get().getStatus()).isEqualTo(MatchStatus.MATCHED);
@@ -117,7 +145,7 @@ public class MatchRequestServiceTest {
         MatchRequest reqA = createPendingRequest(memberA, SLACKING, 20);
         MatchRequest reqB = createPendingRequest(memberB, NIGHT_WORK, 20);
 
-        matchRequestService.retryPendingMatches();
+        matchScheduler.retryPendingMatches();
 
         assertThat(matchRequestRepository.findById(reqA.getId()).get().getStatus()).isEqualTo(MatchStatus.PENDING);
         assertThat(matchRequestRepository.findById(reqB.getId()).get().getStatus()).isEqualTo(MatchStatus.PENDING);
@@ -131,7 +159,7 @@ public class MatchRequestServiceTest {
         MatchRequest reqA = createPendingRequest(memberA, NIGHT_WORK, 35);
         MatchRequest reqB = createPendingRequest(memberB, SLACKING, 35);
 
-        matchRequestService.retryPendingMatches();
+        matchScheduler.retryPendingMatches();
 
         assertThat(matchRequestRepository.findById(reqA.getId()).get().getStatus()).isEqualTo(MatchStatus.MATCHED);
         assertThat(matchRequestRepository.findById(reqB.getId()).get().getStatus()).isEqualTo(MatchStatus.MATCHED);
@@ -147,7 +175,7 @@ public class MatchRequestServiceTest {
         MatchRequest reqB = createPendingRequest(memberB, MEETING_BOMB, 20);
         MatchRequest reqC = createPendingRequest(memberC, MEETING_BOMB, 18);
 
-        matchRequestService.retryPendingMatches();
+        matchScheduler.retryPendingMatches();
 
         MatchStatus statusA = matchRequestRepository.findById(reqA.getId()).get().getStatus();
         MatchStatus statusB = matchRequestRepository.findById(reqB.getId()).get().getStatus();

@@ -1,17 +1,23 @@
 package com.back.domain.match.matchRequest.controller;
 
+import com.back.domain.bot.BotAccounts;
 import com.back.domain.chat.chatRoom.entity.ChatRoom;
 import com.back.domain.chat.chatRoom.entity.ChatRoomStatus;
 import com.back.domain.chat.chatRoom.repository.ChatRoomRepository;
+import com.back.domain.chat.chatRoomParticipant.repository.ChatRoomParticipantRepository;
 import com.back.domain.match.matchRequest.entity.MatchRequest;
+import com.back.domain.match.matchRequest.entity.MatchStatus;
 import com.back.domain.match.matchRequest.entity.Situation;
 import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
+import com.back.domain.match.matchRequest.repository.MatchingOutboxRepository;
+import com.back.domain.match.matchRequest.service.RedisMatchQueue;
 import com.back.domain.member.emailVerification.entity.EmailVerificationToken;
 import com.back.domain.member.emailVerification.repository.EmailVerificationTokenRepository;
 import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,10 +26,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
+import java.util.UUID;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.awaitility.Awaitility.await;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -47,12 +60,59 @@ public class ApiV1MatchControllerTest {
     private ChatRoomRepository chatRoomRepository;
 
     @Autowired
+    private ChatRoomParticipantRepository chatRoomParticipantRepository;
+
+    @Autowired
+    private RedisMatchQueue redisMatchQueue;
+
+    @Autowired
+    private MatchingOutboxRepository matchingOutboxRepository;
+
+    @Autowired
     EmailVerificationTokenRepository emailVerificationTokenRepository;
 
     @BeforeEach
     void setUp() {
         matchRequestRepository.deleteAll();
-        memberRepository.deleteAll();
+        deleteNonBotMembers();
+    }
+
+    // t2/t8처럼 테스트 도중 TestTransaction.flagForCommit()+end()로 강제 커밋하는 케이스는
+    // 더 이상 기본 롤백으로 정리되지 않으므로, 트랜잭션을 새로 열어 수동으로 치우고 그 정리 자체도 커밋한다.
+    // (ApiV1ReportControllerTest의 AFTER_COMMIT 테스트 정리 패턴과 동일)
+    @AfterEach
+    void cleanUp() {
+        if (TestTransaction.isActive()) {
+            TestTransaction.end();
+        }
+        TestTransaction.start();
+        // create()가 실제로 커밋되면 AFTER_COMMIT에서 Redis ZSet에도 ZADD가 되므로,
+        // DB 레코드를 지우기 전에 남아있는 항목들을 먼저 ZREM으로 걷어낸다 (이미 매칭/취소로 제거된 건 no-op).
+        matchRequestRepository.findAll().forEach(mr ->
+                redisMatchQueue.remove(mr.getIndustry(), mr.getSituation(), mr.getId()));
+        matchRequestRepository.deleteAll();
+        // 아웃박스를 안 지우면, 10초 주기 재시도 스케줄러(retryOutboxEvents)가 이미 삭제된
+        // matchRequestId를 다시 Redis ZSet에 ZADD해서 다음 테스트에 유령 후보로 남는다.
+        matchingOutboxRepository.deleteAll();
+        chatRoomParticipantRepository.deleteAll();
+        chatRoomRepository.deleteAll();
+        deleteNonBotMembers();
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+    }
+
+    // memberRepository.deleteAll()은 BaseInitData가 앱 기동 시 딱 한 번만 시딩하는 봇/admin 계정까지 지워버린다.
+    // BaseInitData는 컨텍스트당 한 번만 실행되므로(member count > 0이면 skip), 한 번 지워지면 같은 JVM(공유 H2)
+    // 에서 도는 다른 테스트들의 봇 폴백/관리자 로그인이 전부 깨진다. 그래서 admin은 남겨둔다.
+    // (user1~3@test.com은 보호 대상에서 제외 - 이 테스트 자신이 회원가입에 쓰는 이메일과 이름이 겹쳐서
+    // 보호하면 오히려 "이미 존재하는 이메일" 충돌이 난다.)
+    private static final Set<String> PROTECTED_SEED_EMAILS = Set.of("admin@test.com");
+
+    private void deleteNonBotMembers() {
+        memberRepository.findAll().stream()
+                .filter(member -> !BotAccounts.isBotEmail(member.getEmail()))
+                .filter(member -> !PROTECTED_SEED_EMAILS.contains(member.getEmail()))
+                .forEach(memberRepository::delete);
     }
 
     private void preVerifyEmail(String email) {
@@ -124,7 +184,7 @@ public class ApiV1MatchControllerTest {
     }
 
     @Test
-    @DisplayName("매칭 요청 생성 성공 - industry + situation 일치 시 MATCHED")
+    @DisplayName("매칭 요청 생성 성공 - industry + situation 일치 시 커밋 이후 비동기로 MATCHED 처리된다")
     void t2() throws Exception {
         String accessToken1 = signupAndLogin("user1@test.com", "IT/개발");
         String accessToken2 = signupAndLogin("user2@test.com", "IT/개발");
@@ -151,10 +211,24 @@ public class ApiV1MatchControllerTest {
                                 """)
         ).andDo(print());
 
-        resultActions
+        // 매칭은 커밋 이후 AFTER_COMMIT 핸들러에서 비동기로 처리되므로,
+        // 생성 응답 시점에는 항상 PENDING이다.
+        String responseBody = resultActions
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.resultCode").value("201-1"))
-                .andExpect(jsonPath("$.data.status").value("MATCHED"));
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andReturn().getResponse().getContentAsString();
+
+        UUID matchRequestId = UUID.fromString(
+                new ObjectMapper().readTree(responseBody).path("data").path("matchRequestId").asText());
+
+        // AFTER_COMMIT 트리거를 위해 테스트 트랜잭션을 강제 커밋 후, 비동기 매칭 완료를 폴링으로 대기
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+
+        await().atMost(5, SECONDS).untilAsserted(() ->
+                assertThat(matchRequestRepository.findById(matchRequestId).orElseThrow().getStatus())
+                        .isEqualTo(MatchStatus.MATCHED));
     }
 
     @Test
@@ -329,6 +403,15 @@ public class ApiV1MatchControllerTest {
                 .path("matchRequestId")
                 .asText();
 
+        // 매칭은 커밋 이후 AFTER_COMMIT 핸들러에서 비동기로 처리되므로,
+        // 강제 커밋 후 DB 상태가 MATCHED로 바뀔 때까지 기다린 다음 조회 API를 호출한다.
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+
+        await().atMost(5, SECONDS).untilAsserted(() ->
+                assertThat(matchRequestRepository.findById(UUID.fromString(matchRequestId)).orElseThrow().getStatus())
+                        .isEqualTo(MatchStatus.MATCHED));
+
         ResultActions resultActions = mvc.perform(
                 get("/api/v1/matches/" + matchRequestId)
                         .header("Authorization", "Bearer " + accessToken2)
@@ -423,6 +506,15 @@ public class ApiV1MatchControllerTest {
                 .path("data")
                 .path("matchRequestId")
                 .asText();
+
+        // 매칭은 커밋 이후 AFTER_COMMIT 핸들러에서 비동기로 처리되므로,
+        // 강제 커밋 후 실제로 MATCHED가 될 때까지 기다린 다음 취소를 시도한다.
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+
+        await().atMost(5, SECONDS).untilAsserted(() ->
+                assertThat(matchRequestRepository.findById(UUID.fromString(matchRequestId)).orElseThrow().getStatus())
+                        .isEqualTo(MatchStatus.MATCHED));
 
         ResultActions resultActions = mvc.perform(
                 delete("/api/v1/matches/" + matchRequestId)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiGetDashboard, isAdmin, INDUSTRY_NAMES } from '@/lib/api';
+import { apiGetDashboard, apiGetIndustrySignupStats, isAdmin, INDUSTRY_NAMES } from '@/lib/api';
 import AdminHeader from '@/components/AdminHeader';
 
 // 백엔드 Industry enum 라벨(한글 전체) 기준으로 색상 매핑
@@ -26,6 +26,35 @@ export default function AdminStatsPage() {
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState('');
 
+  const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
+  const [rangeStart, setRangeStart] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30); return toIsoDate(d);
+  });
+  const [rangeEnd, setRangeEnd]     = useState(() => toIsoDate(new Date()));
+  const [rangeBars, setRangeBars]   = useState<Array<{ key: string; name: string; count: number; color: string; pct: string }>>([]);
+  const [rangeLoading, setRangeLoading] = useState(true);
+  const [rangeError, setRangeError]     = useState('');
+
+  const fetchRangeStats = () => {
+    if (!rangeStart || !rangeEnd) return;
+    setRangeLoading(true);
+    setRangeError('');
+    apiGetIndustrySignupStats(rangeStart, rangeEnd)
+      .then(data => {
+        const sorted = [...data.industryStatistics].sort((a, b) => b.count - a.count);
+        const max = sorted[0]?.count ?? 1;
+        setRangeBars(sorted.map(s => ({
+          key: s.industry,
+          name: INDUSTRY_NAMES[s.industry] ?? s.industry,
+          count: s.count,
+          color: INDUSTRY_COLORS[s.industry] ?? '#9aa0a6',
+          pct: `${Math.round(s.count / max * 100)}%`,
+        })));
+      })
+      .catch((err: unknown) => setRangeError((err as Error)?.message ?? '데이터를 불러오지 못했어요'))
+      .finally(() => setRangeLoading(false));
+  };
+
   useEffect(() => {
     if (!isAdmin()) { router.replace('/login'); return; }
     setLoading(true);
@@ -46,6 +75,8 @@ export default function AdminStatsPage() {
       })
       .catch(() => setError('데이터를 불러오지 못했어요'))
       .finally(() => setLoading(false));
+    fetchRangeStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   return (
@@ -119,6 +150,61 @@ export default function AdminStatsPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* 기간별 산업군 가입 통계 */}
+            <div style={{ background: '#fff', border: '1px solid #ebebeb', borderRadius: 12, padding: '18px 20px', marginTop: 16 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ fontSize: 13, color: '#3c4043', fontWeight: 600 }}>기간별 산업군 가입 통계</span>
+                  {!rangeLoading && !rangeError && (
+                    <span style={{ fontSize: 12.5, color: '#9aa0a6' }}>
+                      총 <b style={{ color: '#3b7ff2', fontWeight: 700 }}>{rangeBars.reduce((sum, b) => sum + b.count, 0).toLocaleString('ko-KR')}</b>명 가입
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="date"
+                    value={rangeStart}
+                    max={rangeEnd}
+                    onChange={e => setRangeStart(e.target.value)}
+                    style={{ height: 32, border: '1px solid #dadce0', borderRadius: 7, padding: '0 10px', fontSize: 12.5, color: '#3c4043' }}
+                  />
+                  <span style={{ fontSize: 12.5, color: '#9aa0a6' }}>~</span>
+                  <input
+                    type="date"
+                    value={rangeEnd}
+                    min={rangeStart}
+                    onChange={e => setRangeEnd(e.target.value)}
+                    style={{ height: 32, border: '1px solid #dadce0', borderRadius: 7, padding: '0 10px', fontSize: 12.5, color: '#3c4043' }}
+                  />
+                  <button
+                    onClick={fetchRangeStats}
+                    disabled={rangeLoading}
+                    style={{ height: 32, padding: '0 16px', background: '#3b7ff2', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12.5, fontWeight: 600, cursor: rangeLoading ? 'default' : 'pointer', opacity: rangeLoading ? 0.7 : 1 }}
+                  >
+                    조회
+                  </button>
+                </div>
+              </div>
+              {rangeLoading ? (
+                <div style={{ fontSize: 13, color: '#9aa0a6', textAlign: 'center', padding: '20px 0' }}>로딩 중...</div>
+              ) : rangeError ? (
+                <div style={{ fontSize: 13, color: '#ea4c4c', textAlign: 'center', padding: '20px 0' }}>{rangeError}</div>
+              ) : rangeBars.length === 0 ? (
+                <div style={{ fontSize: 13, color: '#9aa0a6', textAlign: 'center', padding: '20px 0' }}>해당 기간에 가입한 회원이 없어요</div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 32, height: 190, padding: '10px 6px 0' }}>
+                  {rangeBars.map(b => (
+                    <div key={b.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', width: 56, flexShrink: 0 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#3c4043', marginBottom: 6 }}>{b.count.toLocaleString('ko-KR')}</span>
+                      <div style={{ width: 36, height: b.pct, minHeight: 4, background: b.color, borderRadius: '6px 6px 0 0' }} />
+                      <span style={{ fontSize: 11, color: '#5f6368', marginTop: 8, textAlign: 'center', whiteSpace: 'nowrap' }}>{b.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}

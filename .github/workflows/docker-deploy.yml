@@ -62,7 +62,7 @@ jobs:
           docker pull $IMAGE
           docker stop backend 2>/dev/null || true
           docker rm backend 2>/dev/null || true
-          docker run -d --name backend --network common -p 8080:8080 --env-file /etc/backend.env --restart unless-stopped $IMAGE
+          docker run -d --name backend --network common -p 8080:8080 --env-file /etc/backend.env --restart unless-stopped --log-opt max-size=10m --log-opt max-file=3 $IMAGE
           docker rmi \$(docker images -f dangling=true -q) 2>/dev/null || true
           DEPLOY
           )

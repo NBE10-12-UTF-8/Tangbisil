@@ -70,6 +70,7 @@ export default function ChatPage() {
   const [roomError, setRoomError]       = useState<'NOT_FOUND' | 'FORBIDDEN' | 'ALREADY_CLOSED' | null>(null);
   const [totalActiveUsers, setTotalActiveUsers] = useState(0);
   const [isBot, setIsBot]               = useState(false);
+  const [opponentSituation, setOpponentSituation] = useState('');
 
   const [reportTarget, setReportTarget]           = useState<ChatMsg | null>(null);
   const [reportReason, setReportReason]           = useState('');
@@ -161,6 +162,7 @@ export default function ChatPage() {
     apiGetRoom(roomId)
       .then(room => {
         setIsBot(room.isBot);
+        setOpponentSituation(room.opponentSituation ?? '');
         if (room.status === 'CLOSED') { stopTimers(); setRoomError('ALREADY_CLOSED'); return; }
         const endTime = new Date(room.createdAt).getTime() + 10 * 60 * 1000;
         const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
@@ -332,6 +334,15 @@ export default function ChatPage() {
                 {isBot && (
                   <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: '#f3e8ff', color: '#7e3ff2' }}>
                     🤖 AI
+                  </span>
+                )}
+                {opponentSituation && (
+                  <span
+                    title="상대방이 선택한 상황이에요"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: '#f1f3f4', color: '#5f6368' }}
+                  >
+                    <span style={{ opacity: 0.7, fontWeight: 500 }}>상대 상황</span>
+                    {opponentSituation}
                   </span>
                 )}
               </span>

@@ -7,6 +7,8 @@ import com.back.domain.match.matchRequest.entity.MatchStatus;
 import com.back.domain.match.matchRequest.entity.Situation;
 import com.back.domain.match.matchRequest.repository.MatchRequestRepository;
 import com.back.domain.match.matchRequest.service.MatchRequestService;
+import com.back.domain.match.matchRequest.service.RedisMatchQueue;
+import com.back.domain.match.scheduler.MatchScheduler;
 import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
@@ -20,8 +22,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
@@ -36,6 +40,10 @@ class BotMatchIntegrationTest {
     @Autowired
     private MatchRequestService matchRequestService;
     @Autowired
+    private MatchScheduler matchScheduler;
+    @Autowired
+    private RedisMatchQueue redisMatchQueue;
+    @Autowired
     private MatchRequestRepository matchRequestRepository;
     @Autowired
     private ChatRoomParticipantRepository chatRoomParticipantRepository;
@@ -43,9 +51,15 @@ class BotMatchIntegrationTest {
     private ChatRoomRepository chatRoomRepository;
 
     private final List<Member> createdMembers = new ArrayList<>();
+    // createPendingRequest()로 Redis ZSet에 직접 시딩한 항목들 - 매칭/봇 폴백으로 이미 ZREM됐을 수도 있어서
+    // 테스트 종료 시점에 남아있는 것만 정리한다 (이미 없는 멤버 제거는 no-op).
+    private record QueueEntry(Industry industry, Situation situation, UUID id) {}
+    private final List<QueueEntry> queuedEntries = new ArrayList<>();
 
     @AfterEach
     void cleanUp() {
+        queuedEntries.forEach(e -> redisMatchQueue.remove(e.industry(), e.situation(), e.id()));
+        queuedEntries.clear();
         matchRequestRepository.deleteAll();
         chatRoomParticipantRepository.deleteAll();
         chatRoomRepository.deleteAll();
@@ -53,10 +67,18 @@ class BotMatchIntegrationTest {
         createdMembers.clear();
     }
 
+    // 매칭 후보 조회는 이제 Redis ZSet만 보므로, DB 저장과 함께 ZADD도 직접 해준다.
     private MatchRequest createPendingRequest(Member member, Situation situation, long secondsAgo) {
         MatchRequest matchRequest = matchRequestRepository.save(new MatchRequest(member, situation));
-        ReflectionTestUtils.setField(matchRequest, "requestedAt", LocalDateTime.now().minusSeconds(secondsAgo));
-        return matchRequestRepository.saveAndFlush(matchRequest);
+        LocalDateTime requestedAt = LocalDateTime.now().minusSeconds(secondsAgo);
+        ReflectionTestUtils.setField(matchRequest, "requestedAt", requestedAt);
+        MatchRequest saved = matchRequestRepository.saveAndFlush(matchRequest);
+
+        long epochMilli = requestedAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        redisMatchQueue.add(member.getIndustry(), situation, saved.getId(), epochMilli);
+        queuedEntries.add(new QueueEntry(member.getIndustry(), situation, saved.getId()));
+
+        return saved;
     }
 
     @Test
@@ -96,7 +118,7 @@ class BotMatchIntegrationTest {
         MatchRequest reqA = createPendingRequest(userA, Situation.NIGHT_WORK, 36);
         MatchRequest reqB = createPendingRequest(userB, Situation.MEETING_BOMB, 36);
 
-        matchRequestService.retryPendingMatches();
+        matchScheduler.retryPendingMatches();
 
         MatchRequest refreshedA = matchRequestRepository.findById(reqA.getId()).orElseThrow();
         MatchRequest refreshedB = matchRequestRepository.findById(reqB.getId()).orElseThrow();

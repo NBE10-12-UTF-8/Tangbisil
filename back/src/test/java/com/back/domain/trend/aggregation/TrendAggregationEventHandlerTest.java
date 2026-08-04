@@ -2,6 +2,7 @@ package com.back.domain.trend.aggregation;
 
 import com.back.domain.chat.chatRoomMessage.dto.RedisChatMessageDto;
 import com.back.domain.chat.chatRoomMessage.event.ChatMessageSentEvent;
+import com.back.domain.trend.KeywordPairKey;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,11 +36,13 @@ class TrendAggregationEventHandlerTest {
     private static final LocalDate TODAY = LocalDate.now(ZoneId.of("Asia/Seoul"));
     private static final String KEYWORD_KEY = "trend:keyword:" + TODAY;
     private static final String MESSAGE_KEY = "trend:messages:" + TODAY;
+    private static final String COOCCUR_KEY = "trend:cooccur:" + TODAY;
 
     @AfterEach
     void cleanUp() {
         redisTemplate.delete(KEYWORD_KEY);
         redisTemplate.delete(MESSAGE_KEY);
+        redisTemplate.delete(COOCCUR_KEY);
     }
 
     private ChatMessageSentEvent eventWithContent(String content) {
@@ -100,5 +103,49 @@ class TrendAggregationEventHandlerTest {
         await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
                 assertThat(redisTemplate.opsForValue().get(MESSAGE_KEY)).isEqualTo("1"));
         assertThat(redisTemplate.opsForZSet().size(KEYWORD_KEY)).isIn(0L, null);
+    }
+
+    @Test
+    @DisplayName("한 메시지에 명사가 2개면, 그 쌍의 오늘 날짜 동시출현 ZSET 점수가 1 오른다")
+    void t6() {
+        trendAggregationEventHandler.handleChatMessageSent(eventWithContent("장마 우산"));
+
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
+                assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, KeywordPairKey.of("장마", "우산"))).isEqualTo(1.0));
+    }
+
+    @Test
+    @DisplayName("한 메시지에 명사가 3개면, 만들 수 있는 3개 쌍 전부의 점수가 각각 1씩 오른다")
+    void t7() {
+        trendAggregationEventHandler.handleChatMessageSent(
+                eventWithContent("오늘 장마 시작이래ㅋㅋㅋ 다들 우산 챙기세요"));
+
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() -> {
+            assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, KeywordPairKey.of("장마", "시작"))).isEqualTo(1.0);
+            assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, KeywordPairKey.of("장마", "우산"))).isEqualTo(1.0);
+            assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, KeywordPairKey.of("시작", "우산"))).isEqualTo(1.0);
+        });
+        assertThat(redisTemplate.opsForZSet().size(COOCCUR_KEY)).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("같은 두 단어가 서로 다른 순서로 등장한 메시지 두 개를 처리하면, 하나의 쌍으로 점수가 누적된다")
+    void t8() {
+        trendAggregationEventHandler.handleChatMessageSent(eventWithContent("장마 우산"));
+        trendAggregationEventHandler.handleChatMessageSent(eventWithContent("우산 장마"));
+
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
+                assertThat(redisTemplate.opsForZSet().score(COOCCUR_KEY, KeywordPairKey.of("장마", "우산"))).isEqualTo(2.0));
+        assertThat(redisTemplate.opsForZSet().size(COOCCUR_KEY)).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("명사가 1개 이하인 메시지는 쌍을 만들 수 없어 동시출현 ZSET에 아무것도 안 남는다")
+    void t9() {
+        trendAggregationEventHandler.handleChatMessageSent(eventWithContent("장마"));
+
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
+                assertThat(redisTemplate.opsForValue().get(MESSAGE_KEY)).isEqualTo("1"));
+        assertThat(redisTemplate.opsForZSet().size(COOCCUR_KEY)).isIn(0L, null);
     }
 }
