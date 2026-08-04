@@ -9,12 +9,14 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.HexFormat;
+import java.util.regex.Pattern;
 
 @Component
 public class MessageDuplicateChecker {
 
     private static final Duration KEY_TTL = Duration.ofDays(2);
     private static final String FINGERPRINT_KEY_PREFIX = "trend:fingerprints:";
+    private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
 
     private final RedisTemplate<String, String> redisTemplate;
 
@@ -29,13 +31,15 @@ public class MessageDuplicateChecker {
 
         String key = FINGERPRINT_KEY_PREFIX + date;
         Long added = redisTemplate.opsForSet().add(key, fingerprint(content));
-        redisTemplate.expire(key, KEY_TTL);
+        if (added != null && added > 0L) {
+            redisTemplate.expire(key, KEY_TTL);
+        }
 
         return added != null && added == 0L;
     }
 
     private String fingerprint(String content) {
-        String normalized = content.replaceAll("\\s+", "").toLowerCase();
+        String normalized = WHITESPACE_PATTERN.matcher(content).replaceAll("").toLowerCase();
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(normalized.getBytes(StandardCharsets.UTF_8));
