@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 
 @RestController
 @RequestMapping("/api/v1/trend-keywords")
@@ -36,24 +36,24 @@ public class ApiV1TrendKeywordController {
     public RsData<List<TrendKeywordResponseDto>> getTrendKeywords() {
         LocalDate yesterday = LocalDate.now(KST).minusDays(1);
         List<RankedKeywordDto> ranked = trendKeywordService.getTrendingKeywords(yesterday, CANDIDATE_POOL_SIZE, TOP_N, MMR_CONFIG);
-        List<TrendKeywordResponseDto> result = new ArrayList<>();
-        for (int i = 0; i < ranked.size(); i++) {
-            int rank = i + 1;
-            String label = ranked.get(i).keyword();
-            double zScore = ranked.get(i).zScore();
 
-            String trend;
-            if (zScore > TREND_FLAT_THRESHOLD) {
-                trend = "up";
-            } else if (zScore < -TREND_FLAT_THRESHOLD) {
-                trend = "down";
-            } else {
-                trend = "flat";
-            }
-
-            result.add(new TrendKeywordResponseDto(rank, label, trend));
-        }
+        List<TrendKeywordResponseDto> result = IntStream.range(0, ranked.size())
+                .mapToObj(i -> {
+                    RankedKeywordDto dto = ranked.get(i);
+                    return new TrendKeywordResponseDto(i + 1, dto.keyword(), determineTrend(dto.zScore()));
+                })
+                .toList();
 
         return new RsData<>("200-1", "조회 성공", result);
+    }
+
+    private String determineTrend(double zScore) {
+        if (zScore > TREND_FLAT_THRESHOLD) {
+            return "up";
+        }
+        if (zScore < -TREND_FLAT_THRESHOLD) {
+            return "down";
+        }
+        return "flat";
     }
 }
