@@ -323,6 +323,10 @@ export async function apiGetMessages(
   if ((res.status === 401 || res.status === 403) && !_isRetry) {
     const result = await refreshAccessToken();
     if (result === "ok") return apiGetMessages(roomId, after, true);
+    if (result === "invalid") {
+      clearTokens();
+      if (typeof window !== "undefined") window.location.href = "/login";
+    }
   }
 
   const text = await res.text();
