@@ -63,7 +63,7 @@ logging:
     org.springframework.transaction.interceptor: TRACE
 custom:
   cors:
-    allowed-origins: "http://localhost:3000,https://cdpn.io"
+    allowed-origins: "http://localhost:3000"
   jwt:
     secretKey: ${JWT_SECRET_KEY}
   accessToken:
