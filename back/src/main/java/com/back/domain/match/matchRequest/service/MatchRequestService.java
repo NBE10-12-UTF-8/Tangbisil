@@ -121,9 +121,8 @@ public class MatchRequestService {
                             log.error("[MatchRequestService] Redis 대기열 적재 실패 - requestId: {}", matchRequest.getId(), e);
                             return;
                         }
-
                         try {
-                            retryProcessor.retryOne(matchRequest.getUuid());
+                            retryProcessor.retryOne(matchRequest.getUuid(), member.getIndustry());
                         } catch (Exception e) {
                             log.error("[MatchRequestService] 1차 즉시 매칭 시도 중 오류 발생 - matchRequestId: {}", matchRequest.getId(), e);
                         }
@@ -142,18 +141,12 @@ public class MatchRequestService {
     // NOT_SUPPORTED로 클래스 레벨 트랜잭션 상속을 차단 - 안 그러면 첫 조회로 커넥션을 잡은 채
     // 아래 tryLock() 대기(최대 5초)에 들어가버린다.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void tryMatch(UUID matchRequestId) {
-        MatchRequest matchRequest = matchRequestRepository.findByUuidWithMember(matchRequestId)
-                .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
-        if (matchRequest.getStatus() != MatchStatus.PENDING) {
-            return;
-        }
-        Industry industry = matchRequest.getMember().getIndustry();
+    public void tryMatch(UUID matchRequestId, Industry industry) {
         String lockKey = "match:lock:" + industry.name();
         RLock lock = redissonClient.getLock(lockKey);
         try {
             // leaseTime 미지정 -> Redisson watchdog이 붙어 배치 루프가 길어져도 락이 새지 않는다.
-            if (lock.tryLock(15, TimeUnit.SECONDS)) {
+            if (lock.tryLock(10, TimeUnit.SECONDS)) {
                 try {
                     applicationContext.getBean(MatchRequestService.class).processMatch(matchRequestId, industry);
                 } finally {
@@ -168,10 +161,20 @@ public class MatchRequestService {
         }
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void tryMatch(UUID matchRequestId) {
+        MatchRequest matchRequest = matchRequestRepository.findByUuidWithMember(matchRequestId)
+                .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
+        if (matchRequest.getStatus() != MatchStatus.PENDING) {
+            return;
+        }
+        tryMatch(matchRequestId, matchRequest.getMember().getIndustry());
+    }
+
     // self-invocation은 프록시를 안 거쳐 위 NOT_SUPPORTED가 적용 안 되므로, 이 메서드도 동일하게 막아둔다.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void tryMatch(MatchRequest matchRequestParam) {
-        tryMatch(matchRequestParam.getUuid());
+        tryMatch(matchRequestParam.getUuid(), matchRequestParam.getMember().getIndustry());
     }
 
     // 분산 락을 쥔 상태에서 대기자를 연속으로 이어 매칭하는 배치 루프. 최초 트리거된 요청을 먼저

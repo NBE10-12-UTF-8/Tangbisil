@@ -171,10 +171,11 @@ class MatchRequestConcurrencyTest {
         List<Future<?>> futures = new ArrayList<>();
 
         for (MatchRequest request : requests) {
+            Industry industry = Industry.IT;
             futures.add(executor.submit(() -> {
                 ready.countDown();
                 start.await();
-                matchRequestService.tryMatch(request.getUuid());
+                matchRequestService.tryMatch(request.getUuid(), industry);
                 return null;
             }));
         }

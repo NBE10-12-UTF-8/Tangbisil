@@ -47,7 +47,7 @@ public class MatchScheduler {
                 if (allIds != null) {
                     for (String idStr : allIds) {
                         try {
-                            matchRequestService.tryMatch(UUID.fromString(idStr));
+                            matchRequestService.tryMatch(UUID.fromString(idStr), industry);
                         } catch (ServiceException e) {
                             if ("404-1".equals(e.getRsData().resultCode())) {
                                 redisMatchQueue.remove(industry, situation, UUID.fromString(idStr));
