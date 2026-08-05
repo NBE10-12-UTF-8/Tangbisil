@@ -54,7 +54,7 @@ public class MatchRequestService {
     private static final long TIER1_THRESHOLD_SECONDS = 15; // 15초 후 유사 상황 매칭
     private static final long TIER2_THRESHOLD_SECONDS = 30; // 30초 후 산업군 전체 매칭
     private static final long BOT_FALLBACK_THRESHOLD_SECONDS = 35; // 그래도 못 찾으면 봇 폴백
-    private static final int CANDIDATE_PAGE_SIZE = 20; // ZSet 상위 몇 명까지 후보로 볼지 (Head-of-Line Blocking 방지)
+    private static final int CANDIDATE_PAGE_SIZE = 50; // ZSet 상위 몇 명까지 후보로 볼지 (Head-of-Line Blocking 방지)
     private static final int BATCH_MAX_ITERATIONS = 200; // 락 하나로 연속 매칭하는 배치 루프 반복 상한
 
     private void connect(MatchRequest matchRequest, MatchRequest other) {
@@ -153,7 +153,7 @@ public class MatchRequestService {
         RLock lock = redissonClient.getLock(lockKey);
         try {
             // leaseTime 미지정 -> Redisson watchdog이 붙어 배치 루프가 길어져도 락이 새지 않는다.
-            if (lock.tryLock(5, TimeUnit.SECONDS)) {
+            if (lock.tryLock(15, TimeUnit.SECONDS)) {
                 try {
                     applicationContext.getBean(MatchRequestService.class).processMatch(matchRequestId, industry);
                 } finally {
