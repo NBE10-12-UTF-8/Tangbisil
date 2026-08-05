@@ -99,6 +99,7 @@ public class SecurityConfig {
                                 ).permitAll()
                                 .requestMatchers("/api/*/admin/**").hasRole("ADMIN")
                                 .requestMatchers("/api/*/**").authenticated()
+                                .requestMatchers("/ws/**").permitAll()
                                 .anyRequest().permitAll()
                 )
                 .headers(
