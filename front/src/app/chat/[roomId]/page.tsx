@@ -158,6 +158,7 @@ export default function ChatPage() {
           .catch(() => {
           });
     }, (errorMsg) => {
+      console.error('[ChatPage] STOMP error:', errorMsg);
       const code = errorMsg.split(' : ')[0];
       if (code === '409-1' || code === '403-1') notifyPartnerLeft();
       }

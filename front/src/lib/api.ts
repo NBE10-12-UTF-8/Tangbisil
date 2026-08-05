@@ -399,7 +399,14 @@ export function subscribeRoom(
       });
     },
     onStompError: (frame) => {
+      console.error('[STOMP] error frame:', frame.headers, frame.body);
       onError?.(frame.headers['message'] ?? '전송 오류가 발생했습니다.');
+    },
+    onWebSocketError: (event) => {
+      console.error('[STOMP] websocket error:', event);
+    },
+    onWebSocketClose: (event) => {
+      console.error('[STOMP] websocket closed:', event.code, event.reason);
     },
   });
   client.activate();
