@@ -773,11 +773,11 @@ public class ApiV1MemberControllerTest {
                 )
                 .andDo(print());
 
-        // Then
+        // Then - 새 accessToken은 응답 바디가 아니라 쿠키로만 내려간다
         resultActions
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
-                .andExpect(jsonPath("$.data.accessToken").exists());
+                .andExpect(cookie().exists("accessToken"));
     }
 
     @Test

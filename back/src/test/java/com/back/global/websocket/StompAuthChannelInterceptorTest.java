@@ -127,6 +127,18 @@ public class StompAuthChannelInterceptorTest {
     }
 
     @Test
+    @DisplayName("Authorization 헤더 경로에서 payload에 id 클레임이 없으면 NPE 대신 AccessDeniedException")
+    void t4b() {
+        when(memberService.payload("no-id-token")).thenReturn(Map.of("role", "USER"));
+
+        StompHeaderAccessor accessor = mutableAccessor(StompCommand.CONNECT);
+        accessor.addNativeHeader("Authorization", "Bearer no-id-token");
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        assertThatThrownBy(() -> interceptor.preSend(message, mock(MessageChannel.class)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     @DisplayName("SUBSCRIBE 시 채팅방 참여자가 아니면 AccessDeniedException")
     void t5() {
         UUID roomId = UUID.randomUUID();

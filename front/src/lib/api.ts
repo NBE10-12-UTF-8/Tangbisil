@@ -342,25 +342,13 @@ export function subscribeRoom(
   let isFirstConnect = true;
 
   // 토큰을 JS가 들고 있지 않으므로 Authorization 헤더 없이 연결한다.
-  // 네이티브 WebSocket 핸드셰이크는 same-site(서브도메인) 쿠키를 자동으로 실어 보내므로,
-  // 백엔드가 그 쿠키(accessToken)로 CONNECT를 인증한다(CookieHandshakeInterceptor).
+  // 네이티브 WebSocket 핸드셰이크는 매 연결·재연결 시도마다(reconnectDelay 포함) 그 순간의
+  // accessToken 쿠키를 자동으로 실어 보내므로, 이전에 존재했던 "재연결 시 토큰이 클로저에
+  // 박혀 갱신 안 됨"·"소셜 로그인 사용자는 토큰이 없어 인증 실패" 문제가 애초에 발생하지
+  // 않는다 — 매번 그 시점의 쿠키로 새로 인증된다(CookieHandshakeInterceptor).
   const client = new Client({
     webSocketFactory: () => new SockJS(`${OAUTH_SERVER_BASE}/ws`),
     reconnectDelay: 3000,
-    // connectHeaders를 고정값으로 넣으면 최초 연결 시점의 토큰이 클로저에 박혀서,
-    // 이후 자동 재연결(reconnectDelay)마다 만료/부재 상태의 토큰을 계속 재사용하게 된다.
-    // beforeConnect는 재연결 시도마다 매번 실행되므로 매 시도마다 토큰을 다시 읽는다.
-    // 소셜 로그인은 accessToken을 localStorage에 저장하지 않고 refreshToken 쿠키로만 인증하므로
-    // (markSession() 참고), getToken()이 항상 null이다. REST 요청은 credentials:'include'로
-    // 쿠키가 자동으로 실려서 문제가 없지만, STOMP CONNECT 프레임은 쿠키를 안 보고 Authorization
-    // 네이티브 헤더만 확인하므로 소셜 로그인 사용자는 토큰이 없으면 쿠키로 재발급받아야 한다.
-    beforeConnect: async () => {
-      let token = getToken();
-      if (!token) {
-        token = await refreshAccessToken();
-      }
-      client.connectHeaders = token ? { Authorization: `Bearer ${token}` } : {};
-    },
     onConnect: () => {
       if(!isFirstConnect) {
         onReconnect?.();

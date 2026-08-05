@@ -62,6 +62,9 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                 }
 
                 Object rawId = payload.get("id");
+                if (rawId == null) {
+                    throw new AccessDeniedException("유효하지 않은 토큰입니다.");
+                }
                 id = (rawId instanceof UUID u) ? u : UUID.fromString(rawId.toString());
                 role = (String) payload.get("role");
             }
