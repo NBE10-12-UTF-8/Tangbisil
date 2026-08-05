@@ -384,8 +384,15 @@ export function subscribeRoom(
     // connectHeaders를 고정값으로 넣으면 최초 연결 시점의 토큰이 클로저에 박혀서,
     // 이후 자동 재연결(reconnectDelay)마다 만료/부재 상태의 토큰을 계속 재사용하게 된다.
     // beforeConnect는 재연결 시도마다 매번 실행되므로 매 시도마다 토큰을 다시 읽는다.
-    beforeConnect: () => {
-      const token = getToken();
+    // 소셜 로그인은 accessToken을 localStorage에 저장하지 않고 refreshToken 쿠키로만 인증하므로
+    // (markSession() 참고), getToken()이 항상 null이다. REST 요청은 credentials:'include'로
+    // 쿠키가 자동으로 실려서 문제가 없지만, STOMP CONNECT 프레임은 쿠키를 안 보고 Authorization
+    // 네이티브 헤더만 확인하므로 소셜 로그인 사용자는 토큰이 없으면 쿠키로 재발급받아야 한다.
+    beforeConnect: async () => {
+      let token = getToken();
+      if (!token) {
+        token = await refreshAccessToken();
+      }
       client.connectHeaders = token ? { Authorization: `Bearer ${token}` } : {};
     },
     onConnect: () => {
