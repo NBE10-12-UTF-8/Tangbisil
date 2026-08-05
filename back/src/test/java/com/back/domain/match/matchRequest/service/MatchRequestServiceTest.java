@@ -17,6 +17,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -53,6 +54,10 @@ public class MatchRequestServiceTest {
     private ChatRoomRepository chatRoomRepository;
     @Autowired
     private MatchNotificationService matchNotificationService;
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
+
+    private static final String NOTIFICATION_KEY_PREFIX = "notification:member:";
 
     private final List<Member> createdMembers = new ArrayList<>();
     // createPendingRequest()로 Redis ZSet에 직접 시딩한 항목들 - 매칭돼서 이미 ZREM된 것도 있고
@@ -67,6 +72,9 @@ public class MatchRequestServiceTest {
         matchRequestRepository.deleteAll();
         chatRoomParticipantRepository.deleteAll();
         chatRoomRepository.deleteAll();
+        // 알림은 Redis(notification:member:{id})에 쌓이는데 H2와 달리 영속되므로, memberId 재사용 시
+        // 이전 실행의 알림과 섞이지 않도록 정리한다.
+        createdMembers.forEach(m -> redisTemplate.delete(NOTIFICATION_KEY_PREFIX + m.getId()));
         createdMembers.forEach(memberRepository::delete);
         createdMembers.clear();
     }
