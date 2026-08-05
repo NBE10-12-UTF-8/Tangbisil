@@ -20,6 +20,8 @@ spring:
     baseline-on-migrate: true
 custom:
   frontendBaseUrl: http://localhost:3000
+  jwt:
+    secretKey: dummy-test-jwt-secret-key-not-for-production-use-0123456789
   actuator:
     username: dummy-username
     password: dummy-password

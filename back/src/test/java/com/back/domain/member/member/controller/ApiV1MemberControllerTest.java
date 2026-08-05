@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
 
 import org.springframework.test.context.ActiveProfiles;
@@ -66,6 +67,8 @@ public class ApiV1MemberControllerTest {
     private ChatRoomRepository chatRoomRepository;
     @Autowired
     private RedisMatchQueue redisMatchQueue;
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
 
     // t9만 TestTransaction.flagForCommit()+end()로 실제 커밋한다. 그 데이터는 기본 롤백으로 안 지워지므로 수동 정리한다.
     // (ApiV1MatchControllerTest에서 쓴 것과 동일한 정리 패턴)
@@ -87,6 +90,12 @@ public class ApiV1MemberControllerTest {
         createdMembers.clear();
         TestTransaction.flagForCommit();
         TestTransaction.end();
+    }
+
+    @AfterEach
+    void cleanUpLoginAttempts() {
+        redisTemplate.delete("login:attempts:brute-force-test@test.com");
+        redisTemplate.delete("login:attempts:reset-test@test.com");
     }
 
     private void preVerifyEmail(String email) {
@@ -752,5 +761,115 @@ public class ApiV1MemberControllerTest {
         // Then
         resultActions
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("같은 이메일로 로그인을 5번 연속 실패하면, 비밀번호가 맞아도 6번째부터는 429로 차단된다")
+    void t21() throws Exception {
+        preVerifyEmail("brute-force-test@test.com");
+        mvc.perform(
+                post("/api/v1/members/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                     "email": "brute-force-test@test.com",
+                                     "password": "1234",
+                                     "industry": "IT/개발",
+                                     "agreedToTerms": true
+                                }
+                                """)
+        );
+
+        // When - 틀린 비밀번호로 5번 연속 실패
+        for (int i = 0; i < 5; i++) {
+            mvc.perform(
+                    post("/api/v1/members/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                         "email": "brute-force-test@test.com",
+                                         "password": "wrong-password"
+                                    }
+                                    """)
+            ).andExpect(status().isUnauthorized());
+        }
+
+        // Then - 6번째는 비밀번호가 맞아도 429로 차단된다
+        ResultActions resultActions = mvc
+                .perform(
+                        post("/api/v1/members/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                             "email": "brute-force-test@test.com",
+                                             "password": "1234"
+                                        }
+                                        """)
+                )
+                .andDo(print());
+
+        resultActions
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.resultCode").value("429-1"));
+    }
+
+    @Test
+    @DisplayName("로그인에 성공하면 실패 카운트가 초기화된다")
+    void t22() throws Exception {
+        preVerifyEmail("reset-test@test.com");
+        mvc.perform(
+                post("/api/v1/members/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                     "email": "reset-test@test.com",
+                                     "password": "1234",
+                                     "industry": "IT/개발",
+                                     "agreedToTerms": true
+                                }
+                                """)
+        );
+
+        // Given - 틀린 비밀번호로 2번 실패 후 정상 로그인 성공
+        for (int i = 0; i < 2; i++) {
+            mvc.perform(
+                    post("/api/v1/members/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                         "email": "reset-test@test.com",
+                                         "password": "wrong-password"
+                                    }
+                                    """)
+            ).andExpect(status().isUnauthorized());
+        }
+        mvc.perform(
+                post("/api/v1/members/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                     "email": "reset-test@test.com",
+                                     "password": "1234"
+                                }
+                                """)
+        ).andExpect(status().isOk());
+
+        // When - 다시 틀린 비밀번호로 로그인 (실패 카운트가 리셋됐다면 429가 아니라 401이어야 함)
+        ResultActions resultActions = mvc
+                .perform(
+                        post("/api/v1/members/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {
+                                             "email": "reset-test@test.com",
+                                             "password": "wrong-password"
+                                        }
+                                        """)
+                )
+                .andDo(print());
+
+        // Then
+        resultActions
+                .andExpect(status().isUnauthorized());
     }
 }
