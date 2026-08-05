@@ -150,7 +150,7 @@ export default function HomePage() {
     setMatchError('');
     try {
       const data = await apiCreateMatch(selectedTopic);
-      localStorage.setItem(MATCH_KEY, JSON.stringify({ id: data.matchRequestId, situation: selectedTopic }));
+      localStorage.setItem(MATCH_KEY, JSON.stringify({ id: data.matchRequestId, situation: selectedTopic, requestedAt: data.requestedAt }));
       router.push('/match');
     } catch (err: unknown) {
       const status = (err as { status?: number })?.status;
