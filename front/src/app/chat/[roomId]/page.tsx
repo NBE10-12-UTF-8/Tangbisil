@@ -377,7 +377,7 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <div style={{ height: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
             {messages.length === 0 && (
               <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 13, color: '#bdc1c6' }}>대화를 시작해보세요</div>
             )}
