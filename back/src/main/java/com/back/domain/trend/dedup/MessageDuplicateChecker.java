@@ -27,7 +27,7 @@ public class MessageDuplicateChecker {
     }
 
     public boolean isDuplicate(LocalDate date, UUID senderMemberId, String content) {
-        if (content == null || content.isBlank()) {
+        if (senderMemberId == null || content == null || content.isBlank()) {
             return false;
         }
 

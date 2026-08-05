@@ -108,6 +108,13 @@ class MessageDuplicateCheckerTest {
     }
 
     @Test
+    @DisplayName("발신자 ID가 null이면 같은 내용이 반복돼도 서로 다른 발신자일 수 있어 중복 검사 없이 항상 false를 반환한다")
+    void nullSenderIsNeverDuplicate() {
+        assertThat(messageDuplicateChecker.isDuplicate(TODAY, null, "발신자 없는 메시지")).isFalse();
+        assertThat(messageDuplicateChecker.isDuplicate(TODAY, null, "발신자 없는 메시지")).isFalse();
+    }
+
+    @Test
     @DisplayName("같은 발신자의 완전히 같은 메시지가 동시에 여러 건 도착해도 SADD의 원자성 덕분에 딱 하나만 통과한다")
     void concurrentIdenticalMessagesOnlyOnePasses() throws Exception {
         int threadCount = 20;
