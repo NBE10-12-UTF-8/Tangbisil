@@ -54,7 +54,7 @@ public class MatchRequestService {
     private static final long TIER1_THRESHOLD_SECONDS = 15; // 15초 후 유사 상황 매칭
     private static final long TIER2_THRESHOLD_SECONDS = 30; // 30초 후 산업군 전체 매칭
     private static final long BOT_FALLBACK_THRESHOLD_SECONDS = 35; // 그래도 못 찾으면 봇 폴백
-    private static final int CANDIDATE_PAGE_SIZE = 20; // ZSet 상위 몇 명까지 후보로 볼지 (Head-of-Line Blocking 방지)
+    private static final int CANDIDATE_PAGE_SIZE = 50; // ZSet 상위 몇 명까지 후보로 볼지 (Head-of-Line Blocking 방지)
     private static final int BATCH_MAX_ITERATIONS = 200; // 락 하나로 연속 매칭하는 배치 루프 반복 상한
 
     private void connect(MatchRequest matchRequest, MatchRequest other) {
@@ -121,9 +121,8 @@ public class MatchRequestService {
                             log.error("[MatchRequestService] Redis 대기열 적재 실패 - requestId: {}", matchRequest.getId(), e);
                             return;
                         }
-
                         try {
-                            retryProcessor.retryOne(matchRequest.getUuid());
+                            retryProcessor.retryOne(matchRequest.getUuid(), member.getIndustry());
                         } catch (Exception e) {
                             log.error("[MatchRequestService] 1차 즉시 매칭 시도 중 오류 발생 - matchRequestId: {}", matchRequest.getId(), e);
                         }
@@ -139,21 +138,17 @@ public class MatchRequestService {
         matchingOutboxRepository.findById(outboxId).ifPresent(MatchingOutbox::markFailed);
     }
 
-    // NOT_SUPPORTED로 클래스 레벨 트랜잭션 상속을 차단 - 안 그러면 첫 조회로 커넥션을 잡은 채
-    // 아래 tryLock() 대기(최대 5초)에 들어가버린다.
+    /**
+     * 지정된 Industry의 분산 락을 시도하여 1차 비동기 매칭 및 연속 배치 매칭을 처리합니다.
+     * 주의: 호출부는 반드시 대상 요청의 올바른 Industry를 전달해야 합니다.
+     */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void tryMatch(UUID matchRequestId) {
-        MatchRequest matchRequest = matchRequestRepository.findByUuidWithMember(matchRequestId)
-                .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
-        if (matchRequest.getStatus() != MatchStatus.PENDING) {
-            return;
-        }
-        Industry industry = matchRequest.getMember().getIndustry();
+    public void tryMatch(UUID matchRequestId, Industry industry) {
         String lockKey = "match:lock:" + industry.name();
         RLock lock = redissonClient.getLock(lockKey);
         try {
             // leaseTime 미지정 -> Redisson watchdog이 붙어 배치 루프가 길어져도 락이 새지 않는다.
-            if (lock.tryLock(5, TimeUnit.SECONDS)) {
+            if (lock.tryLock(10, TimeUnit.SECONDS)) {
                 try {
                     applicationContext.getBean(MatchRequestService.class).processMatch(matchRequestId, industry);
                 } finally {
@@ -166,6 +161,16 @@ public class MatchRequestService {
             Thread.currentThread().interrupt();
             throw new ServiceException("500-1", "분산 락 획득 중 인터럽트가 발생했습니다.");
         }
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void tryMatch(UUID matchRequestId) {
+        MatchRequest matchRequest = matchRequestRepository.findByUuidWithMember(matchRequestId)
+                .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
+        if (matchRequest.getStatus() != MatchStatus.PENDING) {
+            return;
+        }
+        tryMatch(matchRequestId, matchRequest.getMember().getIndustry());
     }
 
     // self-invocation은 프록시를 안 거쳐 위 NOT_SUPPORTED가 적용 안 되므로, 이 메서드도 동일하게 막아둔다.
@@ -186,7 +191,13 @@ public class MatchRequestService {
 
         while (currentTargetId != null && iterations++ < BATCH_MAX_ITERATIONS) {
             Optional<MatchRequest> currentOpt = matchRequestRepository.findByUuidWithMember(currentTargetId);
-            if (currentOpt.isEmpty() || currentOpt.get().getStatus() != MatchStatus.PENDING) {
+            if (currentOpt.isEmpty()) {
+                if (iterations == 1) {
+                    throw new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다.");
+                }
+                break;
+            }
+            if (currentOpt.get().getStatus() != MatchStatus.PENDING) {
                 break;
             }
 
