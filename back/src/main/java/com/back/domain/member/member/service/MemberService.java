@@ -109,8 +109,11 @@ public class MemberService {
 
     @Transactional
     public UUID genRefreshToken(Member member) {
+        // 호출부(로그인 컨트롤러/OAuth2LoginSuccessHandler)에서 넘어오는 member는 이 메서드의
+        // 트랜잭션 밖에서 조회된 detached 엔티티라, save 없이 필드만 바꾸면 DB에 반영되지 않는다.
         UUID token = UUID.randomUUID();
         member.updateRefreshToken(token);
+        memberRepository.save(member);
         return token;
     }
     public String refreshAccessToken(UUID refreshToken) {
