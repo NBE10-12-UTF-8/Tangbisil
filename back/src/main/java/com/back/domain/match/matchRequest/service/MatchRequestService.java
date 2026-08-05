@@ -327,17 +327,23 @@ public class MatchRequestService {
         if (!matchRequest.getMember().getId().equals(actor.getId())) {
             throw new ServiceException("403-1", "접근 권한이 없습니다.");
         }
-        if (matchRequest.getStatus() == MatchStatus.MATCHED) {
+
+        // deleteByIdAndStatus가 clearAutomatically=true라 실행 후 matchRequest가 detach되어
+        // lazy 필드(member)에 다시 접근할 수 없다 - 필요한 값은 미리 꺼내둔다.
+        Industry industry = matchRequest.getMember().getIndustry();
+        Situation situation = matchRequest.getSituation();
+        UUID uuid = matchRequest.getUuid();
+
+        // status를 먼저 SELECT해서 앱 코드에서 확인하면, 그 사이 매칭 배치(processMatch)가
+        // 이 요청을 PENDING으로 읽어 확정시켜버려도 걸러내지 못한다(이 체크가 이미 지난
+        // 스냅샷 기준이라서). DELETE 문 자체에 status 조건을 걸어 DB가 최신 커밋 상태
+        // 기준으로 원자적으로 처리하게 한다.
+        int deleted = matchRequestRepository.deleteByIdAndStatus(matchRequest.getId(), MatchStatus.PENDING);
+        if (deleted == 0) {
             throw new ServiceException("409-1", "이미 매칭된 요청은 취소할 수 없습니다.");
         }
 
-        matchRequestRepository.delete(matchRequest);
-
-        redisMatchQueue.remove(
-                matchRequest.getMember().getIndustry(),
-                matchRequest.getSituation(),
-                matchRequest.getUuid()
-        );
+        redisMatchQueue.remove(industry, situation, uuid);
     }
 
     @Transactional
