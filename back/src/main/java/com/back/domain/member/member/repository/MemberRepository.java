@@ -14,8 +14,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface MemberRepository extends JpaRepository<Member, UUID> {
+public interface MemberRepository extends JpaRepository<Member, Long> {
     Optional<Member> findByEmail(String email);
+    Optional<Member> findByUuid(UUID uuid);
     Optional<Member> findByRefreshToken(UUID refreshToken);
     Optional<Member> findByProviderAndProviderId(AuthProvider provider, String providerId);
     @Query("SELECT new com.back.domain.dashboard.dashboard.dto.IndustryStatisticsDto(m.industry, COUNT(m)) FROM Member m GROUP BY m.industry")

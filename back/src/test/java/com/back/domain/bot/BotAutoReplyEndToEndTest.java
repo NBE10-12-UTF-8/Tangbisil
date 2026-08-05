@@ -23,7 +23,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -79,16 +78,16 @@ class BotAutoReplyEndToEndTest {
         // AFTER_COMMIT 이벤트가 발화되고 봇 응답이 비동기로 시작된다.
         // (matchRequest는 이 테스트가 @Transactional이 아니라서 이미 detach된 상태라,
         // ID 기반 오버로드로 조회+매칭을 같은 트랜잭션 안에서 처리한다)
-        matchRequestService.tryMatch(matchRequest.getId());
+        matchRequestService.tryMatch(matchRequest.getUuid());
 
         MatchRequest matched = matchRequestRepository.findById(matchRequest.getId()).orElseThrow();
-        UUID roomId = matched.getRoom().getId();
+        Long roomId = matched.getRoom().getId();
 
         // Then - 비동기 + 최소 딜레이가 있어서 넉넉히 폴링
         boolean botReplied = false;
         for (int i = 0; i < 20; i++) {
             TimeUnit.MILLISECONDS.sleep(500);
-            List<ChatMessage> messages = chatMessageService.getMessagesByRoom(roomId);
+            List<ChatMessage> messages = chatMessageService.getRecentMessages(roomId, 10);
             if (!messages.isEmpty()) {
                 botReplied = true;
                 assertThat(BotReplyMessages.LINES).contains(messages.get(0).getContent());

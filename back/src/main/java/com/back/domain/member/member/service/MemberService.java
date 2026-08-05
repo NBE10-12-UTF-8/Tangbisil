@@ -130,14 +130,20 @@ public class MemberService {
         return authTokenService.payload(accessToken);
     }
 
-    public Optional<Member> findById(UUID id) {
+    public Optional<Member> findById(Long id) {
         return memberRepository.findById(id);
+    }
+
+    // 외부(URL/JWT)에서 넘어오는 공개 식별자(UUID)로 조회 — 여기서 내부 PK(Long)를 가진
+    // 엔티티로 변환한 뒤, 그 아래 계층은 전부 Long PK로 처리한다.
+    public Optional<Member> findByUuid(UUID uuid) {
+        return memberRepository.findByUuid(uuid);
     }
 
     public Optional<Member> findByIdentifier(String identifier) {
         try {
-            UUID id = UUID.fromString(identifier);
-            return findById(id);
+            UUID uuid = UUID.fromString(identifier);
+            return findByUuid(uuid);
         } catch (IllegalArgumentException e) {
             return findByEmail(identifier);
         }
@@ -190,7 +196,7 @@ public class MemberService {
     @Transactional
     public MemberAdmDto toggleMemberSuspension(UUID memberId, Member actor) {
 
-        Member targetMember = memberRepository.findById(memberId)
+        Member targetMember = memberRepository.findByUuid(memberId)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
 
         if (targetMember.getId().equals(actor.getId())) {

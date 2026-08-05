@@ -4,6 +4,6 @@ import java.util.UUID;
 
 public record MatchSuccessEvent(
     UUID roomId,
-    UUID requesterId,
-    UUID opponentId
+    Long requesterId,
+    Long opponentId
 ) {}

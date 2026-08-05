@@ -85,8 +85,8 @@ public class MatchRequestServiceTest {
         MatchRequest saved = matchRequestRepository.saveAndFlush(matchRequest);
 
         long epochMilli = requestedAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        redisMatchQueue.add(member.getIndustry(), situation, saved.getId(), epochMilli);
-        queuedEntries.add(new QueueEntry(member.getIndustry(), situation, saved.getId()));
+        redisMatchQueue.add(member.getIndustry(), situation, saved.getUuid(), epochMilli);
+        queuedEntries.add(new QueueEntry(member.getIndustry(), situation, saved.getUuid()));
 
         return saved;
     }

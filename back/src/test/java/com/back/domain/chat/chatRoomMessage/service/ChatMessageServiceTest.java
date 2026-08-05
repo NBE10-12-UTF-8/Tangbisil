@@ -58,7 +58,7 @@ public class ChatMessageServiceTest {
 
         ChatMessageSentEvent event = events.stream(ChatMessageSentEvent.class).findFirst().orElseThrow();
         assertThat(event.getMessageDto().getContent()).isEqualTo("이벤트 발행 테스트");
-        assertThat(event.getMessageDto().getRoomId()).isEqualTo(chatRoom.getId());
+        assertThat(event.getMessageDto().getRoomId()).isEqualTo(chatRoom.getUuid());
     }
 
     @Test

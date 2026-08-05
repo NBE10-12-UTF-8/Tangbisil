@@ -74,7 +74,7 @@ public class MatchScheduler {
 
         for (MatchingOutbox outbox : failedEvents) {
             try {
-                MatchRequest matchRequest = matchRequestRepository.findById(outbox.getMatchRequestId()).orElse(null);
+                MatchRequest matchRequest = matchRequestRepository.findByUuid(outbox.getMatchRequestId()).orElse(null);
                 if (matchRequest == null || matchRequest.getStatus() != MatchStatus.PENDING) {
                     outbox.markSuccess();
                     matchingOutboxRepository.save(outbox);

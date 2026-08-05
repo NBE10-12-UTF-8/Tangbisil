@@ -48,7 +48,7 @@ public class Rq {
                             .map(auth -> auth.replace("ROLE_", ""))
                             .findFirst()
                             .orElse("USER");
-                    return new Member(securityUser.getId(), securityUser.getUsername(), role);
+                    return new Member(securityUser.getId(), securityUser.getUuid(), securityUser.getUsername(), role);
                 })
                 .orElse(null);
     }

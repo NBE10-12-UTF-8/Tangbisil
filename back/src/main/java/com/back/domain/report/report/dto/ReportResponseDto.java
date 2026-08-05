@@ -12,7 +12,7 @@ public record ReportResponseDto(
 ) {
     public ReportResponseDto(Report report) {
         this(
-                report.getId(),
+                report.getUuid(),
                 report.getStatus(),
                 report.getCreatedAt()
         );

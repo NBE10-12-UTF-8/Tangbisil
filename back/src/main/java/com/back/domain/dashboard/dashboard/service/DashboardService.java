@@ -57,7 +57,7 @@ public class DashboardService {
     // 매칭 성사 시 참여자 양쪽에 MatchRequest가 하나씩 생겨서 같은 room이 두 번 잡힌다.
     // room 기준으로 먼저 나온 것만 남기고, 회원 식별 정보 없이 날짜/산업군/상황만 노출한다.
     private List<RecentMatchLogDto> getRecentMatchLogs() {
-        Set<UUID> seenRoomIds = new HashSet<>();
+        Set<Long> seenRoomIds = new HashSet<>();
         return matchRequestRepository
                 .findRecentByStatus(MatchStatus.MATCHED, PageRequest.of(0, RECENT_MATCH_FETCH_BATCH_SIZE))
                 .stream()

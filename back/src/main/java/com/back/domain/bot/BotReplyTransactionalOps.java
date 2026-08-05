@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Slf4j
 @Component
@@ -26,7 +25,7 @@ public class BotReplyTransactionalOps {
     private static final int HISTORY_LIMIT = 12;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
-    public ReplyContext loadContext(UUID roomId, UUID botMemberId) {
+    public ReplyContext loadContext(Long roomId, Long botMemberId) {
         Member bot = memberRepository.findById(botMemberId)
                 .orElseThrow(() -> new IllegalStateException("봇 계정을 찾을 수 없습니다: " + botMemberId));
 
@@ -54,7 +53,7 @@ public class BotReplyTransactionalOps {
     // 실제 조회로 바꿈 - getReferenceById는 트랜잭션이 끝나면 detached 프록시가 되어
     // 이후 지연 필드 접근 시 LazyInitializationException을 유발한다.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void persistReply(UUID roomId, UUID botId, String reply) {
+    public void persistReply(Long roomId, Long botId, String reply) {
         Member bot = memberRepository.findById(botId)
                 .orElseThrow(() -> new IllegalStateException("봇 계정을 찾을 수 없습니다: " + botId));
         chatMessageService.sendMessage(roomId, bot, reply);
@@ -112,5 +111,5 @@ public class BotReplyTransactionalOps {
 """.formatted(industry != null ? industry.getLabel() : "일반 사무직");
     }
 
-    record ReplyContext(UUID botId, String systemInstruction, List<Map.Entry<Boolean, String>> conversation) {}
+    record ReplyContext(Long botId, String systemInstruction, List<Map.Entry<Boolean, String>> conversation) {}
 }

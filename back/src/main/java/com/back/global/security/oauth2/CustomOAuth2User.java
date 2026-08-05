@@ -5,16 +5,15 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.UUID;
 
 public class CustomOAuth2User implements OAuth2User {
-    private final UUID memberId;
+    private final Long memberId;
     private final Map<String, Object> attributes;
     private final Collection<? extends GrantedAuthority> authorities;
     private final String nameAttributeKey;
 
     public CustomOAuth2User(
-            UUID memberId,
+            Long memberId,
             Map<String, Object> attributes,
             Collection<? extends GrantedAuthority> authorities,
             String nameAttributeKey
@@ -25,7 +24,7 @@ public class CustomOAuth2User implements OAuth2User {
         this.nameAttributeKey = nameAttributeKey;
     }
 
-    public UUID getMemberId() {
+    public Long getMemberId() {
         return memberId;
     }
 

@@ -1,6 +1,9 @@
 package com.back.global.websocket;
 
+import com.back.domain.chat.chatRoom.entity.ChatRoom;
+import com.back.domain.chat.chatRoom.repository.ChatRoomRepository;
 import com.back.domain.chat.chatRoomParticipant.repository.ChatRoomParticipantRepository;
+import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
 import com.back.global.webSocket.StompAuthChannelInterceptor;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +37,9 @@ public class StompAuthChannelInterceptorTest {
 
     @Mock
     ChatRoomParticipantRepository chatRoomParticipantRepository;
+
+    @Mock
+    ChatRoomRepository chatRoomRepository;
 
     @InjectMocks
     StompAuthChannelInterceptor interceptor;
@@ -115,7 +121,13 @@ public class StompAuthChannelInterceptorTest {
         accessor.setUser(auth);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
-        when(chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(roomId, memberId))
+        ChatRoom mockRoom = mock(ChatRoom.class);
+        when(mockRoom.getId()).thenReturn(1L);
+        Member mockMember = mock(Member.class);
+        when(mockMember.getId()).thenReturn(2L);
+        when(chatRoomRepository.findByUuid(roomId)).thenReturn(java.util.Optional.of(mockRoom));
+        when(memberService.findByUuid(memberId)).thenReturn(java.util.Optional.of(mockMember));
+        when(chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(1L, 2L))
                 .thenReturn(false);
 
         assertThatThrownBy(() -> interceptor.preSend(message, mock(MessageChannel.class)))
@@ -136,7 +148,13 @@ public class StompAuthChannelInterceptorTest {
         accessor.setUser(auth);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
-        when(chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(roomId, memberId))
+        ChatRoom mockRoom = mock(ChatRoom.class);
+        when(mockRoom.getId()).thenReturn(1L);
+        Member mockMember = mock(Member.class);
+        when(mockMember.getId()).thenReturn(2L);
+        when(chatRoomRepository.findByUuid(roomId)).thenReturn(java.util.Optional.of(mockRoom));
+        when(memberService.findByUuid(memberId)).thenReturn(java.util.Optional.of(mockMember));
+        when(chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(1L, 2L))
                 .thenReturn(true);
 
         assertThatCode(() -> interceptor.preSend(message, mock(MessageChannel.class)))

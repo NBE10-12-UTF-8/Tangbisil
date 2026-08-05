@@ -41,7 +41,7 @@ public class ChatMessageService {
     private static final Logger log = LoggerFactory.getLogger(ChatMessageService.class);
 
     @Transactional
-    public ChatRoomMessageResponseDto sendMessage(UUID roomId, Member sender, String content) {
+    public ChatRoomMessageResponseDto sendMessage(Long roomId, Member sender, String content) {
         if (content == null || content.isBlank()) {
             throw new ServiceException("400-1", "메시지 내용을 입력해주세요.");
         }
@@ -74,8 +74,8 @@ public class ChatMessageService {
         // 비동기 캐시 적재를 수행할 배달부(EventHandler)에게 이벤트 발행
         List<ChatMessageSentEvent.BroadcastTarget> targets = participants.stream()
                 .map(p -> new ChatMessageSentEvent.BroadcastTarget(
-                        p.getId(),
-                        p.getMember().getId().toString(),
+                        p.getUuid(),
+                        p.getMember().getUuid().toString(),
                         BotAccounts.isBotEmail(p.getMember().getEmail())
                 ))
                 .toList();
@@ -90,20 +90,16 @@ public class ChatMessageService {
                     .ifPresent(bot -> eventPublisher.publishEvent(new BotReplyTriggerEvent(roomId, bot.getId())));
         }
 
-        return new ChatRoomMessageResponseDto(message, sender.getId());
+        return new ChatRoomMessageResponseDto(message, sender.getUuid());
     }
 
     public ChatMessage getMessage(UUID messageId) {
-        return chatMessageRepository.findById(messageId)
+        return chatMessageRepository.findByUuid(messageId)
                 .orElseThrow(() -> new ServiceException("404-2", "신고 대상 메시지를 찾을 수 없습니다."));
     }
 
-    public List<ChatMessage> getMessagesByRoom(UUID roomId) {
-        return chatMessageRepository.findByChatRoomIdOrderByCreatedAtDesc(roomId);
-    }
-
     // 신고 유발 메시지 시점을 기준으로 그 이전에 전송된 대화만 최대 30개 핀포인트 조회
-    public List<ChatMessage> getMessagesBeforeTarget(UUID roomId, UUID targetMessageId) {
+    public List<ChatMessage> getMessagesBeforeTarget(Long roomId, UUID targetMessageId) {
         ChatMessage targetMessage = getMessage(targetMessageId);
         return chatMessageRepository.findTop30ByChatRoomIdAndCreatedAtLessThanEqualOrderByCreatedAtDesc(
                 roomId,
@@ -111,23 +107,23 @@ public class ChatMessageService {
         );
     }
 
-    public List<ChatMessage> getRecentMessages(UUID roomId, int limit) {
+    public List<ChatMessage> getRecentMessages(Long roomId, int limit) {
         return chatMessageRepository.findRecentByChatRoomId(roomId, PageRequest.of(0, limit));
     }
 
-    public List<ChatRoomMessageResponseDto> getMessages(UUID roomId, Member requester, LocalDateTime after) {
+    public List<ChatRoomMessageResponseDto> getMessages(Long roomId, Member requester, LocalDateTime after) {
         ChatRoom chatRoom = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ServiceException("404-1", "채팅방을 찾을 수 없습니다."));
         UUID requesterParticipantId = chatRoomParticipantRepository
                 .findByChatRoomIdAndMemberId(roomId, requester.getId())
-                .map(p -> p.getId())
+                .map(p -> p.getUuid())
                 .orElseThrow(() -> new ServiceException("403-1", "해당 채팅방에 접근 권한이 없습니다."));
 
         if(chatRoom.getStatus() == ChatRoomStatus.CLOSED) {
             throw new ServiceException("200-3", "종료된 채팅방입니다.");
         }
 
-        String key = "chat:room:" + roomId + ":messages";
+        String key = "chat:room:" + chatRoom.getUuid() + ":messages";
         List<RedisChatMessageDto> cachedMessages = null;
 
         // Redis 캐시 조회 시도
@@ -196,7 +192,7 @@ public class ChatMessageService {
                     .toList();
         }
         return messages.stream()
-                .map(message -> new ChatRoomMessageResponseDto(message, requester.getId()))
+                .map(message -> new ChatRoomMessageResponseDto(message, requester.getUuid()))
                 .toList();
     }
 

@@ -9,14 +9,17 @@ import java.util.UUID;
 
 @Getter
 public class SecurityUser extends User {
-    private final UUID id;
+    private final Long id;
+    private final UUID uuid;
 
     public SecurityUser(
-            UUID id,
+            Long id,
+            UUID uuid,
             String email,
             Collection<? extends GrantedAuthority> authorities
     ) {
         super(email, "", authorities);
         this.id = id;
+        this.uuid = uuid;
     }
 }

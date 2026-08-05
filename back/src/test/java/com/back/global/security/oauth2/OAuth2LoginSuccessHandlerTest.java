@@ -39,8 +39,8 @@ class OAuth2LoginSuccessHandlerTest {
     @DisplayName("로그인 성공 시 code 발급 없이 쿠키를 직접 심고, 파라미터 없는 URL로 리다이렉트한다")
     void t1() throws Exception {
         // Given
-        UUID memberId = UUID.randomUUID();
-        Member member = new Member(memberId, "test@test.com", "USER");
+        Long memberId = 1L;
+        Member member = new Member(memberId, UUID.randomUUID(), "test@test.com", "USER");
 
         when(memberService.findById(memberId)).thenReturn(Optional.of(member));
         when(memberService.genAccessToken(member)).thenReturn("access-token-value");

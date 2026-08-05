@@ -19,7 +19,7 @@ public record ChatRoomDto(
 ) {
     public ChatRoomDto(ChatRoom chatRoom, boolean isBot, Situation opponentSituation) {
         this(
-                chatRoom.getId(),
+                chatRoom.getUuid(),
                 chatRoom.getStatus(),
                 chatRoom.getMaxParticipants(),
                 chatRoom.getCreatedAt(),

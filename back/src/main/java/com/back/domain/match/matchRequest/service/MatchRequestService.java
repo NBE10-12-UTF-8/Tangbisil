@@ -68,7 +68,7 @@ public class MatchRequestService {
         triggerBotReplyIfNeeded(matchRequest.getMember(), other.getMember(), chatRoom.getId());
 
         // RDB 최종 커밋 완료 시점에 비동기로 알림이 가도록 이벤트를 발행합니다.
-        eventPublisher.publishEvent(new MatchSuccessEvent(chatRoom.getId(), matchRequest.getMember().getId(), other.getMember().getId()));
+        eventPublisher.publishEvent(new MatchSuccessEvent(chatRoom.getUuid(), matchRequest.getMember().getId(), other.getMember().getId()));
     }
 
     // 실제 유저 상대를 못 찾고 봇 폴백 기준 시간이 지난 요청을, 그 시점에 즉석으로 만든
@@ -85,7 +85,7 @@ public class MatchRequestService {
         connect(request, botRequest);
     }
 
-    private void triggerBotReplyIfNeeded(Member requester, Member other, UUID roomId) {
+    private void triggerBotReplyIfNeeded(Member requester, Member other, Long roomId) {
         if (BotAccounts.isBotEmail(other.getEmail())) {
             eventPublisher.publishEvent(new BotReplyTriggerEvent(roomId, other.getId()));
         } else if (BotAccounts.isBotEmail(requester.getEmail())) {
@@ -108,7 +108,7 @@ public class MatchRequestService {
         // RDB 동일 트랜잭션 내에 아웃박스 이벤트 저장
         long epochMilli = matchRequest.getRequestedAt().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
         MatchingOutbox outbox = MatchingOutbox.create(
-                matchRequest.getId(),
+                matchRequest.getUuid(),
                 member.getIndustry(),
                 situation,
                 epochMilli
@@ -126,7 +126,7 @@ public class MatchRequestService {
                             redisMatchQueue.add(
                                     member.getIndustry(),
                                     situation,
-                                    matchRequest.getId(),
+                                    matchRequest.getUuid(),
                                     epochMilli
                             );
                             // 적재 성공 시 아웃박스 상태 SUCCESS 마킹
@@ -159,17 +159,17 @@ public class MatchRequestService {
     // AFTER_COMMIT 콜백(활성 트랜잭션이 없는 시점)에서 호출되므로, 독립적인 REQUIRES_NEW 트랜잭션으로
     // 실행해 확실히 커밋되도록 한다. 반드시 프록시(applicationContext.getBean)를 거쳐 호출해야 한다.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markOutboxSuccess(UUID outboxId) {
+    public void markOutboxSuccess(Long outboxId) {
         matchingOutboxRepository.findById(outboxId).ifPresent(MatchingOutbox::markSuccess);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markOutboxFailed(UUID outboxId) {
+    public void markOutboxFailed(Long outboxId) {
         matchingOutboxRepository.findById(outboxId).ifPresent(MatchingOutbox::markFailed);
     }
 
     public void tryMatch(UUID matchRequestId) {
-        MatchRequest matchRequest = matchRequestRepository.findByIdWithMember(matchRequestId)
+        MatchRequest matchRequest = matchRequestRepository.findByUuidWithMember(matchRequestId)
                 .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
         if (matchRequest.getStatus() != MatchStatus.PENDING) {
             return; // 이미 매칭되었거나 취소된 유저면 조용히 탈출 (Early Exit)
@@ -198,7 +198,7 @@ public class MatchRequestService {
     }
 
     public void tryMatch(MatchRequest matchRequestParam) {
-        tryMatch(matchRequestParam.getId());
+        tryMatch(matchRequestParam.getUuid());
     }
 
     // 분산 락을 쥔 상태에서만 호출되는 실제 매칭 처리 트랜잭션.
@@ -206,7 +206,7 @@ public class MatchRequestService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void processMatch(UUID matchRequestId, Industry industry) {
         // [중요] 락에 들어온 순간, DB의 최신 상태를 단건 인덱스로 초고속 검증합니다.
-        MatchRequest currentRequest = matchRequestRepository.findByIdWithMember(matchRequestId)
+        MatchRequest currentRequest = matchRequestRepository.findByUuidWithMember(matchRequestId)
                 .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
         if (currentRequest.getStatus() != MatchStatus.PENDING) {
             return; // 대기 도중 취소되었거나 이미 다른 사람과 매칭이 끝난 상태면 스킵 (Early Exit)
@@ -220,15 +220,15 @@ public class MatchRequestService {
             // RDB 매칭 성공 처리 및 방 생성 진행
             connect(currentRequest, opponent);
             // Redis ZSet 대기열에서 나와 상대방을 즉시 원자적으로 선점 제거 (ZREM)
-            redisMatchQueue.remove(industry, situation, currentRequest.getId());
-            redisMatchQueue.remove(industry, opponent.getSituation(), opponent.getId());
+            redisMatchQueue.remove(industry, situation, currentRequest.getUuid());
+            redisMatchQueue.remove(industry, opponent.getSituation(), opponent.getUuid());
             return;
         }
         // 봇 매칭 폴백
         if (elapsedSeconds >= BOT_FALLBACK_THRESHOLD_SECONDS) {
             matchWithBot(currentRequest);
             // ZSet 대기열에서 나 자신을 제거하고 봇 매칭 진행
-            redisMatchQueue.remove(industry, situation, currentRequest.getId());
+            redisMatchQueue.remove(industry, situation, currentRequest.getUuid());
         }
     }
 
@@ -236,7 +236,7 @@ public class MatchRequestService {
     private Optional<MatchRequest> findOpponent(MatchRequest request, long elapsedSeconds) {
         Industry industry = request.getMember().getIndustry();
         Situation situation = request.getSituation();
-        UUID excludeId = request.getId();
+        UUID excludeId = request.getUuid();
         // Tier 1: 동일 상황 ZSet에서 가장 오래 기다린 사람
         if (elapsedSeconds < TIER1_THRESHOLD_SECONDS) {
             return findOldestInSituations(industry, List.of(situation), excludeId);
@@ -261,13 +261,13 @@ public class MatchRequestService {
         return situations.stream()
                 .flatMap(s -> redisMatchQueue.getOldestTwo(industry, s).stream())
                 .filter(id -> !id.equals(excludeId))
-                .flatMap(id -> matchRequestRepository.findByIdWithMember(id).stream())
+                .flatMap(id -> matchRequestRepository.findByUuidWithMember(id).stream())
                 .filter(mr -> mr.getStatus() == MatchStatus.PENDING)
                 .min(Comparator.comparing(MatchRequest::getRequestedAt));
     }
 
     public MatchRequest findById(UUID id) {
-        return matchRequestRepository.findById(id)
+        return matchRequestRepository.findByUuid(id)
                 .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
     }
 
@@ -286,7 +286,7 @@ public class MatchRequestService {
         redisMatchQueue.remove(
                 matchRequest.getMember().getIndustry(),
                 matchRequest.getSituation(),
-                matchRequest.getId()
+                matchRequest.getUuid()
         );
     }
 
@@ -300,7 +300,7 @@ public class MatchRequestService {
             redisMatchQueue.remove(
                     request.getMember().getIndustry(),
                     request.getSituation(),
-                    request.getId()
+                    request.getUuid()
             );
         }
 
@@ -310,12 +310,12 @@ public class MatchRequestService {
     public List<MatchHistoryDto> findMatchHistoryByMember(Member member) {
         List<MatchRequest> requests = matchRequestRepository.findByMemberAndRoomStatus(member, ChatRoomStatus.CLOSED);
 
-        List<UUID> roomIds = requests.stream()
+        List<Long> roomIds = requests.stream()
                 .map(r -> r.getRoom().getId())
                 .distinct()
                 .toList();
 
-        Map<UUID, Boolean> botMap = chatRoomService.hasBotParticipantMap(roomIds);
+        Map<Long, Boolean> botMap = chatRoomService.hasBotParticipantMap(roomIds);
 
         return requests.stream()
                 .map(r -> new MatchHistoryDto(r, botMap.getOrDefault(r.getRoom().getId(), false)))
@@ -332,7 +332,7 @@ public class MatchRequestService {
     }
 
     // 채팅방 입장 시 상대방이 선택한 상황을 노출하기 위한 조회
-    public Situation findOpponentSituation(UUID roomId, UUID memberId) {
+    public Situation findOpponentSituation(Long roomId, Long memberId) {
         return matchRequestRepository.findByRoomIdAndMemberIdNot(roomId, memberId, PageRequest.of(0, 1))
                 .stream()
                 .findFirst()

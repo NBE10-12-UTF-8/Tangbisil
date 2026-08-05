@@ -20,8 +20,10 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.List;
 
-public interface MatchRequestRepository extends JpaRepository<MatchRequest, UUID> {
+public interface MatchRequestRepository extends JpaRepository<MatchRequest, Long> {
     boolean existsByMemberAndStatus(Member member, MatchStatus status);
+
+    Optional<MatchRequest> findByUuid(UUID uuid);
 
     long countByStatus(MatchStatus status);
 
@@ -108,7 +110,14 @@ public interface MatchRequestRepository extends JpaRepository<MatchRequest, UUID
            JOIN FETCH r.member
            WHERE r.id = :id
            """)
-    Optional<MatchRequest> findByIdWithMember(@Param("id") UUID id);
+    Optional<MatchRequest> findByIdWithMember(@Param("id") Long id);
+
+    @Query("""
+           SELECT r FROM MatchRequest r
+           JOIN FETCH r.member
+           WHERE r.uuid = :uuid
+           """)
+    Optional<MatchRequest> findByUuidWithMember(@Param("uuid") UUID uuid);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM MatchRequest r WHERE r.member = :member")
@@ -131,7 +140,7 @@ public interface MatchRequestRepository extends JpaRepository<MatchRequest, UUID
        ORDER BY r.createdAt DESC
        """)
     List<MatchRequest> findByRoomIdAndMemberIdNot(
-            @Param("roomId") UUID roomId,
-            @Param("memberId") UUID memberId,
+            @Param("roomId") Long roomId,
+            @Param("memberId") Long memberId,
             Pageable pageable);
 }

@@ -40,9 +40,9 @@ public class ApiV1ChatRoomController {
             throw new ServiceException("401-1", "인증이 필요합니다.");
         }
 
-        chatRoomParticipantService.validateAccess(roomId, actor);
-        boolean isBot = chatRoomService.hasBotParticipant(roomId);
-        Situation opponentSituation = matchRequestService.findOpponentSituation(roomId, actor.getId());
+        chatRoomParticipantService.validateAccess(chatRoom.getId(), actor);
+        boolean isBot = chatRoomService.hasBotParticipant(chatRoom.getId());
+        Situation opponentSituation = matchRequestService.findOpponentSituation(chatRoom.getId(), actor.getId());
 
         return new RsData<>(
                 "200-1",
@@ -60,8 +60,8 @@ public class ApiV1ChatRoomController {
         }
 
         ChatRoom chatRoom = chatRoomService.closeChatRoom(roomId, actor);
-        boolean isBot = chatRoomService.hasBotParticipant(roomId);
-        Situation opponentSituation = matchRequestService.findOpponentSituation(roomId, actor.getId());
+        boolean isBot = chatRoomService.hasBotParticipant(chatRoom.getId());
+        Situation opponentSituation = matchRequestService.findOpponentSituation(chatRoom.getId(), actor.getId());
 
         return new RsData<>(
                 "200-1",
