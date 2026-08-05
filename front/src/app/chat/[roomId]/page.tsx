@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
-  apiGetRoom, apiCloseRoom, apiSendMessage, apiGetMessages, apiGetMe, apiSubmitReport,
-  apiGetHomeStats, isLoggedIn, INDUSTRY_NAMES, type ChatMsg,
+  apiGetRoom, apiCloseRoom, apiGetMessages, apiGetMe, apiSubmitReport,
+  apiGetHomeStats, isLoggedIn, INDUSTRY_NAMES, subscribeRoom, type ChatMsg,
 } from '@/lib/api';
 import { AppShell } from '@/components/AppShell';
 import { TangbisilLogo } from '@/components/TangbisilLogo';
@@ -77,18 +77,17 @@ export default function ChatPage() {
   const [reportSubmitting, setReportSubmitting]   = useState(false);
   const [reportDone, setReportDone]               = useState(false);
 
-  const chatTimerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const msgPollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
-  const seenMsgIds     = useRef<Set<string>>(new Set());
-  const lastMsgTimeRef = useRef<string | null>(null);
-  const inputRef       = useRef<HTMLInputElement>(null);
-  const isLeavingRef   = useRef(false);
+  const chatTimerRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const seenMsgIds          = useRef<Set<string>>(new Set());
+  const lastMsgTimeRef      = useRef<string | null>(null);
+  const inputRef            = useRef<HTMLInputElement>(null);
+  const isLeavingRef        = useRef(false);
+  const stompClientRef      = useRef<import('@stomp/stompjs').Client | null>(null);
 
   const chatClosed = chatExpired || partnerLeft;
 
   const stopTimers = useCallback(() => {
     if (chatTimerRef.current) { clearInterval(chatTimerRef.current); chatTimerRef.current = null; }
-    if (msgPollRef.current)   { clearInterval(msgPollRef.current);   msgPollRef.current   = null; }
   }, []);
 
   const notifyPartnerLeft = useCallback(() => {
@@ -105,23 +104,17 @@ export default function ChatPage() {
     router.push('/');
   }, [roomId, router, stopTimers]);
 
-  const send = useCallback(async () => {
+  const send = useCallback(() => {
     if (chatClosed) return;
     const content = input.trim();
     if (!content) return;
+    if (!stompClientRef.current?.connected) return;
     setInput('');
-    try {
-      const sent = await apiSendMessage(roomId, content);
-      if (!seenMsgIds.current.has(sent.messageId)) {
-        seenMsgIds.current.add(sent.messageId);
-        setMessages(prev => [...prev, { ...sent, isMine: true }]);
-      }
-    } catch (err) {
-      const status = (err as { status?: number })?.status;
-      if (status === 409) notifyPartnerLeft();
-      else setInput(content);
-    }
-  }, [input, roomId, chatClosed, notifyPartnerLeft]);
+    stompClientRef.current.publish({
+      destination: `/app/rooms/${roomId}/messages`,
+      body: JSON.stringify({ content }),
+    });
+  }, [input, roomId, chatClosed]);
 
   useEffect(() => {
     if (!roomId) { router.push('/'); return; }
@@ -134,7 +127,7 @@ export default function ChatPage() {
       .then(me => setUserIndustry(me.industry ? (INDUSTRY_NAMES[me.industry] ?? me.industry) : ''))
       .catch(() => {});
 
-    apiGetMessages(roomId).then(({ msgs: initial, closed }) => {
+    apiGetMessages(roomId).then(({msgs: initial, closed}) => {
       if (closed) { notifyPartnerLeft(); return; }
       if (initial && initial.length > 0) {
         const fresh = initial.filter(m => !seenMsgIds.current.has(m.messageId));
@@ -144,20 +137,32 @@ export default function ChatPage() {
       }
     }).catch(() => {});
 
-    msgPollRef.current = setInterval(async () => {
-      try {
-        const { msgs: newMsgs, closed } = await apiGetMessages(roomId, lastMsgTimeRef.current ?? undefined);
-        if (closed) { notifyPartnerLeft(); return; }
-        if (newMsgs && newMsgs.length > 0) {
-          const fresh = newMsgs.filter(m => !seenMsgIds.current.has(m.messageId));
-          fresh.forEach(m => seenMsgIds.current.add(m.messageId));
-          if (fresh.length > 0) {
-            setMessages(prev => [...prev, ...fresh]);
-            lastMsgTimeRef.current = newMsgs[newMsgs.length - 1].createdAt;
-          }
-        }
-      } catch { /* ignore */ }
-    }, 2000);
+    // isMine은 서버가 계산해서 전달하므로 클라이언트 participantId 불필요
+    const stompClient = subscribeRoom(roomId, (msg) => {
+      if (!seenMsgIds.current.has(msg.messageId)) {
+        seenMsgIds.current.add(msg.messageId);
+        setMessages(prev => [...prev, msg]);
+        lastMsgTimeRef.current = msg.createdAt;
+      }
+    }, () => {
+      apiGetMessages(roomId, lastMsgTimeRef.current ?? undefined)
+          .then(({msgs}) => {
+            if (!msgs) return;
+            const fresh = msgs.filter(m => !seenMsgIds.current.has(m.messageId));
+            fresh.forEach(m => seenMsgIds.current.add(m.messageId));
+            if (fresh.length > 0) {
+              setMessages(prev => [...prev, ...fresh]);
+              lastMsgTimeRef.current = fresh[fresh.length - 1].createdAt;
+            }
+          })
+          .catch(() => {
+          });
+    }, (errorMsg) => {
+      const code = errorMsg.split(' : ')[0];
+      if (code === '409-1' || code === '403-1') notifyPartnerLeft();
+      }
+    );
+    stompClientRef.current = stompClient;
 
     apiGetRoom(roomId)
       .then(room => {
@@ -190,8 +195,12 @@ export default function ChatPage() {
         }, 1000);
       });
 
-    return () => stopTimers();
-  }, [roomId]);
+    return () => {
+      stompClient.deactivate();
+      stompClientRef.current = null;
+      stopTimers();
+    };
+  }, [roomId, notifyPartnerLeft]);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 

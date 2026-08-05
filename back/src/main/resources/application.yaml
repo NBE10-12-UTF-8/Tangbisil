@@ -62,6 +62,8 @@ logging:
     org.hibernate.orm.jdbc.extract: TRACE
     org.springframework.transaction.interceptor: TRACE
 custom:
+  cors:
+    allowed-origins: "http://localhost:3000"
   jwt:
     secretKey: ${JWT_SECRET_KEY}
   accessToken:

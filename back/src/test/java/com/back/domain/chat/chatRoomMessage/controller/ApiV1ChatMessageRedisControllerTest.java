@@ -229,7 +229,7 @@ public class ApiV1ChatMessageRedisControllerTest {
         cachedDto.setMessageId(UUID.randomUUID());
         cachedDto.setRoomId(testRoom.getId());
         cachedDto.setSenderNickname("가짜닉네임");
-        cachedDto.setSenderMemberId(testMember2.getId());
+        cachedDto.setSenderParticipantId(UUID.randomUUID());
         cachedDto.setContent("레디스 캐시 전용 메시지");
         cachedDto.setCreatedAt(java.time.LocalDateTime.now());
 

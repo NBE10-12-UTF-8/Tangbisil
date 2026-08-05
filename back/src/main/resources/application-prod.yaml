@@ -25,6 +25,8 @@ logging:
     org.hibernate.orm.jdbc.extract: WARN
     org.springframework.transaction.interceptor: WARN
 custom:
+  cors:
+    allowed-origins: "https://tangbisil.vercel.app,https://tangbisil-one.vercel.app,https://tangbisil.kro.kr"
   frontendBaseUrl: https://tangbisil.kro.kr
   cookieDomain: tangbisil.kro.kr
   cookieSecure: true

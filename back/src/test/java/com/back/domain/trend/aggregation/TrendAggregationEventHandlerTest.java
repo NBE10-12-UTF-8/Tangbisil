@@ -14,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,10 +52,10 @@ class TrendAggregationEventHandlerTest {
         return eventFrom(UUID.randomUUID(), content);
     }
 
-    private ChatMessageSentEvent eventFrom(UUID senderMemberId, String content) {
+    private ChatMessageSentEvent eventFrom(UUID senderParticipantId, String content) {
         RedisChatMessageDto dto = new RedisChatMessageDto(
-                UUID.randomUUID(), UUID.randomUUID(), "익명", senderMemberId, content, null);
-        return new ChatMessageSentEvent(dto);
+                UUID.randomUUID(), UUID.randomUUID(), "익명", senderParticipantId, content, null);
+        return new ChatMessageSentEvent(dto, List.of());
     }
 
     @Test
