@@ -64,13 +64,6 @@ public class ApiV1MemberController {
             String password
     ) {}
 
-    public record MemberLoginRes(
-            String grantType,
-            String accessToken,
-            String refreshToken,
-            int accessTokenExpiresIn
-    ) {}
-
     @PostMapping("/signup")
     @Operation(summary = "회원가입")
     public RsData<MemberDto> signup(@Valid @RequestBody MemberSignupReq req) {
@@ -84,7 +77,7 @@ public class ApiV1MemberController {
 
     @PostMapping("/login")
     @Operation(summary = "로그인")
-    public RsData<MemberLoginRes> login(@Valid @RequestBody MemberLoginReq req) {
+    public RsData<MemberMeRes> login(@Valid @RequestBody MemberLoginReq req) {
         if (loginAttemptLimiter.isBlocked(req.email())) {
             throw new ServiceException("429-1", "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.");
         }
@@ -113,14 +106,14 @@ public class ApiV1MemberController {
                 refreshToken.toString(),
                 refreshTokenExpirationSeconds
         );
+
+        // 토큰은 HttpOnly 쿠키로만 내려간다. 응답 바디에 실으면 프론트가 JS(localStorage 등)에
+        // 들고 있게 되어 HttpOnly의 XSS 방어 효과가 사라지므로, 로그인 성공 여부 확인에
+        // 필요한 최소 정보(/me와 동일한 모양)만 반환한다.
         return new RsData<>(
                 "200-1",
                 "로그인 생성 성공",
-                new MemberLoginRes(
-                        "Bearer",
-                        accessToken,
-                        refreshToken.toString(),
-                        accessTokenExpirationSeconds)
+                new MemberMeRes(member.getEmail(), member.getIndustry(), member.getRole())
         );
 
     }
@@ -208,7 +201,7 @@ public class ApiV1MemberController {
     }
     @PostMapping("/refresh")
     @Operation(summary = "AccessToken 재발급")
-    public RsData<MemberLoginRes> refresh() {
+    public RsData<Void> refresh() {
 
         String refreshTokenValue =
                 rq.getCookieValue("refreshToken", "");
@@ -232,15 +225,11 @@ public class ApiV1MemberController {
                 accessTokenExpirationSeconds
         );
 
+        // 새 accessToken은 쿠키로만 내려간다. 재발급 성공 여부만 알면 프론트는
+        // 원래 요청을 그대로 재시도할 수 있어 바디에 토큰을 실을 필요가 없다.
         return new RsData<>(
                 "200-1",
-                "AccessToken 재발급 성공",
-                new MemberLoginRes(
-                        "Bearer",
-                        accessToken,
-                        refreshTokenValue,
-                        accessTokenExpirationSeconds
-                )
+                "AccessToken 재발급 성공"
         );
     }
     public record EmailVerificationSendReq(

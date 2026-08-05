@@ -16,6 +16,8 @@ import com.back.domain.member.emailVerification.repository.EmailVerificationToke
 import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.member.member.service.MemberService;
+import com.back.support.TestAccessTokenFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,6 +57,9 @@ public class ApiV1MatchControllerTest {
 
     @Autowired
     private MemberRepository memberRepository;
+
+    @Autowired
+    private MemberService memberService;
 
     @Autowired
     private ChatRoomRepository chatRoomRepository;
@@ -121,6 +126,9 @@ public class ApiV1MatchControllerTest {
         emailVerificationTokenRepository.save(token);
     }
 
+    // 로그인 응답 바디에는 더 이상 토큰이 실리지 않는다(HttpOnly 쿠키로만 내려감).
+    // 회원가입은 실제 엔드포인트를 거치되, 테스트에서 Bearer 헤더로 쓸 토큰은
+    // 발급 로직을 직접 호출해 받아온다.
     private String signupAndLogin(String email, String industry) throws Exception {
         preVerifyEmail(email);
 
@@ -137,25 +145,7 @@ public class ApiV1MatchControllerTest {
                                 """.formatted(email, industry))
         );
 
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                        {
-                                            "email": "%s",
-                                            "password": "1234"
-                                        }
-                                        """.formatted(email))
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        return new ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        return TestAccessTokenFactory.accessTokenFor(memberRepository, memberService, email);
     }
 
     @Test

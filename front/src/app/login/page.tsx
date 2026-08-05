@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { apiLogin, apiGetActiveRoom, setTokens, setAdmin, getRoleFromToken, OAUTH_SERVER_BASE, SUSPENDED_STORAGE_KEY, isValidEmail } from '@/lib/api';
+import { apiLogin, apiGetActiveRoom, markSession, setAdmin, OAUTH_SERVER_BASE, SUSPENDED_STORAGE_KEY, isValidEmail } from '@/lib/api';
 
 const LOGO_CHARS = [
   { c: 'T', color: '#3b7ff2' }, { c: 'a', color: '#ea4c4c' }, { c: 'n', color: '#f5b400' },
@@ -53,8 +53,8 @@ function LoginPageInner() {
     setLoading(true);
     try {
       const data = await apiLogin(email, password);
-      setTokens(data.accessToken, data.refreshToken);
-      if (getRoleFromToken(data.accessToken) === 'ADMIN') {
+      markSession();
+      if (data.role === 'ADMIN') {
         setAdmin();
         router.replace('/admin/stats');
         return;

@@ -37,20 +37,46 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         if (accessor == null) return message;
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
-            String authHeader = accessor.getFirstNativeHeader("Authorization");
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                throw new AccessDeniedException("WebSocket 연결에 토큰이 필요합니다.");
-            }
+            UUID id;
+            String role;
 
-            String token = authHeader.substring(7);
-            Map<String, Object> payload = memberService.payload(token);
-            if (payload == null) {
-                throw new AccessDeniedException("유효하지 않은 토큰입니다.");
-            }
+            // 핸드셰이크 단계(CookieHandshakeInterceptor)에서 accessToken 쿠키로 이미 검증됐다면
+            // 세션 attributes에 신원이 들어있다 — 이 경우 CONNECT 프레임에 Authorization 헤더가
+            // 없어도(JS가 토큰을 안 들고 있어도) 인증할 수 있다. 없으면 기존처럼 헤더로 폴백한다.
+            Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
+            Object sessionMemberId = sessionAttributes != null ? sessionAttributes.get("memberId") : null;
 
-            Object rawId = payload.get("id");
-            UUID id = (rawId instanceof UUID u) ? u : UUID.fromString(rawId.toString());
-            String role = (String) payload.get("role");
+            if (sessionMemberId instanceof UUID sessionId) {
+                id = sessionId;
+                role = (String) sessionAttributes.get("role");
+            } else {
+                String authHeader = accessor.getFirstNativeHeader("Authorization");
+                if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                    throw new AccessDeniedException("WebSocket 연결에 토큰이 필요합니다.");
+                }
+
+                String token = authHeader.substring(7);
+                Map<String, Object> payload = memberService.payload(token);
+                if (payload == null) {
+                    throw new AccessDeniedException("유효하지 않은 토큰입니다.");
+                }
+
+                Object rawId = payload.get("id");
+                if (rawId == null) {
+                    throw new AccessDeniedException("유효하지 않은 토큰입니다.");
+                }
+                try {
+                    id = (rawId instanceof UUID u) ? u : UUID.fromString(rawId.toString());
+                } catch (IllegalArgumentException e) {
+                    throw new AccessDeniedException("유효하지 않은 토큰입니다.");
+                }
+
+                Object rawRole = payload.get("role");
+                if (rawRole == null) {
+                    throw new AccessDeniedException("유효하지 않은 토큰입니다.");
+                }
+                role = rawRole.toString();
+            }
 
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                     id.toString(),

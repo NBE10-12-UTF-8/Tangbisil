@@ -75,6 +75,25 @@ public class StompAuthChannelInterceptorTest {
     }
 
     @Test
+    @DisplayName("CONNECT 시 세션 attributes에 쿠키로 검증된 신원이 있으면 Authorization 헤더 없이도 인증된다")
+    void t1b() {
+        UUID memberId = UUID.randomUUID();
+
+        StompHeaderAccessor accessor = mutableAccessor(StompCommand.CONNECT);
+        accessor.setSessionAttributes(new java.util.HashMap<>(Map.of("memberId", memberId, "role", "USER")));
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+        interceptor.preSend(message, mock(MessageChannel.class));
+
+        UsernamePasswordAuthenticationToken auth =
+                (UsernamePasswordAuthenticationToken) accessor.getUser();
+        assertThat(auth).isNotNull();
+        assertThat(auth.getName()).isEqualTo(memberId.toString());
+        assertThat(auth.getAuthorities())
+                .anyMatch(a -> a.getAuthority().equals("ROLE_USER"));
+    }
+
+    @Test
     @DisplayName("CONNECT가 아닌 프레임은 그냥 통과시킨다")
     void t2() {
         StompHeaderAccessor accessor = mutableAccessor(StompCommand.SEND);
@@ -102,6 +121,46 @@ public class StompAuthChannelInterceptorTest {
 
         StompHeaderAccessor accessor = mutableAccessor(StompCommand.CONNECT);
         accessor.addNativeHeader("Authorization", "Bearer bad-token");
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        assertThatThrownBy(() -> interceptor.preSend(message, mock(MessageChannel.class)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("Authorization 헤더 경로에서 payload에 id 클레임이 없으면 NPE 대신 AccessDeniedException")
+    void t4b() {
+        when(memberService.payload("no-id-token")).thenReturn(Map.of("role", "USER"));
+
+        StompHeaderAccessor accessor = mutableAccessor(StompCommand.CONNECT);
+        accessor.addNativeHeader("Authorization", "Bearer no-id-token");
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        assertThatThrownBy(() -> interceptor.preSend(message, mock(MessageChannel.class)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("Authorization 헤더 경로에서 id 클레임이 UUID 형식이 아니면 AccessDeniedException")
+    void t4c() {
+        when(memberService.payload("bad-id-token")).thenReturn(Map.of(
+                "id", "not-a-uuid",
+                "role", "USER"
+        ));
+
+        StompHeaderAccessor accessor = mutableAccessor(StompCommand.CONNECT);
+        accessor.addNativeHeader("Authorization", "Bearer bad-id-token");
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        assertThatThrownBy(() -> interceptor.preSend(message, mock(MessageChannel.class)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("Authorization 헤더 경로에서 role 클레임이 없으면 ROLE_null 부여 대신 AccessDeniedException")
+    void t4d() {
+        UUID memberId = UUID.randomUUID();
+        when(memberService.payload("no-role-token")).thenReturn(Map.of("id", memberId.toString()));
+
+        StompHeaderAccessor accessor = mutableAccessor(StompCommand.CONNECT);
+        accessor.addNativeHeader("Authorization", "Bearer no-role-token");
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
         assertThatThrownBy(() -> interceptor.preSend(message, mock(MessageChannel.class)))
                 .isInstanceOf(AccessDeniedException.class);
