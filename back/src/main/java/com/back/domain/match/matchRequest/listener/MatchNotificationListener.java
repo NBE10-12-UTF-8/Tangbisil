@@ -44,7 +44,7 @@ public class MatchNotificationListener {
     }
 
     //회원 ID를 받아 DB에서 조회 후, 봇 계정이 아닌 실제 사람일 때만 알림을 발송하는 헬퍼 메서드
-    private void sendNotificationIfNotBot(UUID memberId, UUID roomId) {
+    private void sendNotificationIfNotBot(Long memberId, UUID roomId) {
         memberRepository.findById(memberId).ifPresent(member -> {
             if (!BotAccounts.isBotEmail(member.getEmail())) {
                 matchNotificationService.notifyMatchSuccess(member.getId(), roomId);

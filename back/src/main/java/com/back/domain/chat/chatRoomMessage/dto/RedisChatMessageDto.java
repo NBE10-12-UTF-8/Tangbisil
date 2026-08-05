@@ -33,10 +33,10 @@ public class RedisChatMessageDto implements Serializable {
 
     // Entity -> DTO 변환 생성자
     public RedisChatMessageDto(ChatMessage message) {
-        this.messageId = message.getId();
-        this.roomId = message.getChatRoom().getId();
+        this.messageId = message.getUuid();
+        this.roomId = message.getChatRoom().getUuid();
         this.senderNickname = message.getParticipant().getNickname();
-        this.senderParticipantId = message.getParticipant().getId();
+        this.senderParticipantId = message.getParticipant().getUuid();
         this.content = message.getContent();
         this.createdAt = message.getCreatedAt();
     }

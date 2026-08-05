@@ -42,11 +42,11 @@ public class ReportEventListener {
             List<ReportedMessage> reportedMessages = roomMessages.stream()
                     .map(msg -> new ReportedMessage(
                             report,
-                            msg.getParticipant().getMember().getId(),
+                            msg.getParticipant().getMember().getUuid(),
                             msg.getParticipant().getNickname(),
                             msg.getContent(),
                             msg.getCreatedAt(),
-                            msg.getId().equals(event.targetMessageId())
+                            msg.getUuid().equals(event.targetMessageId())
                     ))
                     .toList();
             reportedMessageRepository.saveAll(reportedMessages);

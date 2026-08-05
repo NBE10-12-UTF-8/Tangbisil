@@ -133,7 +133,7 @@ public class ApiV1ChatMessageRedisControllerTest {
     private void cleanAll() {
         try {
             if (testRoom != null) {
-                String key = "chat:room:" + testRoom.getId() + ":messages";
+                String key = "chat:room:" + testRoom.getUuid() + ":messages";
                 redisTemplate.delete(key);
             }
         } catch (Exception ignored) {}
@@ -195,7 +195,7 @@ public class ApiV1ChatMessageRedisControllerTest {
     void t1() throws Exception {
         // When (API를 통한 메시지 발송)
         mvc.perform(
-                post(String.format("/api/v1/rooms/%s/messages", testRoom.getId()))
+                post(String.format("/api/v1/rooms/%s/messages", testRoom.getUuid()))
                         .header("Authorization", "Bearer " + accessToken1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"content\": \"실시간 캐시 전송 테스트\"}")
@@ -209,7 +209,7 @@ public class ApiV1ChatMessageRedisControllerTest {
         Thread.sleep(200);
 
         // Then (실제 레디스 메모리를 확인)
-        String key = "chat:room:" + testRoom.getId() + ":messages";
+        String key = "chat:room:" + testRoom.getUuid() + ":messages";
         Set<String> jsonPayloads = redisTemplate.opsForZSet().range(key, 0, -1);
 
         assertThat(jsonPayloads).isNotNull().isNotEmpty();
@@ -224,10 +224,10 @@ public class ApiV1ChatMessageRedisControllerTest {
     @DisplayName("메시지 조회 시 캐시 히트 성공 검증 (DB 쿼리 타지 않고 캐시 반환)")
     void t2() throws Exception {
         // Given (레디스에 캐시를 미리 직접 수동 주입해 둠)
-        String key = "chat:room:" + testRoom.getId() + ":messages";
+        String key = "chat:room:" + testRoom.getUuid() + ":messages";
         RedisChatMessageDto cachedDto = new RedisChatMessageDto();
         cachedDto.setMessageId(UUID.randomUUID());
-        cachedDto.setRoomId(testRoom.getId());
+        cachedDto.setRoomId(testRoom.getUuid());
         cachedDto.setSenderNickname("가짜닉네임");
         cachedDto.setSenderParticipantId(UUID.randomUUID());
         cachedDto.setContent("레디스 캐시 전용 메시지");
@@ -239,7 +239,7 @@ public class ApiV1ChatMessageRedisControllerTest {
 
         // When (대화 조회 API 호출)
         ResultActions resultActions = mvc.perform(
-                get(String.format("/api/v1/rooms/%s/messages", testRoom.getId()))
+                get(String.format("/api/v1/rooms/%s/messages", testRoom.getUuid()))
                         .header("Authorization", "Bearer " + accessToken1)
         ).andDo(print());
 
@@ -255,7 +255,7 @@ public class ApiV1ChatMessageRedisControllerTest {
     void t3() throws Exception {
         // Given (메시지를 하나 전송하여 레디스에 캐시 키를 생성해 둠)
         mvc.perform(
-                post(String.format("/api/v1/rooms/%s/messages", testRoom.getId()))
+                post(String.format("/api/v1/rooms/%s/messages", testRoom.getUuid()))
                         .header("Authorization", "Bearer " + accessToken1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"content\": \"캐시 삭제 확인용\"}")
@@ -266,12 +266,12 @@ public class ApiV1ChatMessageRedisControllerTest {
         TestTransaction.end();
 
         Thread.sleep(200);
-        String key = "chat:room:" + testRoom.getId() + ":messages";
+        String key = "chat:room:" + testRoom.getUuid() + ":messages";
         assertThat(redisTemplate.hasKey(key)).isTrue(); // 방 닫기 전엔 캐시 키가 반드시 생존해 있어야 함
 
         // ⭐️ 새 트랜잭션을 수동으로 시작하지 않고, 방 종료 API를 직접 때려 delete 검증
         mvc.perform(
-                patch(String.format("/api/v1/rooms/%s", testRoom.getId()))
+                patch(String.format("/api/v1/rooms/%s", testRoom.getUuid()))
                         .header("Authorization", "Bearer " + accessToken1)
         ).andExpect(status().isOk());
 
@@ -295,7 +295,7 @@ public class ApiV1ChatMessageRedisControllerTest {
 
         // When (조회 API 호출 - 레디스가 다운된 척하는 환경)
         ResultActions resultActions = mvc.perform(
-                get(String.format("/api/v1/rooms/%s/messages", testRoom.getId()))
+                get(String.format("/api/v1/rooms/%s/messages", testRoom.getUuid()))
                         .header("Authorization", "Bearer " + accessToken1)
         ).andDo(print());
 
@@ -309,7 +309,7 @@ public class ApiV1ChatMessageRedisControllerTest {
     @DisplayName("[예외/Self-Healing] 비동기 ZSet 적재 실패 시, 캐시 오염을 막기 위해 기존 캐시를 즉시 폭파(delete)하는 자가치유 작동 검증")
     void t5() throws Exception {
         // Given (정상적인 캐시 데이터가 이미 있는 상태)
-        String key = "chat:room:" + testRoom.getId() + ":messages";
+        String key = "chat:room:" + testRoom.getUuid() + ":messages";
         redisTemplate.opsForZSet().add(key, "{\"content\":\"기존 캐시\"}", 1.0);
 
         // ⭐️ Redis ZSet에 데이터 추가(ZADD) 시점에 강제로 통신 장애가 발생하는 것처럼 모킹
@@ -320,7 +320,7 @@ public class ApiV1ChatMessageRedisControllerTest {
 
         // When (API로 새로운 메시지를 발송하여 이벤트를 유발함)
         mvc.perform(
-                post(String.format("/api/v1/rooms/%s/messages", testRoom.getId()))
+                post(String.format("/api/v1/rooms/%s/messages", testRoom.getUuid()))
                         .header("Authorization", "Bearer " + accessToken1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"content\": \"에러 발생용 메시지\"}")

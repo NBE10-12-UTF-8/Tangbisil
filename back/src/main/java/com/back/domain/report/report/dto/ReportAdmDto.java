@@ -15,7 +15,7 @@ public record ReportAdmDto(
 ) {
     public ReportAdmDto(Report report) {
         this(
-                report.getId(),
+                report.getUuid(),
                 report.getReporter() != null ? report.getReporter().getEmail() : "탈퇴한 사용자",
                 report.getReported() != null ? report.getReported().getEmail() : "탈퇴한 사용자",
                 report.getReason(),

@@ -28,11 +28,11 @@ public class ChatRoomService {
     private final RedisTemplate<String, String> redisTemplate;
 
     public ChatRoom getChatRoom(UUID roomId) {
-        return chatRoomRepository.findById(roomId)
+        return chatRoomRepository.findByUuid(roomId)
                 .orElseThrow(() -> new ServiceException("404-1", "채팅방을 찾을 수 없습니다."));
     }
 
-    public boolean hasBotParticipant(UUID roomId) {
+    public boolean hasBotParticipant(Long roomId) {
         return chatRoomParticipantService.getParticipants(roomId).stream()
                 .map(ChatRoomParticipant::getMember)
                 .anyMatch(member -> BotAccounts.isBotEmail(member.getEmail()));
@@ -51,7 +51,7 @@ public class ChatRoomService {
     public ChatRoom closeChatRoom(UUID roomId, Member actor) {
         ChatRoom chatRoom = getChatRoom(roomId);
 
-        chatRoomParticipantService.validateAccess(roomId, actor);
+        chatRoomParticipantService.validateAccess(chatRoom.getId(), actor);
 
         if (chatRoom.getStatus() == ChatRoomStatus.CLOSED) {
             throw new ServiceException("409-1", "이미 종료된 채팅방입니다.");
@@ -60,7 +60,7 @@ public class ChatRoomService {
         chatRoom.close();
 
         try {
-            String key = "chat:room:" + roomId + ":messages";
+            String key = "chat:room:" + chatRoom.getUuid() + ":messages";
             redisTemplate.delete(key);
         } catch (Exception e) {
             log.error("대화방 종료 후 Redis 캐시 삭제 실패 - roomId: {}", roomId, e);
@@ -74,12 +74,12 @@ public class ChatRoomService {
     }
 
     // 여러 채팅방의 봇 참여 여부를 한 번에 조회 (roomId -> isBot)
-    public Map<UUID, Boolean> hasBotParticipantMap(Collection<UUID> roomIds) {
+    public Map<Long, Boolean> hasBotParticipantMap(Collection<Long> roomIds) {
         if (roomIds.isEmpty()) {
             return Map.of();
         }
 
-        Map<UUID, Boolean> result = new HashMap<>();
+        Map<Long, Boolean> result = new HashMap<>();
         roomIds.forEach(id -> result.put(id, false));
 
         chatRoomParticipantService.getParticipantsByRoomIds(roomIds).stream()

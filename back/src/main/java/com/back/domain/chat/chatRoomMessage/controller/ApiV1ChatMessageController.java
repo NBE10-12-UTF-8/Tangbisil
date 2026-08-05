@@ -1,5 +1,7 @@
 package com.back.domain.chat.chatRoomMessage.controller;
 
+import com.back.domain.chat.chatRoom.entity.ChatRoom;
+import com.back.domain.chat.chatRoom.repository.ChatRoomRepository;
 import com.back.domain.chat.chatRoomMessage.dto.ChatRoomMessageRequestDto;
 import com.back.domain.chat.chatRoomMessage.dto.ChatRoomMessageResponseDto;
 import com.back.domain.chat.chatRoomMessage.service.ChatMessageService;
@@ -29,7 +31,13 @@ import java.util.UUID;
 public class ApiV1ChatMessageController {
 
     private final ChatMessageService chatMessageService;
+    private final ChatRoomRepository chatRoomRepository;
     private final Rq rq;
+
+    private ChatRoom resolveRoom(UUID roomId) {
+        return chatRoomRepository.findByUuid(roomId)
+                .orElseThrow(() -> new ServiceException("404-1", "채팅방을 찾을 수 없습니다."));
+    }
 
     @PostMapping("/{roomId}/messages")
     @ResponseStatus(HttpStatus.CREATED)
@@ -44,7 +52,7 @@ public class ApiV1ChatMessageController {
         }
 
         ChatRoomMessageResponseDto responseDto = chatMessageService.sendMessage(
-                roomId, actor, requestDto.getContent()
+                resolveRoom(roomId).getId(), actor, requestDto.getContent()
         );
 
         return new RsData<>("201-1", "메시지 생성 성공", responseDto);
@@ -63,7 +71,7 @@ public class ApiV1ChatMessageController {
             throw new ServiceException("401-1", "인증이 필요합니다.");
         }
 
-        List<ChatRoomMessageResponseDto> messages = chatMessageService.getMessages(roomId, actor, after);
+        List<ChatRoomMessageResponseDto> messages = chatMessageService.getMessages(resolveRoom(roomId).getId(), actor, after);
         if (messages.isEmpty()) {
             return new RsData<>("200-2", "신규 메시지 없음", null);
         }

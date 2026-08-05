@@ -1,6 +1,9 @@
 package com.back.global.webSocket;
 
+import com.back.domain.chat.chatRoom.entity.ChatRoom;
+import com.back.domain.chat.chatRoom.repository.ChatRoomRepository;
 import com.back.domain.chat.chatRoomParticipant.repository.ChatRoomParticipantRepository;
+import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.Message;
@@ -25,6 +28,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     private final MemberService memberService;
     private final ChatRoomParticipantRepository chatRoomParticipantRepository;
+    private final ChatRoomRepository chatRoomRepository;
 
 
     @Override
@@ -76,7 +80,12 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                 throw new AccessDeniedException("유효하지 않은 구독 경로입니다.");
             }
 
-            if (!chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(roomId, memberId)) {
+            ChatRoom room = chatRoomRepository.findByUuid(roomId)
+                    .orElseThrow(() -> new AccessDeniedException("존재하지 않는 채팅방입니다."));
+            Member member = memberService.findByUuid(memberId)
+                    .orElseThrow(() -> new AccessDeniedException("존재하지 않는 회원입니다."));
+
+            if (!chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(room.getId(), member.getId())) {
                 throw new AccessDeniedException("해당 채팅방의 참여자가 아닙니다.");
             }
         }

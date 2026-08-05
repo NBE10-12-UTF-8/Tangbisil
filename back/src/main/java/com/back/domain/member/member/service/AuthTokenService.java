@@ -17,7 +17,8 @@ public class AuthTokenService {
     private String secret;
 
     public String genAccessToken(Member member) {
-        String id = member.getId().toString();
+        // JWT엔 내부 PK(Long)가 아니라 외부 공개 식별자(uuid)를 싣는다 — 순번 노출 방지.
+        String id = member.getUuid().toString();
         String email = member.getEmail();
         String role = member.getRole();
 
@@ -33,10 +34,10 @@ public class AuthTokenService {
 
         if (parsedPayload == null) return null;
 
-        UUID id = UUID.fromString((String) parsedPayload.get("id"));
+        UUID uuid = UUID.fromString((String) parsedPayload.get("id"));
         String email = (String) parsedPayload.get("email");
         String role = (String) parsedPayload.get("role");
 
-        return Map.of("id", id, "email", email, "role", role);
+        return Map.of("id", uuid, "email", email, "role", role);
     }
 }

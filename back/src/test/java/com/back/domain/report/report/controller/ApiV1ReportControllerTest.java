@@ -102,14 +102,14 @@ public class ApiV1ReportControllerTest {
 
         // 2. 대화방 생성 및 참여자 등록
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         ChatRoomParticipant p1 = chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, reporter, "익명의 동료"));
         ChatRoomParticipant p2 = chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, reported, "익명의 동료"));
 
         // 3. 원본 욕설 메시지 저장
         ChatMessage targetMessage = chatMessageRepository.save(new ChatMessage(chatRoom, p2, "너 일 그따구로 할 거면 사표 써라"));
-        UUID reportedMessageId = targetMessage.getId();
+        UUID reportedMessageId = targetMessage.getUuid();
 
         // Given 단계 데이터 영속성 적재를 위한 강제 커밋
         TestTransaction.flagForCommit();
@@ -194,7 +194,7 @@ public class ApiV1ReportControllerTest {
         String accessToken = memberService.genAccessToken(reporter);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         UUID nonExistentMessageId = UUID.randomUUID();
 
@@ -258,11 +258,11 @@ public class ApiV1ReportControllerTest {
         createdMembers.add(reporter);
         String accessToken = memberService.genAccessToken(reporter);
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
         ChatRoomParticipant p1 = chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, reporter, "익명의 동료"));
         // 본인이 작성한 메시지
         ChatMessage ownMessage = chatMessageRepository.save(new ChatMessage(chatRoom, p1, "내가 쓴 부적절한 글"));
-        UUID reportedMessageId = ownMessage.getId();
+        UUID reportedMessageId = ownMessage.getUuid();
         TestTransaction.flagForCommit();
         TestTransaction.end();
         TestTransaction.start();
@@ -297,11 +297,11 @@ public class ApiV1ReportControllerTest {
         createdMembers.add(reported);
         String accessToken = memberService.genAccessToken(reporter);
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
         ChatRoomParticipant p1 = chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, reporter, "익명1"));
         ChatRoomParticipant p2 = chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, reported, "익명2"));
         ChatMessage targetMessage = chatMessageRepository.save(new ChatMessage(chatRoom, p2, "중복 신고해봐라"));
-        UUID reportedMessageId = targetMessage.getId();
+        UUID reportedMessageId = targetMessage.getUuid();
         // 1차 신고 접수 (DB에 적재하기 위해 Given 단계에서 직접 등록 처리)
         reportRepository.save(new Report(reporter, reported, chatRoom, reportedMessageId, "1차 신고"));
         TestTransaction.flagForCommit();
@@ -340,7 +340,7 @@ public class ApiV1ReportControllerTest {
         String accessToken = memberService.genAccessToken(reporter);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         ChatRoomParticipant p1 = chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, reporter, "익명1"));
         ChatRoomParticipant p2 = chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, reported, "익명2"));
@@ -356,7 +356,7 @@ public class ApiV1ReportControllerTest {
 
         // 32번째 메시지(인덱스 31)를 신고 대상 메시지로 선정
         ChatMessage targetMessage = messages.get(31);
-        UUID reportedMessageId = targetMessage.getId();
+        UUID reportedMessageId = targetMessage.getUuid();
 
         TestTransaction.flagForCommit();
         TestTransaction.end();
@@ -422,13 +422,13 @@ public class ApiV1ReportControllerTest {
         String outsiderToken = memberService.genAccessToken(outsider);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         ChatRoomParticipant p1 = chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, reporter, "익명1"));
         ChatRoomParticipant p2 = chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, reported, "익명2"));
 
         ChatMessage targetMessage = chatMessageRepository.save(new ChatMessage(chatRoom, p2, "부적절한 발언"));
-        UUID reportedMessageId = targetMessage.getId();
+        UUID reportedMessageId = targetMessage.getUuid();
 
         // When
         ResultActions resultActions = mvc
@@ -471,7 +471,7 @@ public class ApiV1ReportControllerTest {
 
         ChatRoomParticipant p3 = chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom2, reported, "익명3"));
         ChatMessage targetMessage = chatMessageRepository.save(new ChatMessage(chatRoom2, p3, "엉뚱한 방의 대화"));
-        UUID reportedMessageId = targetMessage.getId();
+        UUID reportedMessageId = targetMessage.getUuid();
 
         // When
         ResultActions resultActions = mvc
@@ -485,7 +485,7 @@ public class ApiV1ReportControllerTest {
                                             "reportedMessageId": "%s",
                                             "reason": "방 불일치 메시지 신고"
                                         }
-                                        """.formatted(chatRoom1.getId(), reportedMessageId))
+                                        """.formatted(chatRoom1.getUuid(), reportedMessageId))
                 )
                 .andDo(print());
 

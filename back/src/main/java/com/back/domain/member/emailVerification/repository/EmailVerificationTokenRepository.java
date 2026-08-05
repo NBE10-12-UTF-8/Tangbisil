@@ -7,9 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
-import java.util.UUID;
 
-public interface EmailVerificationTokenRepository extends JpaRepository<EmailVerificationToken, UUID> {
+public interface EmailVerificationTokenRepository extends JpaRepository<EmailVerificationToken, Long> {
     Optional<EmailVerificationToken> findTopByEmailOrderByCreatedAtDesc(String email);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)

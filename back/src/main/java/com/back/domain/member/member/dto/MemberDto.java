@@ -15,7 +15,7 @@ public record MemberDto(
     }
     public MemberDto(Member member) {
         this(
-                String.valueOf(member.getId()),
+                member.getUuid().toString(),
                 member.getEmail(),
                 member.getIndustry()
         );

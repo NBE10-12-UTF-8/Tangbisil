@@ -1,5 +1,7 @@
 package com.back.domain.chat.chatRoomMessage.controller;
 
+import com.back.domain.chat.chatRoom.entity.ChatRoom;
+import com.back.domain.chat.chatRoom.repository.ChatRoomRepository;
 import com.back.domain.chat.chatRoomMessage.dto.ChatRoomMessageRequestDto;
 import com.back.domain.chat.chatRoomMessage.service.ChatMessageService;
 import com.back.domain.member.member.entity.Member;
@@ -29,6 +31,9 @@ public class StompChatControllerTest {
     @Mock
     private MemberService memberService;
 
+    @Mock
+    private ChatRoomRepository chatRoomRepository;
+
     @InjectMocks
     private StompChatController controller;
 
@@ -57,14 +62,18 @@ public class StompChatControllerTest {
         String content = "테스트 메시지";
 
         Member mockMember = mock(Member.class);
-        when(memberService.findById(memberId)).thenReturn(Optional.of(mockMember));
+        ChatRoom mockChatRoom = mock(ChatRoom.class);
+        Long chatRoomLongId = 1L;
+        when(mockChatRoom.getId()).thenReturn(chatRoomLongId);
+        when(memberService.findByUuid(memberId)).thenReturn(Optional.of(mockMember));
+        when(chatRoomRepository.findByUuid(roomId)).thenReturn(Optional.of(mockChatRoom));
 
         ChatRoomMessageRequestDto requestDto = mock(ChatRoomMessageRequestDto.class);
         when(requestDto.getContent()).thenReturn(content);
 
         controller.sendMessage(roomId, requestDto, principalOf(memberId));
 
-        verify(chatMessageService).sendMessage(roomId, mockMember, content);
+        verify(chatMessageService).sendMessage(chatRoomLongId, mockMember, content);
     }
 
     @Test
@@ -73,7 +82,7 @@ public class StompChatControllerTest {
         UUID roomId = UUID.randomUUID();
         UUID memberId = UUID.randomUUID();
 
-        when(memberService.findById(memberId)).thenReturn(Optional.empty());
+        when(memberService.findByUuid(memberId)).thenReturn(Optional.empty());
 
         ChatRoomMessageRequestDto requestDto = mock(ChatRoomMessageRequestDto.class);
 

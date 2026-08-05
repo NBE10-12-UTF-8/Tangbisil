@@ -74,7 +74,7 @@ public class ApiV1DashboardControllerTest {
         }
         TestTransaction.start();
         matchRequestRepository.findAll().forEach(mr ->
-                redisMatchQueue.remove(mr.getIndustry(), mr.getSituation(), mr.getId()));
+                redisMatchQueue.remove(mr.getIndustry(), mr.getSituation(), mr.getUuid()));
         matchRequestRepository.deleteAll();
         matchingOutboxRepository.deleteAll();
         chatRoomParticipantRepository.deleteAll();

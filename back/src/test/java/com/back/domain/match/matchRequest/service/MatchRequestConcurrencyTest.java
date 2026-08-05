@@ -80,8 +80,8 @@ class MatchRequestConcurrencyTest {
         MatchRequest saved = matchRequestRepository.saveAndFlush(matchRequest);
 
         long epochMilli = requestedAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        redisMatchQueue.add(member.getIndustry(), situation, saved.getId(), epochMilli);
-        queuedEntries.add(new QueueEntry(member.getIndustry(), situation, saved.getId()));
+        redisMatchQueue.add(member.getIndustry(), situation, saved.getUuid(), epochMilli);
+        queuedEntries.add(new QueueEntry(member.getIndustry(), situation, saved.getUuid()));
 
         return saved;
     }
@@ -111,13 +111,13 @@ class MatchRequestConcurrencyTest {
         Future<?> futureA = executor.submit(() -> {
             ready.countDown();
             start.await();
-            matchRequestService.tryMatch(requestA.getId());
+            matchRequestService.tryMatch(requestA.getUuid());
             return null;
         });
         Future<?> futureB = executor.submit(() -> {
             ready.countDown();
             start.await();
-            matchRequestService.tryMatch(requestB.getId());
+            matchRequestService.tryMatch(requestB.getUuid());
             return null;
         });
 
