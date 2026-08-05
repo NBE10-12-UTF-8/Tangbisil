@@ -316,13 +316,14 @@ export async function apiGetMessages(
     if (refreshed) return apiGetMessages(roomId, after, true);
   }
 
-  const body = await res.json();
+  const text = await res.text();
+  const body = text ? safeJsonParse(text) : null;
   if (!res.ok)
     throw Object.assign(new Error(body?.msg ?? res.statusText), {
       status: res.status,
     });
-  if (body.resultCode === "200-3") return { msgs: null, closed: true };
-  return { msgs: body.data as ChatMsg[] | null, closed: false };
+  if (body?.resultCode === "200-3") return { msgs: null, closed: true };
+  return { msgs: body?.data as ChatMsg[] | null, closed: false };
 }
 
 /* ── Notifications ──────────────────────────────────────────────── */
@@ -361,13 +362,14 @@ export function subscribeRoom(
         refreshFailCount = 0;
         return;
       }
-      // 세션이 끊긴 상태 - 재발급이 계속 실패하는데 3초마다 재시도하면 API만 계속 두드리게 된다.
       refreshFailCount++;
       if (refreshFailCount >= MAX_REFRESH_FAILURES) {
         client.deactivate();
         clearTokens();
         if (typeof window !== "undefined") window.location.href = "/login";
       }
+      // 갱신 실패한 토큰으로는 어차피 핸드셰이크가 거부되니 바로 중단
+      throw new Error("accessToken 갱신 실패");
     },
     onConnect: () => {
       if(!isFirstConnect) {
