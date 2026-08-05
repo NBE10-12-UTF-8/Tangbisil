@@ -96,6 +96,20 @@ class CookieHandshakeInterceptorTest {
     }
 
     @Test
+    @DisplayName("role 클레임이 없으면 ROLE_null 부여를 막기 위해 attributes를 채우지 않는다")
+    void t5b() {
+        when(memberService.payload("no-role-token")).thenReturn(Map.of("id", UUID.randomUUID().toString()));
+
+        ServerHttpRequest request = requestWithCookies(new Cookie("accessToken", "no-role-token"));
+        Map<String, Object> attributes = new HashMap<>();
+
+        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), null, attributes);
+
+        assertThat(result).isTrue();
+        assertThat(attributes).isEmpty();
+    }
+
+    @Test
     @DisplayName("id 클레임이 UUID 형식이 아니면 예외 없이 attributes를 채우지 않고 통과시킨다")
     void t6() {
         when(memberService.payload("bad-id-token")).thenReturn(Map.of(

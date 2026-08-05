@@ -53,10 +53,16 @@ public class CookieHandshakeInterceptor implements HandshakeInterceptor {
             return true;
         }
 
+        Object rawRole = payload.get("role");
+        if (rawRole == null) {
+            log.debug("WebSocket 핸드셰이크 토큰 payload에 role 클레임이 없음 - CONNECT 단계의 헤더 인증으로 폴백");
+            return true;
+        }
+
         try {
             UUID id = (rawId instanceof UUID u) ? u : UUID.fromString(rawId.toString());
             attributes.put("memberId", id);
-            attributes.put("role", payload.get("role"));
+            attributes.put("role", rawRole);
         } catch (IllegalArgumentException e) {
             log.debug("WebSocket 핸드셰이크 토큰의 id 클레임이 UUID 형식이 아님 - CONNECT 단계의 헤더 인증으로 폴백");
         }
