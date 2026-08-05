@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Component
@@ -25,13 +26,13 @@ public class MessageDuplicateChecker {
         this.redisTemplate = redisTemplate;
     }
 
-    public boolean isDuplicate(LocalDate date, String content) {
+    public boolean isDuplicate(LocalDate date, UUID senderMemberId, String content) {
         if (content == null || content.isBlank()) {
             return false;
         }
 
         String key = FINGERPRINT_KEY_PREFIX + date;
-        Long added = redisTemplate.opsForSet().add(key, fingerprint(content));
+        Long added = redisTemplate.opsForSet().add(key, fingerprint(senderMemberId, content));
         if (added != null && added > 0L) {
             redisTemplate.expire(key, KEY_TTL);
         }
@@ -39,8 +40,8 @@ public class MessageDuplicateChecker {
         return added != null && added == 0L;
     }
 
-    private String fingerprint(String content) {
-        String normalized = WHITESPACE_PATTERN.matcher(content).replaceAll("").toLowerCase(Locale.ROOT);
+    private String fingerprint(UUID senderMemberId, String content) {
+        String normalized = senderMemberId + "|" + WHITESPACE_PATTERN.matcher(content).replaceAll("").toLowerCase(Locale.ROOT);
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(normalized.getBytes(StandardCharsets.UTF_8));

@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class TrendAggregationEventHandler {
@@ -44,9 +45,10 @@ public class TrendAggregationEventHandler {
     public void handleChatMessageSent(ChatMessageSentEvent event) {
 
         String content = event.getMessageDto() != null ? event.getMessageDto().getContent() : null;
+        UUID senderMemberId = event.getMessageDto() != null ? event.getMessageDto().getSenderMemberId() : null;
         LocalDate today = LocalDate.now(KST);
 
-        if (messageDuplicateChecker.isDuplicate(today, content)) {
+        if (messageDuplicateChecker.isDuplicate(today, senderMemberId, content)) {
             return;
         }
 
