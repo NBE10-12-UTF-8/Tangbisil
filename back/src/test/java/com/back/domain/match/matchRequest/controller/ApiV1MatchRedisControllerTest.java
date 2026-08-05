@@ -355,13 +355,13 @@ public class ApiV1MatchRedisControllerTest {
         TestTransaction.flagForCommit();
         TestTransaction.end();
 
-        // 대기열에 나 혼자뿐이라 getOldest()는 나 자신을 반환한다 - 셀프 매칭 배제 필터가 필요한 이유다.
-        assertThat(redisMatchQueue.getOldestTwo(Industry.IT, Situation.NIGHT_WORK)).contains(matchRequest.getUuid());
+        // 대기열에 나 혼자뿐이라 getOldestCandidates()는 나 자신을 반환한다 - 셀프 매칭 배제 필터가 필요한 이유다.
+        assertThat(redisMatchQueue.getOldestCandidates(Industry.IT, Situation.NIGHT_WORK, 20)).contains(matchRequest.getUuid());
 
         matchRequestService.tryMatch(matchRequest.getUuid());
 
         MatchRequest refreshed = matchRequestRepository.findById(matchRequest.getId()).orElseThrow();
         assertThat(refreshed.getStatus()).isEqualTo(MatchStatus.PENDING);
-        assertThat(redisMatchQueue.getOldestTwo(Industry.IT, Situation.NIGHT_WORK)).contains(matchRequest.getUuid());
+        assertThat(redisMatchQueue.getOldestCandidates(Industry.IT, Situation.NIGHT_WORK, 20)).contains(matchRequest.getUuid());
     }
 }
