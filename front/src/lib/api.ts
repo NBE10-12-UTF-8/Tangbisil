@@ -348,14 +348,25 @@ export function subscribeRoom(
     onRoomClosed?: () => void,
 ): Client {
   let isFirstConnect = true;
+  let refreshFailCount = 0;
+  const MAX_REFRESH_FAILURES = 3;
 
-  // Authorization 헤더 없이 쿠키로 인증한다. 연결/재연결 시도마다 먼저 accessToken을
-  // 갱신해둬야 오래 머물러 토큰이 만료됐을 때 재연결 루프에 빠지지 않는다.
+  // Authorization 헤더 없이 쿠키로 인증한다. 연결/재연결 시도마다 먼저 accessToken을 갱신한다.
   const client = new Client({
     webSocketFactory: () => new SockJS(`${OAUTH_SERVER_BASE}/ws`),
     reconnectDelay: 3000,
     beforeConnect: async () => {
-      await refreshAccessToken();
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        refreshFailCount = 0;
+        return;
+      }
+      // 세션이 끊긴 상태 - 재발급이 계속 실패하는데 3초마다 재시도하면 API만 계속 두드리게 된다.
+      refreshFailCount++;
+      if (refreshFailCount >= MAX_REFRESH_FAILURES) {
+        client.deactivate();
+        onError?.('세션이 만료됐습니다. 다시 로그인해주세요.');
+      }
     },
     onConnect: () => {
       if(!isFirstConnect) {
