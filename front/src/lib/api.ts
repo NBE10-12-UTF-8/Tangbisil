@@ -294,11 +294,12 @@ export type ChatMsg = {
   isMine: boolean;
 };
 
-// after: LocalDateTime ISO 문자열 (마지막 수신 메시지의 createdAt). 없으면 전체 조회.
-// 백엔드가 종료된 방에 대해 HTTP 200 + resultCode "200-3" 을 반환하므로 closed 플래그로 구분.
+// after: LocalDateTime ISO 문자열(마지막 수신 메시지의 createdAt). 없으면 전체 조회.
+// 백엔드가 종료된 방에 대해 HTTP 200 + resultCode "200-3"을 반환하므로 closed 플래그로 구분.
 export async function apiGetMessages(
   roomId: string,
   after?: string,
+  _isRetry = false,
 ): Promise<{ msgs: ChatMsg[] | null; closed: boolean }> {
   const url = `/api/v1/rooms/${roomId}/messages${after ? `?after=${encodeURIComponent(after)}` : ""}`;
   const res = await fetch(url, {
@@ -308,6 +309,13 @@ export async function apiGetMessages(
     },
   });
   if (res.status === 204) return { msgs: null, closed: false };
+
+  // accessToken 만료 시 한 번 재발급받고 재시도
+  if ((res.status === 401 || res.status === 403) && !_isRetry) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) return apiGetMessages(roomId, after, true);
+  }
+
   const body = await res.json();
   if (!res.ok)
     throw Object.assign(new Error(body?.msg ?? res.statusText), {
@@ -341,14 +349,14 @@ export function subscribeRoom(
 ): Client {
   let isFirstConnect = true;
 
-  // 토큰을 JS가 들고 있지 않으므로 Authorization 헤더 없이 연결한다.
-  // 네이티브 WebSocket 핸드셰이크는 매 연결·재연결 시도마다(reconnectDelay 포함) 그 순간의
-  // accessToken 쿠키를 자동으로 실어 보내므로, 이전에 존재했던 "재연결 시 토큰이 클로저에
-  // 박혀 갱신 안 됨"·"소셜 로그인 사용자는 토큰이 없어 인증 실패" 문제가 애초에 발생하지
-  // 않는다 — 매번 그 시점의 쿠키로 새로 인증된다(CookieHandshakeInterceptor).
+  // Authorization 헤더 없이 쿠키로 인증한다. 연결/재연결 시도마다 먼저 accessToken을
+  // 갱신해둬야 오래 머물러 토큰이 만료됐을 때 재연결 루프에 빠지지 않는다.
   const client = new Client({
     webSocketFactory: () => new SockJS(`${OAUTH_SERVER_BASE}/ws`),
     reconnectDelay: 3000,
+    beforeConnect: async () => {
+      await refreshAccessToken();
+    },
     onConnect: () => {
       if(!isFirstConnect) {
         onReconnect?.();
