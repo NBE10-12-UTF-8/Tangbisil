@@ -139,6 +139,34 @@ public class StompAuthChannelInterceptorTest {
     }
 
     @Test
+    @DisplayName("Authorization 헤더 경로에서 id 클레임이 UUID 형식이 아니면 AccessDeniedException")
+    void t4c() {
+        when(memberService.payload("bad-id-token")).thenReturn(Map.of(
+                "id", "not-a-uuid",
+                "role", "USER"
+        ));
+
+        StompHeaderAccessor accessor = mutableAccessor(StompCommand.CONNECT);
+        accessor.addNativeHeader("Authorization", "Bearer bad-id-token");
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        assertThatThrownBy(() -> interceptor.preSend(message, mock(MessageChannel.class)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("Authorization 헤더 경로에서 role 클레임이 없으면 ROLE_null 부여 대신 AccessDeniedException")
+    void t4d() {
+        UUID memberId = UUID.randomUUID();
+        when(memberService.payload("no-role-token")).thenReturn(Map.of("id", memberId.toString()));
+
+        StompHeaderAccessor accessor = mutableAccessor(StompCommand.CONNECT);
+        accessor.addNativeHeader("Authorization", "Bearer no-role-token");
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+        assertThatThrownBy(() -> interceptor.preSend(message, mock(MessageChannel.class)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     @DisplayName("SUBSCRIBE 시 채팅방 참여자가 아니면 AccessDeniedException")
     void t5() {
         UUID roomId = UUID.randomUUID();
