@@ -90,9 +90,9 @@ public class ApiV1MemberController {
         }
 
         Member member = memberService.findByEmail(req.email())
-                .orElseGet(() -> {
+                .orElseThrow(() -> {
                     loginAttemptLimiter.recordFailure(req.email());
-                    throw new ServiceException("401-1", "존재하지 않는 이메일입니다.");
+                    return new ServiceException("401-1", "존재하지 않는 이메일입니다.");
                 });
 
         try {
