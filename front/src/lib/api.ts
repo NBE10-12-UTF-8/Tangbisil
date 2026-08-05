@@ -365,7 +365,8 @@ export function subscribeRoom(
       refreshFailCount++;
       if (refreshFailCount >= MAX_REFRESH_FAILURES) {
         client.deactivate();
-        onError?.('세션이 만료됐습니다. 다시 로그인해주세요.');
+        clearTokens();
+        if (typeof window !== "undefined") window.location.href = "/login";
       }
     },
     onConnect: () => {
