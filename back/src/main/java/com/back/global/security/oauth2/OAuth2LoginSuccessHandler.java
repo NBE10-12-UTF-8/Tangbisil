@@ -44,7 +44,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         String accessToken = memberService.genAccessToken(member);
         UUID refreshToken = memberService.genRefreshToken(member);
         rq.setCookie("accessToken", accessToken, accessTokenExpirationSeconds);
-        rq.setCookie("refreshToken", refreshToken.toString(), refreshTokenExpirationSeconds);
+        rq.setCookie("refreshToken", refreshToken.toString(), refreshTokenExpirationSeconds, Rq.REFRESH_TOKEN_COOKIE_PATH);
         response.sendRedirect(frontendBaseUrl + "/oauth/callback");
     }
 }

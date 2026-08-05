@@ -18,6 +18,11 @@ import java.util.Optional;
 @Component
 @RequiredArgsConstructor
 public class Rq {
+    // refreshToken은 /refresh 요청 딱 하나에서만 쓰는데 Path=/로 두면 모든 API 요청에
+    // 매번 같이 실려 나간다. XSS가 터졌을 때 공격자가 만드는 요청에까지 30일짜리
+    // refreshToken이 자동으로 따라붙는 걸 막기 위해, 이 쿠키만 그 엔드포인트로 스코프를 좁힌다.
+    public static final String REFRESH_TOKEN_COOKIE_PATH = "/api/v1/members/refresh";
+
     private final HttpServletRequest req;
     private final HttpServletResponse resp;
 
@@ -80,10 +85,14 @@ public class Rq {
     }
 
     public void setCookie(String name, String value, int maxAge) {
+        setCookie(name, value, maxAge, "/");
+    }
+
+    public void setCookie(String name, String value, int maxAge, String path) {
         if (value == null) value = "";
 
         Cookie cookie = new Cookie(name, value);
-        cookie.setPath("/");
+        cookie.setPath(path);
         cookie.setHttpOnly(true);
 
         if (!cookieDomain.isBlank()) {
@@ -104,5 +113,12 @@ public class Rq {
 
     public void deleteCookie(String name) {
         setCookie(name, null);
+    }
+
+    // 쿠키를 지우는 Set-Cookie도 원래 쿠키를 심을 때와 Path가 정확히 같아야 브라우저가
+    // 같은 쿠키로 인식해서 지운다 - Path가 다르면 그냥 아무것도 없는 걸 지우는 셈이 되어
+    // 원래 쿠키(refreshToken 등)가 그대로 남는다.
+    public void deleteCookie(String name, String path) {
+        setCookie(name, null, 0, path);
     }
 }
