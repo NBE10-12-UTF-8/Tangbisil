@@ -4,6 +4,7 @@ import com.back.domain.member.emailVerification.service.EmailVerificationService
 import com.back.domain.member.member.dto.MemberDto;
 import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.service.LoginAttemptLimiter;
 import com.back.domain.member.member.service.MemberService;
 import com.back.domain.member.passwordReset.service.PasswordResetService;
 import com.back.global.exception.ServiceException;
@@ -37,6 +38,7 @@ public class ApiV1MemberController {
     @Value("${custom.refreshToken.expirationSeconds}")
     private int refreshTokenExpirationSeconds;
     private final PasswordResetService passwordResetService;
+    private final LoginAttemptLimiter loginAttemptLimiter;
 
     public record MemberSignupReq(
             @NotBlank
@@ -83,10 +85,24 @@ public class ApiV1MemberController {
     @PostMapping("/login")
     @Operation(summary = "로그인")
     public RsData<MemberLoginRes> login(@Valid @RequestBody MemberLoginReq req) {
-        Member member = memberService.findByEmail(req.email())
-                .orElseThrow(() -> new ServiceException("401-1", "존재하지 않는 이메일입니다."));
+        if (loginAttemptLimiter.isBlocked(req.email())) {
+            throw new ServiceException("429-1", "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.");
+        }
 
-        memberService.checkPassword(member, req.password());
+        Member member = memberService.findByEmail(req.email())
+                .orElseThrow(() -> {
+                    loginAttemptLimiter.recordFailure(req.email());
+                    return new ServiceException("401-1", "존재하지 않는 이메일입니다.");
+                });
+
+        try {
+            memberService.checkPassword(member, req.password());
+        } catch (ServiceException e) {
+            loginAttemptLimiter.recordFailure(req.email());
+            throw e;
+        }
+
+        loginAttemptLimiter.recordSuccess(req.email());
 
         String accessToken = memberService.genAccessToken(member);
         UUID refreshToken = memberService.genRefreshToken(member);

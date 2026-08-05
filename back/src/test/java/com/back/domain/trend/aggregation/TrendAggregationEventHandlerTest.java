@@ -14,6 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,18 +38,24 @@ class TrendAggregationEventHandlerTest {
     private static final String KEYWORD_KEY = "trend:keyword:" + TODAY;
     private static final String MESSAGE_KEY = "trend:messages:" + TODAY;
     private static final String COOCCUR_KEY = "trend:cooccur:" + TODAY;
+    private static final String FINGERPRINT_KEY = "trend:fingerprints:" + TODAY;
 
     @AfterEach
     void cleanUp() {
         redisTemplate.delete(KEYWORD_KEY);
         redisTemplate.delete(MESSAGE_KEY);
         redisTemplate.delete(COOCCUR_KEY);
+        redisTemplate.delete(FINGERPRINT_KEY);
     }
 
     private ChatMessageSentEvent eventWithContent(String content) {
+        return eventFrom(UUID.randomUUID(), content);
+    }
+
+    private ChatMessageSentEvent eventFrom(UUID senderParticipantId, String content) {
         RedisChatMessageDto dto = new RedisChatMessageDto(
-                UUID.randomUUID(), UUID.randomUUID(), "익명", UUID.randomUUID(), content, null);
-        return new ChatMessageSentEvent(dto);
+                UUID.randomUUID(), UUID.randomUUID(), "익명", senderParticipantId, content, null);
+        return new ChatMessageSentEvent(dto, List.of());
     }
 
     @Test
@@ -147,5 +154,35 @@ class TrendAggregationEventHandlerTest {
         await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
                 assertThat(redisTemplate.opsForValue().get(MESSAGE_KEY)).isEqualTo("1"));
         assertThat(redisTemplate.opsForZSet().size(COOCCUR_KEY)).isIn(0L, null);
+    }
+
+    @Test
+    @DisplayName("같은 발신자가 완전히 같은 메시지를 반복하면(도배), 두 번째부터는 전체 메시지 수·키워드 집계 어디에도 반영되지 않는다")
+    void t10() {
+        UUID sender = UUID.randomUUID();
+
+        trendAggregationEventHandler.handleChatMessageSent(eventFrom(sender, "장마 진짜 심하다 다들 우산 챙기세요"));
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() ->
+                assertThat(redisTemplate.opsForValue().get(MESSAGE_KEY)).isEqualTo("1"));
+
+        trendAggregationEventHandler.handleChatMessageSent(eventFrom(sender, "장마 진짜 심하다 다들 우산 챙기세요"));
+        trendAggregationEventHandler.handleChatMessageSent(eventFrom(sender, "장마 진짜 심하다 다들 우산 챙기세요"));
+
+        await().pollDelay(Duration.ofMillis(500)).atMost(Duration.ofSeconds(2)).untilAsserted(() -> {
+            assertThat(redisTemplate.opsForValue().get(MESSAGE_KEY)).isEqualTo("1");
+            assertThat(redisTemplate.opsForZSet().score(KEYWORD_KEY, "장마")).isEqualTo(1.0);
+        });
+    }
+
+    @Test
+    @DisplayName("서로 다른 발신자가 같은 메시지를 보내면 도배로 보지 않고 둘 다 집계에 반영한다 — 여러 사람이 같은 말을 하는 건 실제 트렌드 신호다")
+    void t11() {
+        trendAggregationEventHandler.handleChatMessageSent(eventFrom(UUID.randomUUID(), "장마 진짜 심하다"));
+        trendAggregationEventHandler.handleChatMessageSent(eventFrom(UUID.randomUUID(), "장마 진짜 심하다"));
+
+        await().atMost(Duration.ofSeconds(2)).untilAsserted(() -> {
+            assertThat(redisTemplate.opsForValue().get(MESSAGE_KEY)).isEqualTo("2");
+            assertThat(redisTemplate.opsForZSet().score(KEYWORD_KEY, "장마")).isEqualTo(2.0);
+        });
     }
 }

@@ -72,7 +72,14 @@ public class ChatMessageService {
         RedisChatMessageDto cacheDto = new RedisChatMessageDto(message);
 
         // 비동기 캐시 적재를 수행할 배달부(EventHandler)에게 이벤트 발행
-        eventPublisher.publishEvent(new ChatMessageSentEvent(cacheDto));
+        List<ChatMessageSentEvent.BroadcastTarget> targets = participants.stream()
+                .map(p -> new ChatMessageSentEvent.BroadcastTarget(
+                        p.getId(),
+                        p.getMember().getId().toString(),
+                        BotAccounts.isBotEmail(p.getMember().getEmail())
+                ))
+                .toList();
+        eventPublisher.publishEvent(new ChatMessageSentEvent(cacheDto, targets));
 
         // 사람이(봇이 아닌 발신자가) 봇이 참여 중인 방에 메시지를 보내면, 봇이 맥락에 맞게 응답하게 트리거
         if (!BotAccounts.isBotEmail(sender.getEmail())) {
@@ -111,11 +118,10 @@ public class ChatMessageService {
     public List<ChatRoomMessageResponseDto> getMessages(UUID roomId, Member requester, LocalDateTime after) {
         ChatRoom chatRoom = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ServiceException("404-1", "채팅방을 찾을 수 없습니다."));
-        boolean isParticipant = chatRoomParticipantRepository
-                .existsByChatRoomIdAndMemberId(roomId, requester.getId());
-        if(!isParticipant){
-            throw new ServiceException("403-1", "해당 채팅방에 접근 권한이 없습니다.");
-        }
+        UUID requesterParticipantId = chatRoomParticipantRepository
+                .findByChatRoomIdAndMemberId(roomId, requester.getId())
+                .map(p -> p.getId())
+                .orElseThrow(() -> new ServiceException("403-1", "해당 채팅방에 접근 권한이 없습니다."));
 
         if(chatRoom.getStatus() == ChatRoomStatus.CLOSED) {
             throw new ServiceException("200-3", "종료된 채팅방입니다.");
@@ -160,7 +166,7 @@ public class ChatMessageService {
                         .toList();
             }
             return cachedMessages.stream()
-                    .map(cache -> new ChatRoomMessageResponseDto(cache, requester.getId()))
+                    .map(cache -> new ChatRoomMessageResponseDto(cache, requesterParticipantId))
                     .toList();
         }
 

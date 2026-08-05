@@ -1,4 +1,6 @@
 import isEmail from "validator/lib/isEmail";
+import { Client } from "@stomp/stompjs";
+import SockJS from "sockjs-client";
 
 const BASE = "";
 
@@ -59,6 +61,7 @@ export const getRoleFromToken = (token: string): string | null => {
     return null;
   }
 };
+
 
 /* ── Industry mapping ────────────────────────────────────────────── */
 // 백엔드 Industry enum @JsonValue 가 한글 라벨을 그대로 직렬화하므로 표시명 = API 값
@@ -321,6 +324,7 @@ export type ChatMsg = {
   messageId: string;
   roomId: string;
   senderNickname: string;
+  senderParticipantId?: string;
   content: string;
   createdAt: string;
   isMine: boolean;
@@ -365,6 +369,42 @@ export const apiGetNotifications = (after?: string) =>
   req<MatchNotification[] | null>(
     `/api/v1/notifications${after ? `?after=${encodeURIComponent(after)}` : ""}`,
   );
+
+export function subscribeRoom(
+    roomId: string,
+    onMessage: (msg: ChatMsg) => void,
+    onReconnect?: () => void,
+    onError?: (errorMsg: string) => void,
+): Client {
+  const token = getToken();
+  let isFirstConnect = true;
+
+  const client = new Client({
+    webSocketFactory: () => new SockJS(`${OAUTH_SERVER_BASE}/ws`),
+    connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+    reconnectDelay: 3000,
+    onConnect: () => {
+      if(!isFirstConnect) {
+        onReconnect?.();
+      }
+      isFirstConnect = false;
+
+      client.subscribe(`/user/queue/rooms/${roomId}`, (frame) => {
+        const raw = JSON.parse(frame.body);
+        onMessage(raw);
+      });
+      client.subscribe('/user/queue/errors', (frame) => {
+        const error = JSON.parse(frame.body);
+        onError?.(error.code + ' : ' + error.message);
+      });
+    },
+    onStompError: (frame) => {
+      onError?.(frame.headers['message'] ?? '전송 오류가 발생했습니다.');
+    },
+  });
+  client.activate();
+  return client;
+}
 
 /* ── Admin ──────────────────────────────────────────────────────── */
 export type AdminMember = {

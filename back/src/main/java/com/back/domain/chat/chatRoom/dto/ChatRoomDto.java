@@ -4,7 +4,6 @@ import com.back.domain.chat.chatRoom.entity.ChatRoom;
 import com.back.domain.chat.chatRoom.entity.ChatRoomStatus;
 import com.back.domain.match.matchRequest.entity.Situation;
 import com.fasterxml.jackson.annotation.JsonInclude;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
 

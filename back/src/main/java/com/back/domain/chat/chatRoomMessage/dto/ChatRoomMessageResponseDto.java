@@ -1,7 +1,7 @@
 package com.back.domain.chat.chatRoomMessage.dto;
 
 import com.back.domain.chat.chatRoomMessage.entity.ChatMessage;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AccessLevel;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
@@ -14,8 +14,10 @@ public class ChatRoomMessageResponseDto {
     private final String senderNickname;
     private final String content;
     private final LocalDateTime createdAt;
-    @JsonProperty("isMine")
+    @Getter(AccessLevel.NONE)
     private final boolean isMine;
+
+    public boolean getIsMine() { return isMine; }
 
     public ChatRoomMessageResponseDto(ChatMessage message, UUID requesterId) {
         this.messageId = message.getId();
@@ -26,12 +28,12 @@ public class ChatRoomMessageResponseDto {
         this.isMine = message.getParticipant().getMember().getId().equals(requesterId);
     }
 
-    public ChatRoomMessageResponseDto(RedisChatMessageDto cache, UUID requesterId) {
+    public ChatRoomMessageResponseDto(RedisChatMessageDto cache, UUID requesterParticipantId) {
         this.messageId = cache.getMessageId();
         this.roomId = cache.getRoomId();
         this.senderNickname = cache.getSenderNickname();
         this.content = cache.getContent();
         this.createdAt = cache.getCreatedAt();
-        this.isMine = cache.getSenderMemberId().equals(requesterId);
+        this.isMine = requesterParticipantId != null && requesterParticipantId.equals(cache.getSenderParticipantId());
     }
 }

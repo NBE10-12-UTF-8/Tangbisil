@@ -34,6 +34,9 @@ public class SecurityConfig {
     private final OAuth2LoginSuccessHandler oauth2LoginSuccessHandler;
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${custom.cors.allowed-origins}")
+    private String[] allowedOrigins;
+
     @Value("${custom.actuator.username}")
     private String actuatorUsername;
 
@@ -81,6 +84,7 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(
                         auth -> auth
+                                .requestMatchers("/actuator/prometheus").permitAll()
                                 .requestMatchers(
                                         "/api/*/members/login",
                                         "/api/*/members/refresh",
@@ -95,6 +99,7 @@ public class SecurityConfig {
                                 ).permitAll()
                                 .requestMatchers("/api/*/admin/**").hasRole("ADMIN")
                                 .requestMatchers("/api/*/**").authenticated()
+                                .requestMatchers("/ws/**").permitAll()
                                 .anyRequest().permitAll()
                 )
                 .headers(
@@ -152,21 +157,14 @@ public class SecurityConfig {
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(
-                "https://cdpn.io",
-                "http://localhost:3000",
-                "https://tangbisil-production.up.railway.app",
-                "https://nbe10-12-2-utf-8.vercel.app",
-                "https://tangbisil.vercel.app",
-                "https://tangbisil.kro.kr",
-                "https://tangbisil-one.vercel.app"
-        ));
+        configuration.setAllowedOrigins(List.of(allowedOrigins));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
         configuration.setAllowCredentials(true);
         configuration.setAllowedHeaders(List.of("*"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);
+        source.registerCorsConfiguration("/ws/**", configuration);
         return source;
     }
 }
