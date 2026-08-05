@@ -138,8 +138,10 @@ public class MatchRequestService {
         matchingOutboxRepository.findById(outboxId).ifPresent(MatchingOutbox::markFailed);
     }
 
-    // NOT_SUPPORTED로 클래스 레벨 트랜잭션 상속을 차단 - 안 그러면 첫 조회로 커넥션을 잡은 채
-    // 아래 tryLock() 대기(최대 5초)에 들어가버린다.
+    /**
+     * 지정된 Industry의 분산 락을 시도하여 1차 비동기 매칭 및 연속 배치 매칭을 처리합니다.
+     * 주의: 호출부는 반드시 대상 요청의 올바른 Industry를 전달해야 합니다.
+     */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void tryMatch(UUID matchRequestId, Industry industry) {
         String lockKey = "match:lock:" + industry.name();
@@ -189,7 +191,13 @@ public class MatchRequestService {
 
         while (currentTargetId != null && iterations++ < BATCH_MAX_ITERATIONS) {
             Optional<MatchRequest> currentOpt = matchRequestRepository.findByUuidWithMember(currentTargetId);
-            if (currentOpt.isEmpty() || currentOpt.get().getStatus() != MatchStatus.PENDING) {
+            if (currentOpt.isEmpty()) {
+                if (iterations == 1) {
+                    throw new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다.");
+                }
+                break;
+            }
+            if (currentOpt.get().getStatus() != MatchStatus.PENDING) {
                 break;
             }
 
