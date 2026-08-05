@@ -146,7 +146,8 @@ export default function ChatPage() {
       }
     }, () => {
       apiGetMessages(roomId, lastMsgTimeRef.current ?? undefined)
-          .then(({msgs}) => {
+          .then(({msgs, closed}) => {
+            if (closed) { notifyPartnerLeft(); return; }
             if (!msgs) return;
             const fresh = msgs.filter(m => !seenMsgIds.current.has(m.messageId));
             fresh.forEach(m => seenMsgIds.current.add(m.messageId));
@@ -161,7 +162,8 @@ export default function ChatPage() {
       console.error('[ChatPage] STOMP error:', errorMsg);
       const code = errorMsg.split(' : ')[0];
       if (code === '409-1' || code === '403-1') notifyPartnerLeft();
-      }
+      },
+      notifyPartnerLeft
     );
     stompClientRef.current = stompClient;
 

@@ -375,6 +375,7 @@ export function subscribeRoom(
     onMessage: (msg: ChatMsg) => void,
     onReconnect?: () => void,
     onError?: (errorMsg: string) => void,
+    onRoomClosed?: () => void,
 ): Client {
   let isFirstConnect = true;
 
@@ -403,6 +404,11 @@ export function subscribeRoom(
 
       client.subscribe(`/user/queue/rooms/${roomId}`, (frame) => {
         const raw = JSON.parse(frame.body);
+        // 상대방의 채팅방 종료 알림은 일반 채팅 메시지와 같은 큐로 오지만 messageId가 없다.
+        if (!raw.messageId) {
+          onRoomClosed?.();
+          return;
+        }
         onMessage(raw);
       });
       client.subscribe('/user/queue/errors', (frame) => {
