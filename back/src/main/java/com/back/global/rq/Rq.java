@@ -28,6 +28,11 @@ public class Rq {
     @Value("${custom.cookieDomain:}")
     private String cookieDomain = "";
 
+    // 로컬 개발(HTTP)에서는 Secure 쿠키가 아예 안 실려 로그인이 막히므로 기본값은 false로 두고,
+    // prod에서는 HTTPS만 쓰므로 true로 재정의한다.
+    @Value("${custom.cookieSecure:false}")
+    private boolean cookieSecure;
+
     public Member getActor() {
         return Optional.ofNullable(
                         SecurityContextHolder
@@ -84,7 +89,7 @@ public class Rq {
         if (!cookieDomain.isBlank()) {
             cookie.setDomain(cookieDomain);
         }
-        cookie.setSecure(false);
+        cookie.setSecure(cookieSecure);
         cookie.setAttribute("SameSite", "Strict");
 
         if (value.isBlank()) cookie.setMaxAge(0);

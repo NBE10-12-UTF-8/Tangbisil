@@ -27,3 +27,4 @@ logging:
 custom:
   frontendBaseUrl: https://tangbisil.kro.kr
   cookieDomain: tangbisil.kro.kr
+  cookieSecure: true
