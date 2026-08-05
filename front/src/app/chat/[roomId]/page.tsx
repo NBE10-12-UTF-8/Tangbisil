@@ -254,7 +254,7 @@ export default function ChatPage() {
       FORBIDDEN: { icon: '🔒', title: '접근할 수 없는 채팅방입니다', desc: '이 채팅방에 참여했던 계정으로 로그인해주세요.' },
     }[roomError];
     return (
-      <AppShell>
+      <AppShell topAlign>
         <div style={{ marginBottom: 18 }}><TangbisilLogo size={52} /></div>
         <div style={{ ...s.card, padding: '40px 24px', textAlign: 'center' }}>
           <div style={{ fontSize: 32, marginBottom: 14 }}>{info.icon}</div>
@@ -272,7 +272,7 @@ export default function ChatPage() {
   }
 
   return (
-    <AppShell>
+    <AppShell topAlign>
       <div style={{ marginBottom: 18 }}><TangbisilLogo size={52} /></div>
       <div style={s.card}>
         <div style={s.searchRow}>
@@ -377,7 +377,7 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div style={{ height: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
             {messages.length === 0 && (
               <div style={{ padding: '20px 0', textAlign: 'center', fontSize: 13, color: '#bdc1c6' }}>대화를 시작해보세요</div>
             )}
