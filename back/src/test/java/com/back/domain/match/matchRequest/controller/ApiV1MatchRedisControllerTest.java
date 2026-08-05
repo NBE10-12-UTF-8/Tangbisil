@@ -135,7 +135,7 @@ public class ApiV1MatchRedisControllerTest {
         reset(redisMatchQueue);
 
         matchRequestRepository.findAll().forEach(mr ->
-                redisMatchQueue.remove(mr.getIndustry(), mr.getSituation(), mr.getId()));
+                redisMatchQueue.remove(mr.getIndustry(), mr.getSituation(), mr.getUuid()));
         extraQueueEntries.forEach(e -> redisMatchQueue.remove(e.industry(), e.situation(), e.id()));
         extraQueueEntries.clear();
 
@@ -234,7 +234,7 @@ public class ApiV1MatchRedisControllerTest {
         UUID matchRequestId = UUID.fromString(
                 new ObjectMapper().readTree(createResponse).path("data").path("matchRequestId").asText());
 
-        assertThat(matchRequestRepository.findById(matchRequestId)).isPresent();
+        assertThat(matchRequestRepository.findByUuid(matchRequestId)).isPresent();
 
         MatchingOutbox outbox = matchingOutboxRepository.findAll().stream()
                 .filter(o -> o.getMatchRequestId().equals(matchRequestId))
@@ -250,7 +250,7 @@ public class ApiV1MatchRedisControllerTest {
 
         MatchRequest matchRequest = matchRequestRepository.save(new MatchRequest(member, Situation.NIGHT_WORK));
         long epochMilli = matchRequest.getRequestedAt().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        MatchingOutbox outbox = MatchingOutbox.create(matchRequest.getId(), Industry.IT, Situation.NIGHT_WORK, epochMilli);
+        MatchingOutbox outbox = MatchingOutbox.create(matchRequest.getUuid(), Industry.IT, Situation.NIGHT_WORK, epochMilli);
         outbox.markFailed();
         matchingOutboxRepository.save(outbox);
 
@@ -262,7 +262,7 @@ public class ApiV1MatchRedisControllerTest {
         MatchingOutbox refreshed = matchingOutboxRepository.findById(outbox.getId()).orElseThrow();
         assertThat(refreshed.getStatus()).isEqualTo(MatchingOutbox.OutboxStatus.SUCCESS);
         assertThat(redisTemplate.opsForZSet().range("match:queue:IT:NIGHT_WORK", 0, -1))
-                .contains(matchRequest.getId().toString());
+                .contains(matchRequest.getUuid().toString());
     }
 
     @Test
@@ -273,7 +273,7 @@ public class ApiV1MatchRedisControllerTest {
 
         MatchRequest matchRequest = matchRequestRepository.save(new MatchRequest(member, Situation.NIGHT_WORK));
         long epochMilli = matchRequest.getRequestedAt().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        MatchingOutbox outbox = MatchingOutbox.create(matchRequest.getId(), Industry.IT, Situation.NIGHT_WORK, epochMilli);
+        MatchingOutbox outbox = MatchingOutbox.create(matchRequest.getUuid(), Industry.IT, Situation.NIGHT_WORK, epochMilli);
         for (int i = 0; i < 5; i++) {
             outbox.markFailed();
         }
@@ -297,8 +297,8 @@ public class ApiV1MatchRedisControllerTest {
         createdMembers.add(member);
 
         MatchRequest matchRequest = matchRequestRepository.save(new MatchRequest(member, Situation.NIGHT_WORK));
-        redisMatchQueue.add(Industry.IT, Situation.NIGHT_WORK, matchRequest.getId(), System.currentTimeMillis());
-        extraQueueEntries.add(new QueueEntry(Industry.IT, Situation.NIGHT_WORK, matchRequest.getId()));
+        redisMatchQueue.add(Industry.IT, Situation.NIGHT_WORK, matchRequest.getUuid(), System.currentTimeMillis());
+        extraQueueEntries.add(new QueueEntry(Industry.IT, Situation.NIGHT_WORK, matchRequest.getUuid()));
 
         TestTransaction.flagForCommit();
         TestTransaction.end();
@@ -321,8 +321,8 @@ public class ApiV1MatchRedisControllerTest {
         MatchRequest reqB = matchRequestRepository.save(new MatchRequest(memberB, Situation.NIGHT_WORK));
 
         long now = System.currentTimeMillis();
-        redisMatchQueue.add(Industry.IT, Situation.NIGHT_WORK, reqA.getId(), now);
-        redisMatchQueue.add(Industry.IT, Situation.NIGHT_WORK, reqB.getId(), now + 10);
+        redisMatchQueue.add(Industry.IT, Situation.NIGHT_WORK, reqA.getUuid(), now);
+        redisMatchQueue.add(Industry.IT, Situation.NIGHT_WORK, reqB.getUuid(), now + 10);
 
         // DB에 대응하는 행이 없는 유령 ID. 점수를 훨씬 미래로 줘서 getOldest()의 "1등" 후보로는
         // 절대 뽑히지 않지만(그러면 reqA/reqB 매칭 자체가 막힘), getAllIds() 전체 스캔 목록에는
@@ -350,18 +350,18 @@ public class ApiV1MatchRedisControllerTest {
         createdMembers.add(member);
 
         MatchRequest matchRequest = matchRequestRepository.save(new MatchRequest(member, Situation.NIGHT_WORK));
-        redisMatchQueue.add(Industry.IT, Situation.NIGHT_WORK, matchRequest.getId(), System.currentTimeMillis());
+        redisMatchQueue.add(Industry.IT, Situation.NIGHT_WORK, matchRequest.getUuid(), System.currentTimeMillis());
 
         TestTransaction.flagForCommit();
         TestTransaction.end();
 
         // 대기열에 나 혼자뿐이라 getOldest()는 나 자신을 반환한다 - 셀프 매칭 배제 필터가 필요한 이유다.
-        assertThat(redisMatchQueue.getOldestTwo(Industry.IT, Situation.NIGHT_WORK)).contains(matchRequest.getId());
+        assertThat(redisMatchQueue.getOldestTwo(Industry.IT, Situation.NIGHT_WORK)).contains(matchRequest.getUuid());
 
-        matchRequestService.tryMatch(matchRequest.getId());
+        matchRequestService.tryMatch(matchRequest.getUuid());
 
         MatchRequest refreshed = matchRequestRepository.findById(matchRequest.getId()).orElseThrow();
         assertThat(refreshed.getStatus()).isEqualTo(MatchStatus.PENDING);
-        assertThat(redisMatchQueue.getOldestTwo(Industry.IT, Situation.NIGHT_WORK)).contains(matchRequest.getId());
+        assertThat(redisMatchQueue.getOldestTwo(Industry.IT, Situation.NIGHT_WORK)).contains(matchRequest.getUuid());
     }
 }

@@ -13,8 +13,10 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface ReportRepository extends JpaRepository<Report, UUID> {
+public interface ReportRepository extends JpaRepository<Report, Long> {
     boolean existsByReporterAndReportedMessageId(Member reporter, UUID reportedMessageId);
+
+    Optional<Report> findByUuid(UUID uuid);
 
     // 한 번의 쿼리로 reporter와 reported 회원 정보를 같이 긁어와 N+1 원천 방지
     @Query(
@@ -38,5 +40,5 @@ public interface ReportRepository extends JpaRepository<Report, UUID> {
 
     // 단건 상세 조회 시에도 reporter와 reported를 한 번에 Join하여 N+1 쿼리 차단
     @EntityGraph(attributePaths = {"reporter", "reported"})
-    Optional<Report> findWithMemberById(UUID id);
+    Optional<Report> findWithMemberByUuid(UUID uuid);
 }

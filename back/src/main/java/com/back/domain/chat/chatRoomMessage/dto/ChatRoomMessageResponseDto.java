@@ -19,13 +19,13 @@ public class ChatRoomMessageResponseDto {
 
     public boolean getIsMine() { return isMine; }
 
-    public ChatRoomMessageResponseDto(ChatMessage message, UUID requesterId) {
-        this.messageId = message.getId();
-        this.roomId = message.getChatRoom().getId();
+    public ChatRoomMessageResponseDto(ChatMessage message, UUID requesterUuid) {
+        this.messageId = message.getUuid();
+        this.roomId = message.getChatRoom().getUuid();
         this.senderNickname = message.getParticipant().getNickname();
         this.content = message.getContent();
         this.createdAt = message.getCreatedAt();
-        this.isMine = message.getParticipant().getMember().getId().equals(requesterId);
+        this.isMine = message.getParticipant().getMember().getUuid().equals(requesterUuid);
     }
 
     public ChatRoomMessageResponseDto(RedisChatMessageDto cache, UUID requesterParticipantId) {

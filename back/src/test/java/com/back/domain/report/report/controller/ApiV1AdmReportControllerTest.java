@@ -112,7 +112,7 @@ public class ApiV1AdmReportControllerTest {
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
                 .andExpect(jsonPath("$.msg").value("신고 목록 조회 성공"))
                 .andExpect(jsonPath("$.data.content").isArray())
-                .andExpect(jsonPath("$.data.content[0].reportId").value(report.getId().toString()))
+                .andExpect(jsonPath("$.data.content[0].reportId").value(report.getUuid().toString()))
                 .andExpect(jsonPath("$.data.pageable.pageNumber").value(0))
                 .andExpect(jsonPath("$.data.pageable.pageSize").value(10))
                 .andExpect(jsonPath("$.data.totalElements").exists())
@@ -198,16 +198,16 @@ public class ApiV1AdmReportControllerTest {
         ChatMessage msg3 = chatMessageRepository.save(new ChatMessage(chatRoom, pReported, "너 일 그따구로 할 거면 사표 써라"));
 
         // 신고 생성 및 백업 증거 메시지 적재 (isTarget도 설정)
-        Report report = reportRepository.save(new Report(reporter, reported, chatRoom, msg3.getId(), "사내 정치성 허위 비방 및 욕설"));
-        
-        reportedMessageRepository.save(new ReportedMessage(report, pParticipant.getMember().getId(), pParticipant.getNickname(), msg1.getContent(), msg1.getCreatedAt(), false));
-        reportedMessageRepository.save(new ReportedMessage(report, pReporter.getMember().getId(), pReporter.getNickname(), msg2.getContent(), msg2.getCreatedAt(), false));
-        reportedMessageRepository.save(new ReportedMessage(report, pReported.getMember().getId(), pReported.getNickname(), msg3.getContent(), msg3.getCreatedAt(), true));
+        Report report = reportRepository.save(new Report(reporter, reported, chatRoom, msg3.getUuid(), "사내 정치성 허위 비방 및 욕설"));
+
+        reportedMessageRepository.save(new ReportedMessage(report, pParticipant.getMember().getUuid(), pParticipant.getNickname(), msg1.getContent(), msg1.getCreatedAt(), false));
+        reportedMessageRepository.save(new ReportedMessage(report, pReporter.getMember().getUuid(), pReporter.getNickname(), msg2.getContent(), msg2.getCreatedAt(), false));
+        reportedMessageRepository.save(new ReportedMessage(report, pReported.getMember().getUuid(), pReported.getNickname(), msg3.getContent(), msg3.getCreatedAt(), true));
 
         // When
         ResultActions resultActions = mvc
                 .perform(
-                        get("/api/v1/admin/reports/" + report.getId())
+                        get("/api/v1/admin/reports/" + report.getUuid())
                                 .header("Authorization", "Bearer " + accessToken)
                 )
                 .andDo(print());
@@ -217,7 +217,7 @@ public class ApiV1AdmReportControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
                 .andExpect(jsonPath("$.msg").value("신고 상세 조회 성공"))
-                .andExpect(jsonPath("$.data.reportId").value(report.getId().toString()))
+                .andExpect(jsonPath("$.data.reportId").value(report.getUuid().toString()))
                 .andExpect(jsonPath("$.data.reportedMessages").isArray())
                 // 1번째 메시지 검증 (참여자 A)
                 .andExpect(jsonPath("$.data.reportedMessages[0].content").value("어제 회의 때 말씀하셨던 그 기획서 어디 갔나요?"))
@@ -266,7 +266,7 @@ public class ApiV1AdmReportControllerTest {
         // When - PATCH 처리 상태 토글 요청
         ResultActions resultActions = mvc
                 .perform(
-                        patch("/api/v1/admin/reports/" + report.getId() + "/status")
+                        patch("/api/v1/admin/reports/" + report.getUuid() + "/status")
                                 .header("Authorization", "Bearer " + accessToken)
                 )
                 .andDo(print());
@@ -276,7 +276,7 @@ public class ApiV1AdmReportControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
                 .andExpect(jsonPath("$.msg").value("신고서 처리 상태 수정 성공"))
-                .andExpect(jsonPath("$.data.reportId").value(report.getId().toString()))
+                .andExpect(jsonPath("$.data.reportId").value(report.getUuid().toString()))
                 .andExpect(jsonPath("$.data.status").value("PROCESSED"));
     }
 
@@ -315,7 +315,7 @@ public class ApiV1AdmReportControllerTest {
         // When - 일반 유저가 어드민 토글 API 호출
         ResultActions resultActions = mvc
                 .perform(
-                        patch("/api/v1/admin/reports/" + report.getId() + "/status")
+                        patch("/api/v1/admin/reports/" + report.getUuid() + "/status")
                                 .header("Authorization", "Bearer " + accessToken)
                 )
                 .andDo(print());

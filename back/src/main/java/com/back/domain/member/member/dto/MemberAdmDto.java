@@ -15,7 +15,7 @@ public record MemberAdmDto(
 ) {
     public MemberAdmDto(Member member) {
         this(
-                member.getId().toString(),
+                member.getUuid().toString(),
                 member.getEmail(),
                 member.getIndustry(),
                 member.isSuspended(),

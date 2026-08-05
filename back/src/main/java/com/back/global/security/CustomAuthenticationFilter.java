@@ -78,22 +78,24 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        UUID id = (UUID) payload.get("id");
+        UUID uuid = (UUID) payload.get("id");
         String email = (String) payload.get("email");
         String role = (String) payload.get("role");
 
-        // 실시간 DB 정지 조회 및 차단 가드 추가
-        Member dbMember = memberService.findById(id)
+        // 실시간 DB 정지 조회 및 차단 가드 추가 — 이 조회가 JWT의 공개 uuid를 내부 Long PK로
+        // 바꿔주는 지점이라, 아래에서 별도 쿼리 없이 dbMember.getId()(Long)를 그대로 쓴다.
+        Member dbMember = memberService.findByUuid(uuid)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
 
         if (dbMember.isSuspended() && !isAllowedForSuspended(request)) {
             throw new ServiceException("403-1", "정지된 계정입니다. 내 정보 조회와 로그아웃만 가능합니다.");
         }
 
-        Member member = new Member(id, email, role);
+        Member member = new Member(dbMember.getId(), dbMember.getUuid(), email, role);
 
         UserDetails user = new SecurityUser(
                 member.getId(),
+                member.getUuid(),
                 member.getEmail(),
                 member.getAuthorities()
         );

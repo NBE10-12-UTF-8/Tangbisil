@@ -61,7 +61,7 @@ public class ApiV1ChatRoomControllerTest {
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 
@@ -117,7 +117,7 @@ public class ApiV1ChatRoomControllerTest {
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         // When
         ResultActions resultActions = mvc
@@ -143,7 +143,7 @@ public class ApiV1ChatRoomControllerTest {
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 
@@ -176,7 +176,7 @@ public class ApiV1ChatRoomControllerTest {
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         // When
         ResultActions resultActions = mvc
@@ -202,7 +202,7 @@ public class ApiV1ChatRoomControllerTest {
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.CLOSED, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 
@@ -254,7 +254,7 @@ public class ApiV1ChatRoomControllerTest {
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 
@@ -330,7 +330,7 @@ public class ApiV1ChatRoomControllerTest {
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, opponent, "익명의 동료"));
@@ -368,7 +368,7 @@ public class ApiV1ChatRoomControllerTest {
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, bot, "익명의 동료"));
@@ -404,7 +404,7 @@ public class ApiV1ChatRoomControllerTest {
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 

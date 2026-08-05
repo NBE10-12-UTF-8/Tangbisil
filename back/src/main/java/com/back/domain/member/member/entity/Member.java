@@ -33,8 +33,12 @@ public class Member extends BaseEntity {
     private boolean emailVerified;
     private LocalDateTime consentedAt;
 
-    public Member(UUID id, String email, String role) {
+    // 인증 필터/Rq에서 매 요청마다 DB 재조회 없이 가볍게 재구성하는 용도.
+    // uuid를 세팅하지 않으면 BaseEntity 필드 초기화(UUID.randomUUID())가 그대로 남아
+    // 진짜 공개 식별자와 다른 값이 되므로, 실제 값을 반드시 함께 넘겨야 한다.
+    public Member(Long id, UUID uuid, String email, String role) {
         setId(id);
+        setUuid(uuid);
         this.email = email;
         this.role = role;
     }

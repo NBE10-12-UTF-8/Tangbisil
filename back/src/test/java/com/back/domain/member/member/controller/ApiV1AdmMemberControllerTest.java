@@ -175,7 +175,7 @@ public class ApiV1AdmMemberControllerTest {
         resultActions
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
-                .andExpect(jsonPath("$.data.memberId").value(target.getId().toString()))
+                .andExpect(jsonPath("$.data.memberId").value(target.getUuid().toString()))
                 .andExpect(jsonPath("$.data.email").value("lookup_by_email@test.com"));
     }
 
@@ -209,7 +209,7 @@ public class ApiV1AdmMemberControllerTest {
         // When
         ResultActions resultActions = mvc
                 .perform(
-                        patch("/api/v1/admin/members/" + user.getId() + "/suspend")
+                        patch("/api/v1/admin/members/" + user.getUuid() + "/suspend")
                                 .header("Authorization", "Bearer " + accessToken)
                 )
                 .andDo(print());
@@ -219,7 +219,7 @@ public class ApiV1AdmMemberControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
                 .andExpect(jsonPath("$.msg").value("계정 정지 상태 토글 성공"))
-                .andExpect(jsonPath("$.data.memberId").value(user.getId().toString()))
+                .andExpect(jsonPath("$.data.memberId").value(user.getUuid().toString()))
                 .andExpect(jsonPath("$.data.isSuspended").value(true));
     }
 
@@ -253,7 +253,7 @@ public class ApiV1AdmMemberControllerTest {
         // When
         ResultActions resultActions = mvc
                 .perform(
-                        patch("/api/v1/admin/members/" + user2.getId() + "/suspend")
+                        patch("/api/v1/admin/members/" + user2.getUuid() + "/suspend")
                                 .header("Authorization", "Bearer " + accessToken)
                 )
                 .andDo(print());
@@ -291,7 +291,7 @@ public class ApiV1AdmMemberControllerTest {
         // When
         ResultActions resultActions = mvc
                 .perform(
-                        patch("/api/v1/admin/members/" + admin.getId() + "/suspend")
+                        patch("/api/v1/admin/members/" + admin.getUuid() + "/suspend")
                                 .header("Authorization", "Bearer " + accessToken)
                 )
                 .andDo(print());

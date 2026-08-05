@@ -1,5 +1,7 @@
 package com.back.domain.chat.chatRoomMessage.controller;
 
+import com.back.domain.chat.chatRoom.entity.ChatRoom;
+import com.back.domain.chat.chatRoom.repository.ChatRoomRepository;
 import com.back.domain.chat.chatRoomMessage.dto.ChatRoomMessageRequestDto;
 import com.back.domain.chat.chatRoomMessage.service.ChatMessageService;
 import com.back.domain.member.member.entity.Member;
@@ -23,6 +25,7 @@ import java.util.UUID;
 public class StompChatController {
     private final ChatMessageService chatMessageService;
     private final MemberService memberService;
+    private final ChatRoomRepository chatRoomRepository;
 
     @MessageMapping("/rooms/{roomId}/messages")
     public void sendMessage(
@@ -35,9 +38,11 @@ public class StompChatController {
         }
 
         UUID memberId = UUID.fromString(principal.getName());
-        Member actor = memberService.findById(memberId)
+        Member actor = memberService.findByUuid(memberId)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
-        chatMessageService.sendMessage(roomId, actor, requestDto.getContent());
+        ChatRoom chatRoom = chatRoomRepository.findByUuid(roomId)
+                .orElseThrow(() -> new ServiceException("404-2", "채팅방을 찾을 수 없습니다."));
+        chatMessageService.sendMessage(chatRoom.getId(), actor, requestDto.getContent());
     }
 
     @MessageExceptionHandler(ServiceException.class)

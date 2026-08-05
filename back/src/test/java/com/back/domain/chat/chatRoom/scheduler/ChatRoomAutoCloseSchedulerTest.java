@@ -30,7 +30,7 @@ public class ChatRoomAutoCloseSchedulerTest {
     @Autowired
     private EntityManager entityManager;
 
-    private void updateCreatedAtInDb(UUID roomId, LocalDateTime createdAt) {
+    private void updateCreatedAtInDb(Long roomId, LocalDateTime createdAt) {
         entityManager.createQuery("UPDATE ChatRoom c SET c.createdAt = :createdAt WHERE c.id = :id")
                 .setParameter("createdAt", createdAt)
                 .setParameter("id", roomId)

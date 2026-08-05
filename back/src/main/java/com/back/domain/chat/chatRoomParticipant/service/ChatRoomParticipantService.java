@@ -22,7 +22,7 @@ public class ChatRoomParticipantService {
 
     private final ChatRoomParticipantRepository chatRoomParticipantRepository;
 
-    public void validateAccess(UUID roomId, Member actor) {
+    public void validateAccess(Long roomId, Member actor) {
         if (actor.isAdmin()) {
             return;
         }
@@ -46,18 +46,18 @@ public class ChatRoomParticipantService {
                 .map(ChatRoomParticipant::getChatRoom);
     }
 
-    public boolean isParticipant(UUID roomId, UUID memberId) {
+    public boolean isParticipant(Long roomId, Long memberId) {
         return chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(roomId, memberId);
     }
 
 
     // 이 방의 전체 참여자 목록 조회 (member까지 fetch join 되어있어 N+1 없음)
-    public List<ChatRoomParticipant> getParticipants(UUID roomId) {
+    public List<ChatRoomParticipant> getParticipants(Long roomId) {
         return chatRoomParticipantRepository.findByChatRoomId(roomId);
     }
 
     // 여러 방의 참여자를 한 번에 조회 (매칭 이력처럼 N개 방을 다룰 때 N+1 방지용)
-    public List<ChatRoomParticipant> getParticipantsByRoomIds(Collection<UUID> roomIds) {
+    public List<ChatRoomParticipant> getParticipantsByRoomIds(Collection<Long> roomIds) {
         if (roomIds.isEmpty()) {
             return List.of();
         }

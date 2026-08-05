@@ -59,7 +59,7 @@ public class ApiV1MatchController {
             return new RsData<>(
                     "200-1",
                     "매칭 성공",
-                    MatchResponseDto.ofMatched(matchRequest.getRoom().getId())
+                    MatchResponseDto.ofMatched(matchRequest.getRoom().getUuid())
             );
         }
 

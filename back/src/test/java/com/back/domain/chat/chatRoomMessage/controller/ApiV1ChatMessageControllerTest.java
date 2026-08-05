@@ -72,7 +72,7 @@ public class ApiV1ChatMessageControllerTest {
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 
@@ -107,7 +107,7 @@ public class ApiV1ChatMessageControllerTest {
     void t2() throws Exception {
         // Given
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         // When — 액세스 토큰 없이 요청
         ResultActions resultActions = mvc
@@ -168,7 +168,7 @@ public class ApiV1ChatMessageControllerTest {
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
         chatRoom.close(); // 채팅방 종료 처리
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 
@@ -201,7 +201,7 @@ public class ApiV1ChatMessageControllerTest {
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 
@@ -234,7 +234,7 @@ public class ApiV1ChatMessageControllerTest {
         String accessToken = memberService.genAccessToken(member);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 
@@ -267,7 +267,7 @@ public class ApiV1ChatMessageControllerTest {
         Member member = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 
         mvc.perform(
@@ -302,7 +302,7 @@ public class ApiV1ChatMessageControllerTest {
         String viewerToken = memberService.genAccessToken(viewer);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, sender, "익명의 동료"));
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, viewer, "익명의 동료"));
 
@@ -336,7 +336,7 @@ public class ApiV1ChatMessageControllerTest {
         Member member = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 
         mvc.perform(post("/api/v1/rooms/" + roomId + "/messages")
@@ -369,7 +369,7 @@ public class ApiV1ChatMessageControllerTest {
         Member member = memberService.joinWithoutEmailVerification("user4@test.com", "1234", IT, "USER");
         String accessToken = memberService.genAccessToken(member);
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 
         ResultActions result = mvc.perform(get("/api/v1/rooms/" + roomId + "/messages")
@@ -391,7 +391,7 @@ public class ApiV1ChatMessageControllerTest {
         ChatRoom chatRoom = new ChatRoom(ChatRoomStatus.ACTIVE, 2);
         chatRoom.close();
         chatRoomRepository.save(chatRoom);
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
 
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, member, "익명의 동료"));
 
@@ -427,7 +427,7 @@ public class ApiV1ChatMessageControllerTest {
     void t13() throws Exception {
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
 
-        ResultActions result = mvc.perform(get("/api/v1/rooms/" + chatRoom.getId() + "/messages"))
+        ResultActions result = mvc.perform(get("/api/v1/rooms/" + chatRoom.getUuid() + "/messages"))
                 .andDo(print());
 
         result.andExpect(status().isUnauthorized())
@@ -445,7 +445,7 @@ public class ApiV1ChatMessageControllerTest {
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, owner, "익명의 동료"));
 
         ResultActions result = mvc.perform(
-                        get("/api/v1/rooms/" + chatRoom.getId() + "/messages")
+                        get("/api/v1/rooms/" + chatRoom.getUuid() + "/messages")
                                 .cookie(new Cookie("accessToken", outsiderToken)))
                 .andDo(print());
 
@@ -470,7 +470,7 @@ public class ApiV1ChatMessageControllerTest {
         String tokenB = memberService.genAccessToken(memberB);
 
         ChatRoom chatRoom = chatRoomRepository.save(new ChatRoom(ChatRoomStatus.ACTIVE, 2));
-        UUID roomId = chatRoom.getId();
+        UUID roomId = chatRoom.getUuid();
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, memberA, "익명의 동료1"));
         chatRoomParticipantRepository.save(new ChatRoomParticipant(chatRoom, memberB, "익명의 동료2"));
 

@@ -10,9 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.UUID;
 
-public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, UUID> {
+public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Long> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<PasswordResetToken> findTopByEmailOrderByCreatedAtDesc(String email);

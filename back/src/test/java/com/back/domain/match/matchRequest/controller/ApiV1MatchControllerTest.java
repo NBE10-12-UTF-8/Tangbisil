@@ -89,7 +89,7 @@ public class ApiV1MatchControllerTest {
         // create()가 실제로 커밋되면 AFTER_COMMIT에서 Redis ZSet에도 ZADD가 되므로,
         // DB 레코드를 지우기 전에 남아있는 항목들을 먼저 ZREM으로 걷어낸다 (이미 매칭/취소로 제거된 건 no-op).
         matchRequestRepository.findAll().forEach(mr ->
-                redisMatchQueue.remove(mr.getIndustry(), mr.getSituation(), mr.getId()));
+                redisMatchQueue.remove(mr.getIndustry(), mr.getSituation(), mr.getUuid()));
         matchRequestRepository.deleteAll();
         // 아웃박스를 안 지우면, 10초 주기 재시도 스케줄러(retryOutboxEvents)가 이미 삭제된
         // matchRequestId를 다시 Redis ZSet에 ZADD해서 다음 테스트에 유령 후보로 남는다.
@@ -227,7 +227,7 @@ public class ApiV1MatchControllerTest {
         TestTransaction.end();
 
         await().atMost(5, SECONDS).untilAsserted(() ->
-                assertThat(matchRequestRepository.findById(matchRequestId).orElseThrow().getStatus())
+                assertThat(matchRequestRepository.findByUuid(matchRequestId).orElseThrow().getStatus())
                         .isEqualTo(MatchStatus.MATCHED));
     }
 
@@ -409,7 +409,7 @@ public class ApiV1MatchControllerTest {
         TestTransaction.end();
 
         await().atMost(5, SECONDS).untilAsserted(() ->
-                assertThat(matchRequestRepository.findById(UUID.fromString(matchRequestId)).orElseThrow().getStatus())
+                assertThat(matchRequestRepository.findByUuid(UUID.fromString(matchRequestId)).orElseThrow().getStatus())
                         .isEqualTo(MatchStatus.MATCHED));
 
         ResultActions resultActions = mvc.perform(
@@ -513,7 +513,7 @@ public class ApiV1MatchControllerTest {
         TestTransaction.end();
 
         await().atMost(5, SECONDS).untilAsserted(() ->
-                assertThat(matchRequestRepository.findById(UUID.fromString(matchRequestId)).orElseThrow().getStatus())
+                assertThat(matchRequestRepository.findByUuid(UUID.fromString(matchRequestId)).orElseThrow().getStatus())
                         .isEqualTo(MatchStatus.MATCHED));
 
         ResultActions resultActions = mvc.perform(

@@ -38,7 +38,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
             Authentication authentication
     ) throws IOException, ServletException {
         CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
-        UUID memberId = oAuth2User.getMemberId();
+        Long memberId = oAuth2User.getMemberId();
         Member member = memberService.findById(memberId)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
         String accessToken = memberService.genAccessToken(member);

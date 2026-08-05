@@ -3,8 +3,8 @@ package com.back.domain.report.report.event;
 import java.util.UUID;
 
 public record ReportCreatedEvent(
-        UUID reportId,
-        UUID roomId,
+        Long reportId,
+        Long roomId,
         UUID targetMessageId
 ) {
 }

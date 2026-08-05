@@ -16,7 +16,7 @@ public record MatchResponseDto(
 ) {
     public static MatchResponseDto ofCreated(MatchRequest matchRequest) {
         return new MatchResponseDto(
-                matchRequest.getId().toString(),
+                matchRequest.getUuid().toString(),
                 matchRequest.getStatus(),
                 matchRequest.getRequestedAt(),
                 null

@@ -25,7 +25,8 @@ class MatchNotificationServiceTest {
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
-    private final List<UUID> usedMemberIds = new ArrayList<>();
+    private final List<Long> usedMemberIds = new ArrayList<>();
+    private final java.util.concurrent.atomic.AtomicLong memberIdSeq = new java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis());
 
     @AfterEach
     void cleanUp() {
@@ -33,8 +34,8 @@ class MatchNotificationServiceTest {
         usedMemberIds.clear();
     }
 
-    private UUID newMemberId() {
-        UUID id = UUID.randomUUID();
+    private Long newMemberId() {
+        Long id = memberIdSeq.incrementAndGet();
         usedMemberIds.add(id);
         return id;
     }
@@ -42,7 +43,7 @@ class MatchNotificationServiceTest {
     @Test
     @DisplayName("매칭 성사 알림을 발행하면 조회된다")
     void t1() {
-        UUID memberId = newMemberId();
+        Long memberId = newMemberId();
         UUID roomId = UUID.randomUUID();
 
         matchNotificationService.notifyMatchSuccess(memberId, roomId);
@@ -56,7 +57,7 @@ class MatchNotificationServiceTest {
     @Test
     @DisplayName("알림이 없으면 빈 리스트를 반환한다")
     void t2() {
-        UUID memberId = newMemberId();
+        Long memberId = newMemberId();
 
         List<MatchNotificationDto> notifications = matchNotificationService.getNotifications(memberId, null);
 
@@ -66,7 +67,7 @@ class MatchNotificationServiceTest {
     @Test
     @DisplayName("after 이후에 발행된 알림만 조회된다")
     void t3() throws InterruptedException {
-        UUID memberId = newMemberId();
+        Long memberId = newMemberId();
         UUID roomId1 = UUID.randomUUID();
         UUID roomId2 = UUID.randomUUID();
 
@@ -86,8 +87,8 @@ class MatchNotificationServiceTest {
     @Test
     @DisplayName("서로 다른 회원의 알림은 섞이지 않는다")
     void t4() {
-        UUID memberA = newMemberId();
-        UUID memberB = newMemberId();
+        Long memberA = newMemberId();
+        Long memberB = newMemberId();
 
         matchNotificationService.notifyMatchSuccess(memberA, UUID.randomUUID());
 

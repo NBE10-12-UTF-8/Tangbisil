@@ -26,7 +26,7 @@ public class MatchNotificationService {
     private static final String NOTIFICATION_KEY_PREFIX = "notification:member:";
     private static final String MATCH_SUCCESS_TYPE = "MATCH_SUCCESS";
 
-    public void notifyMatchSuccess(UUID memberId, UUID roomId) {
+    public void notifyMatchSuccess(Long memberId, UUID roomId) {
         MatchNotificationDto notification = new MatchNotificationDto(
                 MATCH_SUCCESS_TYPE,
                 roomId,
@@ -55,7 +55,7 @@ public class MatchNotificationService {
 
     // 조회 실패는 삼키지 않는다 - Redis 유일 저장소라 실패를 숨기면
     // "진짜 장애"와 "알림 없음"을 구분할 수 없어진다.
-    public List<MatchNotificationDto> getNotifications(UUID memberId, LocalDateTime after) {
+    public List<MatchNotificationDto> getNotifications(Long memberId, LocalDateTime after) {
         String key = key(memberId);
         List<MatchNotificationDto> notifications = new ArrayList<>();
 
@@ -91,7 +91,7 @@ public class MatchNotificationService {
         return notifications;
     }
 
-    private String key(UUID memberId) {
+    private String key(Long memberId) {
         return NOTIFICATION_KEY_PREFIX + memberId;
     }
 }
