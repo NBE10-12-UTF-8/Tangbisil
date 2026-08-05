@@ -217,7 +217,7 @@ public class ApiV1MatchControllerTest {
         TestTransaction.end();
 
         await().atMost(5, SECONDS).untilAsserted(() ->
-                assertThat(matchRequestRepository.findByUuid(matchRequestId).orElseThrow().getStatus())
+                assertThat(matchRequestRepository.findByUuid(matchRequestId).getStatus())
                         .isEqualTo(MatchStatus.MATCHED));
     }
 
@@ -399,7 +399,7 @@ public class ApiV1MatchControllerTest {
         TestTransaction.end();
 
         await().atMost(5, SECONDS).untilAsserted(() ->
-                assertThat(matchRequestRepository.findByUuid(UUID.fromString(matchRequestId)).orElseThrow().getStatus())
+                assertThat(matchRequestRepository.findByUuid(UUID.fromString(matchRequestId)).getStatus())
                         .isEqualTo(MatchStatus.MATCHED));
 
         ResultActions resultActions = mvc.perform(
@@ -503,7 +503,7 @@ public class ApiV1MatchControllerTest {
         TestTransaction.end();
 
         await().atMost(5, SECONDS).untilAsserted(() ->
-                assertThat(matchRequestRepository.findByUuid(UUID.fromString(matchRequestId)).orElseThrow().getStatus())
+                assertThat(matchRequestRepository.findByUuid(UUID.fromString(matchRequestId)).getStatus())
                         .isEqualTo(MatchStatus.MATCHED));
 
         ResultActions resultActions = mvc.perform(

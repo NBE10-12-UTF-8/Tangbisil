@@ -209,7 +209,7 @@ public class MatchRequestServiceTest {
         matchScheduler.retryPendingMatches();
         // 실제 컨트롤러 흐름은 OSIV로 요청 전체에서 세션이 열려있어 lazy 필드(member) 접근이
         // 문제없지만, 이 테스트엔 그 세션이 없으므로 member까지 즉시 로딩해서 가져온다.
-        MatchRequest matchedA = matchRequestRepository.findByIdWithMember(reqA.getId()).orElseThrow();
+        MatchRequest matchedA = matchRequestRepository.findByIdWithMember(reqA.getId());
         assertThat(matchedA.getStatus()).isEqualTo(MatchStatus.MATCHED);
 
         // When / Then - 이미 MATCHED인 요청을 취소하면 실패해야 하고,
