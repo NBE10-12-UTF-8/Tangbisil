@@ -320,13 +320,17 @@ export async function apiGetMessages(
 
   // accessToken 만료 시 한 번 재발급받고 재시도. 일시적 장애("unreachable")면
   // 로그아웃시키지 않고 이번 폴링만 실패시켜 다음 폴링에서 다시 시도하게 둔다.
-  if ((res.status === 401 || res.status === 403) && !_isRetry) {
-    const result = await refreshAccessToken();
-    if (result === "ok") return apiGetMessages(roomId, after, true);
-    if (result === "invalid") {
-      clearTokens();
-      if (typeof window !== "undefined") window.location.href = "/login";
+  if (res.status === 401 || res.status === 403) {
+    if (!_isRetry) {
+      const result = await refreshAccessToken();
+      if (result === "ok") return apiGetMessages(roomId, after, true);
+      if (result === "unreachable") {
+        throw Object.assign(new Error("일시적으로 서버에 연결할 수 없습니다."), { status: res.status });
+      }
     }
+    clearTokens();
+    if (typeof window !== "undefined") window.location.href = "/login";
+    throw Object.assign(new Error("로그인이 필요합니다."), { status: res.status });
   }
 
   const text = await res.text();
