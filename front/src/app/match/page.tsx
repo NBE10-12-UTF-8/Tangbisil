@@ -71,7 +71,7 @@ export default function MatchPage() {
   useEffect(() => {
     const raw = localStorage.getItem(MATCH_KEY);
     if (!raw) { router.push('/'); return; }
-    let saved: { id: string; situation: string };
+    let saved: { id: string; situation: string; requestedAt?: string };
     try { saved = JSON.parse(raw); } catch { localStorage.removeItem(MATCH_KEY); router.push('/'); return; }
 
     matchIdRef.current = saved.id;
@@ -83,7 +83,13 @@ export default function MatchPage() {
         .catch(() => {});
     }
 
-    elapsedTimerRef.current = setInterval(() => setElapsed(p => p + 1), 1000);
+    // elapsed를 0부터 다시 세면, 마이페이지 등을 갔다 와서 이 페이지가 재마운트될 때마다
+    // 실제 대기 시간과 무관하게 화면 타이머만 리셋되어 보인다. requestedAt 기준으로 매번
+    // 다시 계산해서, 재마운트돼도 실제 경과 시간이 그대로 이어지도록 한다.
+    const requestedAtMs = saved.requestedAt ? new Date(saved.requestedAt).getTime() : Date.now();
+    const tickElapsed = () => setElapsed(Math.max(0, Math.floor((Date.now() - requestedAtMs) / 1000)));
+    tickElapsed();
+    elapsedTimerRef.current = setInterval(tickElapsed, 1000);
 
     matchPollRef.current = setInterval(async () => {
       try {
