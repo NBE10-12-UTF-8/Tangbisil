@@ -123,9 +123,12 @@ export default function HomePage() {
 
         apiGetMatch(saved.id)
           .then(data => {
-            if (data.status === 'MATCHED' && data.chatRoomId) {
-              router.push(`/chat/${data.chatRoomId}`);
-            } else if (data.status === 'PENDING') {
+            // 여기 도달했다는 건 바로 위 apiGetActiveRoom()이 이미 "활성 채팅방 없음"이라고
+            // 답했다는 뜻이다. 그런데도 MATCHED 상태라면, 매칭 자체는 성사됐지만 그 채팅방은
+            // 이미 종료된 것 - MATCHED는 채팅방이 나중에 종료돼도 영구히 남는 상태라서다.
+            // 예전엔 여기서 그 종료된 방으로 리다이렉트했는데, tangbisil_match를 안 지워서
+            // 홈에 올 때마다 같은 종료된 방으로 계속 돌아가는 무한 루프가 됐다.
+            if (data.status === 'PENDING') {
               router.push('/match');
             } else {
               localStorage.removeItem(MATCH_KEY);
