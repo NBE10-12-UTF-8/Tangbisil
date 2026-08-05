@@ -7,13 +7,14 @@ import { apiGetNotifications, isLoggedIn, type MatchNotification } from '@/lib/a
 const AFTER_KEY = 'tangbisil_notification_after';
 const PROMPT_DISMISSED_KEY = 'tangbisil_notif_prompt_dismissed';
 const POLL_MS = 5000;
+const TOAST_DURATION_MS = 10000; // 알림 유지 시간 (10초)
+const FADE_DURATION_MS = 500; // 페이드 아웃 애니메이션 시간 (0.5초)
 
 function hasNotificationApi() {
   return typeof window !== 'undefined' && 'Notification' in window;
 }
 
-// 탭이 백그라운드/비활성일 때만 OS 알림을 띄운다 — 탭을 보고 있으면 아래 인앱 토스트로 충분하고,
-// 여기서 또 띄우면 같은 알림이 두 번 뜨는 것처럼 느껴진다.
+// 탭이 백그라운드/비활성일 때만 OS 알림을 띄운다
 function notifyOs(n: MatchNotification, onClickNavigate: () => void) {
   if (!hasNotificationApi() || Notification.permission !== 'granted') return;
   if (document.visibilityState === 'visible' && document.hasFocus()) return;
@@ -26,12 +27,12 @@ function notifyOs(n: MatchNotification, onClickNavigate: () => void) {
   };
 }
 
-// 앱 전역(RootLayout)에 한 번만 마운트되어, 어떤 페이지에 있든 매칭 성사 등
-// 실시간 알림을 폴링한다. AppShell은 페이지마다 다시 마운트되므로 여기 두면 안 된다.
 export function NotificationListener() {
   const router = useRouter();
   const [queue, setQueue] = useState<MatchNotification[]>([]);
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
+  // 페이드 아웃 상태 관리: 현재 알림이 사라지는 중인지 여부
+  const [isFadingOut, setIsFadingOut] = useState(false);
   const afterRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -61,7 +62,6 @@ export function NotificationListener() {
             }
           });
         } else if (!afterRef.current) {
-          // 첫 폴링이었고 신규 알림도 없었다면, 과거 알림을 재생하지 않도록 지금 시각을 커서로 고정
           const now = new Date().toISOString();
           afterRef.current = now;
           localStorage.setItem(AFTER_KEY, now);
@@ -76,6 +76,38 @@ export function NotificationListener() {
     return () => clearInterval(id);
   }, [router]);
 
+  const current = queue[0];
+
+  // 즉시 삭제용 함수 (버튼 클릭 시)
+  const dismiss = () => {
+    setIsFadingOut(false); // 페이드 상태 초기화
+    setQueue(q => q.slice(1));
+  };
+
+  // '스르륵' 사라지게 하는 함수
+  const startFadeOut = () => {
+    setIsFadingOut(true); // 페이드 아웃 애니메이션 시작
+    // 애니메이션 시간(0.5초) 후에 실제로 큐에서 삭제
+    setTimeout(() => {
+      dismiss();
+    }, FADE_DURATION_MS);
+  };
+
+  // 현재 노출 중인 알림(current)이 바뀔 때마다 10초 타이머 작동
+  useEffect(() => {
+    if (!current) return;
+
+    // 새로운 알림이 뜨면 페이드 상태 초기화
+    setIsFadingOut(false);
+
+    // 10초 뒤에 페이드 아웃 시작
+    const timer = setTimeout(() => {
+      startFadeOut();
+    }, TOAST_DURATION_MS);
+
+    return () => clearTimeout(timer);
+  }, [current]);
+
   const requestPermission = () => {
     setShowPermissionPrompt(false);
     Notification.requestPermission();
@@ -85,13 +117,30 @@ export function NotificationListener() {
     localStorage.setItem(PROMPT_DISMISSED_KEY, '1');
   };
 
-  const current = queue[0];
-  const dismiss = () => setQueue(q => q.slice(1));
+  // CSS 애니메이션 정의 (전역 <style> 태그 사용)
+  const animationStyles = `
+    @keyframes tb-fade-in {
+      from { opacity: 0; transform: translate(-50%, -20px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+    @keyframes tb-fade-out {
+      from { opacity: 1; transform: translate(-50%, 0); }
+      to { opacity: 0; transform: translate(-50%, -20px); }
+    }
+    .tb-toast {
+      animation: tb-fade-in 0.4s ease-out forwards;
+    }
+    .tb-toast.fade-out {
+      animation: tb-fade-out ${FADE_DURATION_MS}ms ease-in forwards;
+    }
+  `;
 
   return (
     <>
+      <style>{animationStyles}</style>
+
       {showPermissionPrompt && (
-        <div style={{ position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 12, background: '#202124', color: '#fff', borderRadius: 10, padding: '12px 16px', fontSize: 13.5, fontWeight: 500, boxShadow: '0 4px 16px rgba(0,0,0,.2)', zIndex: 300 }}>
+        <div style={{ position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 12, background: '#202124', color: '#fff', borderRadius: 10, padding: '12px 16px', fontSize: 13.5, fontWeight: 500, boxShadow: '0 4px 16px rgba(0,0,0,.2)', zIndex: 300, transition: 'all 0.3s' }}>
           <span>🔔 다른 탭을 보고 있어도 매칭 성사를 알려드릴까요?</span>
           <button
             onClick={requestPermission}
@@ -104,7 +153,28 @@ export function NotificationListener() {
       )}
 
       {current && (
-        <div style={{ position: 'fixed', top: showPermissionPrompt ? 76 : 24, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 12, background: '#202124', color: '#fff', borderRadius: 10, padding: '12px 16px', fontSize: 13.5, fontWeight: 500, boxShadow: '0 4px 16px rgba(0,0,0,.2)', zIndex: 300 }}>
+        <div
+          // 기본 클래스와 페이드 아웃 클래스를 조건부로 적용
+          className={`tb-toast ${isFadingOut ? 'fade-out' : ''}`}
+          style={{
+            position: 'fixed',
+            top: showPermissionPrompt ? 76 : 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            background: '#202124',
+            color: '#fff',
+            borderRadius: 10,
+            padding: '12px 16px',
+            fontSize: 13.5,
+            fontWeight: 500,
+            boxShadow: '0 4px 16px rgba(0,0,0,.2)',
+            zIndex: 300,
+            pointerEvents: isFadingOut ? 'none' : 'auto', // 사라지는 중에는 클릭 방지
+          }}
+        >
           <span>🔔 {current.message}</span>
           {current.type === 'MATCH_SUCCESS' && current.roomId && (
             <button
@@ -114,6 +184,7 @@ export function NotificationListener() {
               대화하러 가기
             </button>
           )}
+          {/* X 버튼 클릭 시에는 즉시 삭제 */}
           <button onClick={dismiss} style={{ background: 'none', border: 'none', color: '#9aa0a6', cursor: 'pointer', fontSize: 14, flexShrink: 0, padding: 0 }}>✕</button>
         </div>
       )}
