@@ -42,6 +42,9 @@ public class CookieHandshakeInterceptor implements HandshakeInterceptor {
         }
 
         Object rawId = payload.get("id");
+        if (rawId == null) {
+            return true;
+        }
         UUID id = (rawId instanceof UUID u) ? u : UUID.fromString(rawId.toString());
         attributes.put("memberId", id);
         attributes.put("role", payload.get("role"));
