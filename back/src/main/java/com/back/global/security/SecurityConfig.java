@@ -34,6 +34,9 @@ public class SecurityConfig {
     private final OAuth2LoginSuccessHandler oauth2LoginSuccessHandler;
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${custom.cors.allowed-origins}")
+    private String[] allowedOrigins;
+
     @Value("${custom.actuator.username}")
     private String actuatorUsername;
 
@@ -153,14 +156,7 @@ public class SecurityConfig {
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(
-                "http://localhost:3000",
-                "https://tangbisil-production.up.railway.app",
-                "https://nbe10-12-2-utf-8.vercel.app",
-                "https://tangbisil.vercel.app",
-                "https://tangbisil.kro.kr",
-                "https://tangbisil-one.vercel.app"
-        ));
+        configuration.setAllowedOrigins(List.of(allowedOrigins));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE"));
         configuration.setAllowCredentials(true);
         configuration.setAllowedHeaders(List.of("*"));

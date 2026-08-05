@@ -162,6 +162,7 @@ export default function ChatPage() {
       if (code === '409-1' || code === '403-1') notifyPartnerLeft();
       }
     );
+    stompClientRef.current = stompClient;
 
     apiGetRoom(roomId)
       .then(room => {
@@ -196,6 +197,7 @@ export default function ChatPage() {
 
     return () => {
       stompClient.deactivate();
+      stompClientRef.current = null;
       stopTimers();
     };
   }, [roomId, notifyPartnerLeft]);
