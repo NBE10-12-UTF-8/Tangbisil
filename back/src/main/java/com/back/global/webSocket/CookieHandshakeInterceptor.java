@@ -72,7 +72,7 @@ public class CookieHandshakeInterceptor implements HandshakeInterceptor {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) return null;
         for (Cookie cookie : cookies) {
-            if ("accessToken".equals(cookie.getName()) && !cookie.getValue().isBlank()) {
+            if ("accessToken".equals(cookie.getName()) && cookie.getValue() != null && !cookie.getValue().isBlank()) {
                 return cookie.getValue();
             }
         }

@@ -113,6 +113,18 @@ class CookieHandshakeInterceptorTest {
     }
 
     @Test
+    @DisplayName("accessToken 쿠키 값이 null이면 NPE 없이 attributes를 채우지 않는다")
+    void t7() {
+        ServerHttpRequest request = requestWithCookies(new Cookie("accessToken", null));
+        Map<String, Object> attributes = new HashMap<>();
+
+        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), null, attributes);
+
+        assertThat(result).isTrue();
+        assertThat(attributes).isEmpty();
+    }
+
+    @Test
     @DisplayName("다른 이름의 쿠키만 있으면 attributes를 채우지 않는다")
     void t4() {
         ServerHttpRequest request = requestWithCookies(new Cookie("refreshToken", "some-value"));
