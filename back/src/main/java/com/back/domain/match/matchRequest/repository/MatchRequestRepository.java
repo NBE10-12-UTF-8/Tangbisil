@@ -126,6 +126,15 @@ public interface MatchRequestRepository extends JpaRepository<MatchRequest, Long
     @Query("DELETE FROM MatchRequest r WHERE r.member = :member")
     void deleteByMember(@Param("member") Member member);
 
+    // 취소 시 "PENDING인지 확인 후 삭제"를 앱 코드에서 SELECT-then-DELETE로 하면, 그 사이에
+    // 매칭 배치(processMatch)가 이 요청을 PENDING으로 읽어 확정시켜버릴 수 있다(취소 체크가
+    // 이미 지난 스냅샷 기준이라 못 걸러냄). status 조건을 DELETE 문 자체에 넣어 DB가 최신
+    // 커밋 상태 기준으로 원자적으로 처리하게 한다 - 매칭이 먼저 확정됐으면 0건 삭제되어
+    // cancel()이 정상적으로 실패를 감지할 수 있다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM MatchRequest r WHERE r.id = :id AND r.status = :status")
+    int deleteByIdAndStatus(@Param("id") Long id, @Param("status") MatchStatus status);
+
     @Query("""
        SELECT new com.back.domain.dashboard.dashboard.dto.IndustryStatisticsDto(r.industry, COUNT(DISTINCT r.room.id))
        FROM MatchRequest r

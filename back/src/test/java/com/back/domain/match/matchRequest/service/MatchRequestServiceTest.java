@@ -12,6 +12,7 @@ import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.notification.service.MatchNotificationService;
+import com.back.global.exception.ServiceException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ import java.util.UUID;
 import static com.back.domain.match.matchRequest.entity.Situation.*;
 import static com.back.domain.member.member.entity.Industry.IT;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 @ActiveProfiles("test")
@@ -192,5 +194,32 @@ public class MatchRequestServiceTest {
         assertThat(statusA).isEqualTo(MatchStatus.MATCHED);
         assertThat(statusB).isEqualTo(MatchStatus.MATCHED);
         assertThat(statusC).isEqualTo(MatchStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("cancel(): 취소 시점에 이미 MATCHED로 확정된 요청은 취소가 거부되고, row도 지워지지 않는다")
+    void t7_이미매칭된요청은_취소해도_삭제되지않는다() {
+        // Given - 매칭 배치가 먼저 두 요청을 확정시킨 상황을 재현 (cancel과 processMatch가
+        // 동시에 같은 요청을 두고 경합하다가, cancel의 상태 체크 이후에 매칭이 확정된 경우와 동치)
+        Member memberA = createMember("cancelRaceA@test.com");
+        Member memberB = createMember("cancelRaceB@test.com");
+        MatchRequest reqA = createPendingRequest(memberA, NIGHT_WORK, 0);
+        createPendingRequest(memberB, NIGHT_WORK, 0);
+
+        matchScheduler.retryPendingMatches();
+        // 실제 컨트롤러 흐름은 OSIV로 요청 전체에서 세션이 열려있어 lazy 필드(member) 접근이
+        // 문제없지만, 이 테스트엔 그 세션이 없으므로 member까지 즉시 로딩해서 가져온다.
+        MatchRequest matchedA = matchRequestRepository.findByIdWithMember(reqA.getId()).orElseThrow();
+        assertThat(matchedA.getStatus()).isEqualTo(MatchStatus.MATCHED);
+
+        // When / Then - 이미 MATCHED인 요청을 취소하면 실패해야 하고,
+        assertThatThrownBy(() -> matchRequestService.cancel(matchedA, memberA))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("이미 매칭된 요청은 취소할 수 없습니다");
+
+        // row 자체는 삭제되지 않고 MATCHED 상태로 그대로 남아있어야 한다 (버그 재현 시나리오에선
+        // 여기서 row가 삭제돼버려서, 채팅방은 만들어졌는데 본인 MatchRequest만 사라졌었다).
+        assertThat(matchRequestRepository.findById(reqA.getId())).isPresent();
+        assertThat(matchRequestRepository.findById(reqA.getId()).get().getStatus()).isEqualTo(MatchStatus.MATCHED);
     }
 }
