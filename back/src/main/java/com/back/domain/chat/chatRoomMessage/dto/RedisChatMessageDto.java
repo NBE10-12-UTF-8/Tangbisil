@@ -17,9 +17,6 @@ public class RedisChatMessageDto implements Serializable {
     private String senderNickname;
     private UUID senderParticipantId;
     private String content;
-
-    @JsonSerialize(using = LocalDateTimeSerializer.class)
-    @JsonDeserialize(using = LocalDateTimeDeserializer.class)
     private LocalDateTime createdAt;
 
     public RedisChatMessageDto() {

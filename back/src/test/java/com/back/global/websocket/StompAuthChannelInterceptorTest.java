@@ -45,7 +45,7 @@ public class StompAuthChannelInterceptorTest {
     }
 
     @Test
-    @DisplayName("CONNECT 시 유효한 토큰이면 UUID·이메일·role이 Principal에 정확히 설정된다")
+    @DisplayName("CONNECT 시 유효한 토큰이면 memberId·role이 Principal에 정확히 설정된다")
     void t1() {
         UUID memberId = UUID.randomUUID();
         when(memberService.payload("valid-token")).thenReturn(Map.of(
@@ -63,8 +63,7 @@ public class StompAuthChannelInterceptorTest {
         UsernamePasswordAuthenticationToken auth =
                 (UsernamePasswordAuthenticationToken) accessor.getUser();
         assertThat(auth).isNotNull();
-        assertThat(auth.getDetails()).isEqualTo(memberId);
-        assertThat(auth.getPrincipal()).isEqualTo("user1@test.com");
+        assertThat(auth.getName()).isEqualTo(memberId.toString());
         assertThat(auth.getAuthorities())
                 .anyMatch(a -> a.getAuthority().equals("ROLE_USER"));
     }
@@ -109,9 +108,8 @@ public class StompAuthChannelInterceptorTest {
         UUID memberId = UUID.randomUUID();
 
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                "user1@test.com", null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                memberId.toString(), null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
         );
-        auth.setDetails(memberId);
         StompHeaderAccessor accessor = mutableAccessor(StompCommand.SUBSCRIBE);
         accessor.setDestination("/user/queue/rooms/" + roomId);
         accessor.setUser(auth);
@@ -131,9 +129,8 @@ public class StompAuthChannelInterceptorTest {
         UUID memberId = UUID.randomUUID();
 
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                "user@test.com", null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                memberId.toString(), null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
         );
-        auth.setDetails(memberId);
         StompHeaderAccessor accessor = mutableAccessor(StompCommand.SUBSCRIBE);
         accessor.setDestination("/user/queue/rooms/" + roomId);
         accessor.setUser(auth);
@@ -147,10 +144,15 @@ public class StompAuthChannelInterceptorTest {
     }
 
     @Test
-    @DisplayName("/user/queue/errors 구독은 인증 없이도 통과한다")
+    @DisplayName("/user/queue/errors 구독은 참여자 검사 없이 통과한다")
     void t7() {
+        UUID memberId = UUID.randomUUID();
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                memberId.toString(), null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
         StompHeaderAccessor accessor = mutableAccessor(StompCommand.SUBSCRIBE);
         accessor.setDestination("/user/queue/errors");
+        accessor.setUser(auth);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
 
         assertThatCode(() -> interceptor.preSend(message, mock(MessageChannel.class)))

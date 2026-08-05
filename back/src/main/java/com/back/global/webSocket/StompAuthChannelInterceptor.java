@@ -46,21 +46,25 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
             Object rawId = payload.get("id");
             UUID id = (rawId instanceof UUID u) ? u : UUID.fromString(rawId.toString());
-            String email = (String) payload.get("email");
             String role = (String) payload.get("role");
 
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                    email,
+                    id.toString(),
                     null,
                     List.of(new SimpleGrantedAuthority("ROLE_" + role))
             );
-            auth.setDetails(id);
             accessor.setUser(auth);
         }
 
         if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             String destination = accessor.getDestination();
             if (destination == null) throw new AccessDeniedException("구독 경로가 필요합니다.");
+
+            if (!(accessor.getUser() instanceof UsernamePasswordAuthenticationToken auth)) {
+                throw new AccessDeniedException("인증 정보가 올바르지 않습니다.");
+            }
+            UUID memberId = UUID.fromString(auth.getName());
+
             if (destination.equals("/user/queue/errors")) return message;
             if (!destination.startsWith(ROOM_QUEUE_PREFIX)) throw new AccessDeniedException("허용되지 않은 구독 경로입니다.");
 
@@ -70,11 +74,6 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                 roomId = UUID.fromString(roomIdStr);
             } catch (IllegalArgumentException e) {
                 throw new AccessDeniedException("유효하지 않은 구독 경로입니다.");
-            }
-
-            if (!(accessor.getUser() instanceof UsernamePasswordAuthenticationToken auth)
-                    || !(auth.getDetails() instanceof UUID memberId)) {
-                throw new AccessDeniedException("인증 정보가 올바르지 않습니다.");
             }
 
             if (!chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(roomId, memberId)) {

@@ -2,9 +2,6 @@ package com.back.domain.chat.chatRoomMessage.event;
 
 import com.back.domain.chat.chatRoomMessage.dto.BroadcastChatMessageDto;
 import com.back.domain.chat.chatRoomMessage.dto.RedisChatMessageDto;
-import com.back.domain.chat.chatRoomParticipant.entity.ChatRoomParticipant;
-import com.back.domain.chat.chatRoomParticipant.repository.ChatRoomParticipantRepository;
-import com.back.domain.member.member.entity.Member;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,32 +30,17 @@ public class ChatMessageEventHandlerTest {
     private SimpMessagingTemplate messagingTemplate;
 
     @Mock
-    private ChatRoomParticipantRepository chatRoomParticipantRepository;
-
-    @Mock
     private ZSetOperations<String, String> zSetOperations;
 
     @InjectMocks
     private ChatMessageEventHandler handler;
 
-    private ChatRoomParticipant mockParticipant(UUID participantId, String email) {
-        Member member = mock(Member.class);
-        when(member.getEmail()).thenReturn(email);
-
-        ChatRoomParticipant participant = mock(ChatRoomParticipant.class);
-        when(participant.getId()).thenReturn(participantId);
-        when(participant.getMember()).thenReturn(member);
-        return participant;
+    private ChatMessageSentEvent.BroadcastTarget target(UUID participantId, String email) {
+        return new ChatMessageSentEvent.BroadcastTarget(participantId, email, false);
     }
 
-    // 봇 참여자는 이메일 체크 후 필터되어 getId()가 호출되지 않으므로 별도 헬퍼 사용
-    private ChatRoomParticipant mockBotParticipant(String email) {
-        Member member = mock(Member.class);
-        when(member.getEmail()).thenReturn(email);
-
-        ChatRoomParticipant participant = mock(ChatRoomParticipant.class);
-        when(participant.getMember()).thenReturn(member);
-        return participant;
+    private ChatMessageSentEvent.BroadcastTarget botTarget(UUID participantId, String email) {
+        return new ChatMessageSentEvent.BroadcastTarget(participantId, email, true);
     }
 
     @Test
@@ -67,30 +49,28 @@ public class ChatMessageEventHandlerTest {
         UUID roomId = UUID.randomUUID();
         UUID senderParticipantId = UUID.randomUUID();
         UUID otherParticipantId = UUID.randomUUID();
+        String senderMemberId = UUID.randomUUID().toString();
+        String otherMemberId = UUID.randomUUID().toString();
 
         RedisChatMessageDto dto = new RedisChatMessageDto(
                 UUID.randomUUID(), roomId, "테스트닉네임", senderParticipantId, "테스트 메시지", LocalDateTime.now()
         );
 
-        ChatRoomParticipant sender = mockParticipant(senderParticipantId, "sender@test.com");
-        ChatRoomParticipant other = mockParticipant(otherParticipantId, "other@test.com");
-
         when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
-        when(chatRoomParticipantRepository.findByChatRoomId(roomId))
-                .thenReturn(List.of(sender, other));
-
-        handler.handleChatMessageSent(new ChatMessageSentEvent(dto));
+        handler.handleChatMessageSent(new ChatMessageSentEvent(dto, List.of(
+            target(senderParticipantId, senderMemberId),
+            target(otherParticipantId, otherMemberId)
+        )));
 
         ArgumentCaptor<BroadcastChatMessageDto> captor = ArgumentCaptor.forClass(BroadcastChatMessageDto.class);
 
-        verify(messagingTemplate).convertAndSendToUser(eq("sender@test.com"),
+        verify(messagingTemplate).convertAndSendToUser(eq(senderMemberId),
                 eq("/queue/rooms/" + roomId), captor.capture());
-        assertThat(captor.getValue().getIsMine()).isTrue();
+        assertThat(captor.getValue().isMine()).isTrue();
 
-        verify(messagingTemplate).convertAndSendToUser(eq("other@test.com"),
+        verify(messagingTemplate).convertAndSendToUser(eq(otherMemberId),
                 eq("/queue/rooms/" + roomId), captor.capture());
-        assertThat(captor.getValue().getIsMine()).isFalse();
-
+        assertThat(captor.getValue().isMine()).isFalse();
 
         verifyNoMoreInteractions(messagingTemplate);
     }
@@ -102,6 +82,8 @@ public class ChatMessageEventHandlerTest {
         UUID roomId2 = UUID.randomUUID();
         UUID participantId1 = UUID.randomUUID();
         UUID participantId2 = UUID.randomUUID();
+        String memberId1 = UUID.randomUUID().toString();
+        String memberId2 = UUID.randomUUID().toString();
 
         RedisChatMessageDto dto1 = new RedisChatMessageDto(
                 UUID.randomUUID(), roomId1, "유저A", participantId1, "방1 메시지", LocalDateTime.now()
@@ -110,19 +92,14 @@ public class ChatMessageEventHandlerTest {
                 UUID.randomUUID(), roomId2, "유저B", participantId2, "방2 메시지", LocalDateTime.now()
         );
 
-        ChatRoomParticipant p1 = mockParticipant(participantId1, "a@test.com");
-        ChatRoomParticipant p2 = mockParticipant(participantId2, "b@test.com");
-
         when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
-        when(chatRoomParticipantRepository.findByChatRoomId(roomId1)).thenReturn(List.of(p1));
-        when(chatRoomParticipantRepository.findByChatRoomId(roomId2)).thenReturn(List.of(p2));
 
-        handler.handleChatMessageSent(new ChatMessageSentEvent(dto1));
-        handler.handleChatMessageSent(new ChatMessageSentEvent(dto2));
+        handler.handleChatMessageSent(new ChatMessageSentEvent(dto1, List.of(target(participantId1, memberId1))));
+        handler.handleChatMessageSent(new ChatMessageSentEvent(dto2, List.of(target(participantId2, memberId2))));
 
-        verify(messagingTemplate).convertAndSendToUser(eq("a@test.com"),
+        verify(messagingTemplate).convertAndSendToUser(eq(memberId1),
                 eq("/queue/rooms/" + roomId1), any(BroadcastChatMessageDto.class));
-        verify(messagingTemplate).convertAndSendToUser(eq("b@test.com"),
+        verify(messagingTemplate).convertAndSendToUser(eq(memberId2),
                 eq("/queue/rooms/" + roomId2), any(BroadcastChatMessageDto.class));
         verifyNoMoreInteractions(messagingTemplate);
     }
@@ -132,21 +109,18 @@ public class ChatMessageEventHandlerTest {
     void t3() {
         UUID roomId = UUID.randomUUID();
         UUID participantId = UUID.randomUUID();
+        String memberId = UUID.randomUUID().toString();
 
         RedisChatMessageDto dto = new RedisChatMessageDto(
                 UUID.randomUUID(), roomId, "테스트닉네임", participantId, "테스트 메시지", LocalDateTime.now()
         );
 
-        ChatRoomParticipant p = mockParticipant(participantId, "user@test.com");
-
         when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
         doThrow(new RuntimeException("Redis 다운")).when(zSetOperations)
                 .add(anyString(), anyString(), anyDouble());
-        when(chatRoomParticipantRepository.findByChatRoomId(roomId)).thenReturn(List.of(p));
+        handler.handleChatMessageSent(new ChatMessageSentEvent(dto, List.of(target(participantId, memberId))));
 
-        handler.handleChatMessageSent(new ChatMessageSentEvent(dto));
-
-        verify(messagingTemplate).convertAndSendToUser(eq("user@test.com"),
+        verify(messagingTemplate).convertAndSendToUser(eq(memberId),
                 eq("/queue/rooms/" + roomId), any(BroadcastChatMessageDto.class));
     }
 
@@ -155,23 +129,24 @@ public class ChatMessageEventHandlerTest {
     void t4() {
         UUID roomId = UUID.randomUUID();
         UUID humanParticipantId = UUID.randomUUID();
+        UUID botParticipantId = UUID.randomUUID();
+        String humanMemberId = UUID.randomUUID().toString();
+        String botMemberId = UUID.randomUUID().toString();
 
         RedisChatMessageDto dto = new RedisChatMessageDto(
                 UUID.randomUUID(), roomId, "사람닉네임", humanParticipantId, "메시지", LocalDateTime.now()
         );
 
-        ChatRoomParticipant human = mockParticipant(humanParticipantId, "human@test.com");
-        ChatRoomParticipant bot = mockBotParticipant("bot.it@tangbisil.bot");
-
         when(redisTemplate.opsForZSet()).thenReturn(zSetOperations);
-        when(chatRoomParticipantRepository.findByChatRoomId(roomId))
-                .thenReturn(List.of(human, bot));
 
-        handler.handleChatMessageSent(new ChatMessageSentEvent(dto));
+        handler.handleChatMessageSent(new ChatMessageSentEvent(dto, List.of(
+            target(humanParticipantId, humanMemberId),
+            botTarget(botParticipantId, botMemberId)
+        )));
 
-        verify(messagingTemplate).convertAndSendToUser(eq("human@test.com"),
+        verify(messagingTemplate).convertAndSendToUser(eq(humanMemberId),
                 eq("/queue/rooms/" + roomId), any(BroadcastChatMessageDto.class));
-        verify(messagingTemplate, never()).convertAndSendToUser(eq("bot.it@tangbisil.bot"),
+        verify(messagingTemplate, never()).convertAndSendToUser(eq(botMemberId),
                 anyString(), any());
     }
 }

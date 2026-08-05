@@ -33,11 +33,9 @@ public class StompChatControllerTest {
     private StompChatController controller;
 
     private UsernamePasswordAuthenticationToken principalOf(UUID memberId) {
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                "user@test.com", null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        return new UsernamePasswordAuthenticationToken(
+                memberId.toString(), null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
         );
-        auth.setDetails(memberId);
-        return auth;
     }
 
     @Test

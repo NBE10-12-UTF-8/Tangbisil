@@ -12,7 +12,6 @@ import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.annotation.SendToUser;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
@@ -31,11 +30,11 @@ public class StompChatController {
             @Payload @Valid ChatRoomMessageRequestDto requestDto,
             Principal principal
     ) {
-        if(principal == null) {
+        if (principal == null) {
             throw new ServiceException("401-1", "인증이 필요합니다.");
         }
 
-        UUID memberId = (UUID)((UsernamePasswordAuthenticationToken)principal).getDetails();
+        UUID memberId = UUID.fromString(principal.getName());
         Member actor = memberService.findById(memberId)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
         chatMessageService.sendMessage(roomId, actor, requestDto.getContent());

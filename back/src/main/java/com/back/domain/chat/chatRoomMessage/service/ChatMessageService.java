@@ -72,7 +72,14 @@ public class ChatMessageService {
         RedisChatMessageDto cacheDto = new RedisChatMessageDto(message);
 
         // 비동기 캐시 적재를 수행할 배달부(EventHandler)에게 이벤트 발행
-        eventPublisher.publishEvent(new ChatMessageSentEvent(cacheDto));
+        List<ChatMessageSentEvent.BroadcastTarget> targets = participants.stream()
+                .map(p -> new ChatMessageSentEvent.BroadcastTarget(
+                        p.getId(),
+                        p.getMember().getId().toString(),
+                        BotAccounts.isBotEmail(p.getMember().getEmail())
+                ))
+                .toList();
+        eventPublisher.publishEvent(new ChatMessageSentEvent(cacheDto, targets));
 
         // 사람이(봇이 아닌 발신자가) 봇이 참여 중인 방에 메시지를 보내면, 봇이 맥락에 맞게 응답하게 트리거
         if (!BotAccounts.isBotEmail(sender.getEmail())) {

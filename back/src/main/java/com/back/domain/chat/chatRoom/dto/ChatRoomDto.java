@@ -4,7 +4,6 @@ import com.back.domain.chat.chatRoom.entity.ChatRoom;
 import com.back.domain.chat.chatRoom.entity.ChatRoomStatus;
 import com.back.domain.match.matchRequest.entity.Situation;
 import com.fasterxml.jackson.annotation.JsonInclude;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -16,8 +15,7 @@ public record ChatRoomDto(
         LocalDateTime createdAt,
         LocalDateTime closedAt,
         boolean isBot,
-        Situation opponentSituation,
-        UUID myParticipantId
+        Situation opponentSituation
 ) {
     public ChatRoomDto(ChatRoom chatRoom, boolean isBot, Situation opponentSituation) {
         this(
@@ -27,21 +25,7 @@ public record ChatRoomDto(
                 chatRoom.getCreatedAt(),
                 chatRoom.getClosedAt(),
                 isBot,
-                opponentSituation,
-                null
-        );
-    }
-
-    public ChatRoomDto(ChatRoom chatRoom, boolean isBot, Situation opponentSituation, UUID myParticipantId) {
-        this(
-                chatRoom.getId(),
-                chatRoom.getStatus(),
-                chatRoom.getMaxParticipants(),
-                chatRoom.getCreatedAt(),
-                chatRoom.getClosedAt(),
-                isBot,
-                opponentSituation,
-                myParticipantId
+                opponentSituation
         );
     }
 }

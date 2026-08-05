@@ -144,11 +144,24 @@ export default function ChatPage() {
         setMessages(prev => [...prev, msg]);
         lastMsgTimeRef.current = msg.createdAt;
       }
+    }, () => {
+      apiGetMessages(roomId, lastMsgTimeRef.current ?? undefined)
+          .then(({msgs}) => {
+            if (!msgs) return;
+            const fresh = msgs.filter(m => !seenMsgIds.current.has(m.messageId));
+            fresh.forEach(m => seenMsgIds.current.add(m.messageId));
+            if (fresh.length > 0) {
+              setMessages(prev => [...prev, ...fresh]);
+              lastMsgTimeRef.current = fresh[fresh.length - 1].createdAt;
+            }
+          })
+          .catch(() => {
+          });
     }, (errorMsg) => {
       const code = errorMsg.split(' : ')[0];
       if (code === '409-1' || code === '403-1') notifyPartnerLeft();
-    });
-    stompClientRef.current = stompClient;
+      }
+    );
 
     apiGetRoom(roomId)
       .then(room => {

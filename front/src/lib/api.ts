@@ -62,20 +62,6 @@ export const getRoleFromToken = (token: string): string | null => {
   }
 };
 
-export const getMyMemberId = (): string | null => {
-  const token = getToken();
-  if (!token) return null;
-  try {
-    const raw = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const base64 = raw + "=".repeat((4 - raw.length % 4) % 4);
-    const json = decodeURIComponent(atob(base64).split("").map(
-        (c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0")).join(""));
-    const payload = JSON.parse(json);
-    return payload.id ?? payload.sub ?? null;
-  } catch {
-    return null;
-  }
-};
 
 /* ── Industry mapping ────────────────────────────────────────────── */
 // 백엔드 Industry enum @JsonValue 가 한글 라벨을 그대로 직렬화하므로 표시명 = API 값
@@ -315,7 +301,6 @@ export type ChatRoom = {
   closedAt?: string;
   isBot: boolean;
   opponentSituation?: string;
-  myParticipantId?: string;
 };
 
 export const apiGetRoom = (roomId: string) =>
@@ -339,7 +324,7 @@ export type ChatMsg = {
   messageId: string;
   roomId: string;
   senderNickname: string;
-  senderParticipantId: string;
+  senderParticipantId?: string;
   content: string;
   createdAt: string;
   isMine: boolean;
@@ -388,14 +373,22 @@ export const apiGetNotifications = (after?: string) =>
 export function subscribeRoom(
     roomId: string,
     onMessage: (msg: ChatMsg) => void,
+    onReconnect?: () => void,
     onError?: (errorMsg: string) => void,
 ): Client {
   const token = getToken();
+  let isFirstConnect = true;
+
   const client = new Client({
     webSocketFactory: () => new SockJS(`${OAUTH_SERVER_BASE}/ws`),
     connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+    reconnectDelay: 3000,
     onConnect: () => {
-      // isMine은 서버가 참여자별로 계산해서 내려줌
+      if(!isFirstConnect) {
+        onReconnect?.();
+      }
+      isFirstConnect = false;
+
       client.subscribe(`/user/queue/rooms/${roomId}`, (frame) => {
         const raw = JSON.parse(frame.body);
         onMessage(raw);
@@ -406,7 +399,6 @@ export function subscribeRoom(
       });
     },
     onStompError: (frame) => {
-      client.deactivate();
       onError?.(frame.headers['message'] ?? '전송 오류가 발생했습니다.');
     },
   });

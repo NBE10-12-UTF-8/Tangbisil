@@ -1,10 +1,7 @@
 package com.back.domain.chat.chatRoomMessage.event;
 
-import com.back.domain.bot.BotAccounts;
 import com.back.domain.chat.chatRoomMessage.dto.BroadcastChatMessageDto;
 import com.back.domain.chat.chatRoomMessage.dto.RedisChatMessageDto;
-import com.back.domain.chat.chatRoomParticipant.entity.ChatRoomParticipant;
-import com.back.domain.chat.chatRoomParticipant.repository.ChatRoomParticipantRepository;
 import com.back.standard.util.Ut;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,7 +13,6 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.Duration;
-import java.util.List;
 
 @Component
 public class ChatMessageEventHandler {
@@ -25,14 +21,11 @@ public class ChatMessageEventHandler {
 
     private final RedisTemplate<String, String> redisTemplate;
     private final SimpMessagingTemplate messagingTemplate;
-    private final ChatRoomParticipantRepository chatRoomParticipantRepository;
 
     public ChatMessageEventHandler(RedisTemplate<String, String> redisTemplate,
-                                   SimpMessagingTemplate messagingTemplate,
-                                   ChatRoomParticipantRepository chatRoomParticipantRepository) {
+                                   SimpMessagingTemplate messagingTemplate) {
         this.redisTemplate = redisTemplate;
         this.messagingTemplate = messagingTemplate;
-        this.chatRoomParticipantRepository = chatRoomParticipantRepository;
     }
 
     @Async
@@ -57,28 +50,19 @@ public class ChatMessageEventHandler {
             }
         }
 
-        List<ChatRoomParticipant> participants;
-        try {
-            participants = chatRoomParticipantRepository.findByChatRoomId(dto.getRoomId());
-        } catch (Exception e) {
-            log.error("참여자 조회 실패 - roomId: {}", dto.getRoomId(), e);
-            return;
-        }
-
-        for (ChatRoomParticipant participant : participants) {
-            String email = participant.getMember().getEmail();
-            if (BotAccounts.isBotEmail(email)) continue;
-
+        for (ChatMessageSentEvent.BroadcastTarget target : event.getTargets()) {
+            if (target.isBot()) continue;
             try {
-                boolean isMine = participant.getId().equals(dto.getSenderParticipantId());
+                boolean isMine = target.participantId().equals(dto.getSenderParticipantId());
                 messagingTemplate.convertAndSendToUser(
-                        email,
+                        target.memberId(),
                         "/queue/rooms/" + dto.getRoomId(),
                         new BroadcastChatMessageDto(dto, isMine)
                 );
             } catch (Exception e) {
-                log.error("WebSocket 브로드캐스트 실패 - roomId: {}, email: {}", dto.getRoomId(), email, e);
+                log.error("WebSocket 브로드캐스트 실패 - roomId: {}, memberId: {}", dto.getRoomId(), target.memberId(), e);
             }
         }
+
     }
 }

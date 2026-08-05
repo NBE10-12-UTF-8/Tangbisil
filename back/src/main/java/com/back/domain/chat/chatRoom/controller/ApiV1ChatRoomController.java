@@ -43,12 +43,11 @@ public class ApiV1ChatRoomController {
         chatRoomParticipantService.validateAccess(roomId, actor);
         boolean isBot = chatRoomService.hasBotParticipant(roomId);
         Situation opponentSituation = matchRequestService.findOpponentSituation(roomId, actor.getId());
-        UUID myParticipantId = chatRoomParticipantService.getParticipantId(roomId, actor.getId());
 
         return new RsData<>(
                 "200-1",
                 "채팅방 정보 조회 성공",
-                new ChatRoomDto(chatRoom, isBot, opponentSituation, myParticipantId)
+                new ChatRoomDto(chatRoom, isBot, opponentSituation)
         );
     }
 
