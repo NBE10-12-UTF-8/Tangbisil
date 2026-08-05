@@ -12,6 +12,7 @@ import com.back.domain.member.emailVerification.repository.EmailVerificationToke
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.member.service.MemberService;
+import com.back.support.TestAccessTokenFactory;
 import com.back.standard.util.Ut;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -181,8 +182,7 @@ public class ApiV1ChatMessageRedisControllerTest {
     // 테스트에서 Bearer 헤더로 쓸 토큰은 실제 로그인 엔드포인트를 거칠 필요 없이
     // 발급 로직을 직접 호출해 받아온다.
     private String getAccessToken(String email) {
-        Member member = memberRepository.findByEmail(email).orElseThrow();
-        return memberService.genAccessToken(member);
+        return TestAccessTokenFactory.accessTokenFor(memberRepository, memberService, email);
     }
 
     @Test

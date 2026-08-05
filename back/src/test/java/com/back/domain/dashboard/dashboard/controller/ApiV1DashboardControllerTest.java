@@ -8,6 +8,7 @@ import com.back.domain.match.matchRequest.service.RedisMatchQueue;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.member.service.MemberService;
+import com.back.support.TestAccessTokenFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -158,8 +159,7 @@ public class ApiV1DashboardControllerTest {
 
     // 로그인 응답 바디에는 더 이상 토큰이 실리지 않는다(HttpOnly 쿠키로만 내려감).
     private String loginAndGetToken(String email) {
-        Member member = memberRepository.findByEmail(email).orElseThrow();
-        return memberService.genAccessToken(member);
+        return TestAccessTokenFactory.accessTokenFor(memberRepository, memberService, email);
     }
 
     @Test

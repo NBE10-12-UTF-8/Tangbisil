@@ -2,6 +2,7 @@ package com.back.domain.member.member.controller;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
+import com.back.support.TestAccessTokenFactory;
 import com.back.domain.member.member.repository.MemberRepository;
 
 import org.junit.jupiter.api.DisplayName;
@@ -36,8 +37,7 @@ public class ApiV1AdmMemberControllerTest {
     // 로그인 응답 바디에는 더 이상 토큰이 실리지 않는다(HttpOnly 쿠키로만 내려감).
     // 테스트에서 Bearer 헤더로 쓸 토큰은 발급 로직을 직접 호출해 받아온다.
     private String getAccessToken(String email) {
-        Member member = memberRepository.findByEmail(email).orElseThrow();
-        return memberService.genAccessToken(member);
+        return TestAccessTokenFactory.accessTokenFor(memberRepository, memberService, email);
     }
 
     @Test

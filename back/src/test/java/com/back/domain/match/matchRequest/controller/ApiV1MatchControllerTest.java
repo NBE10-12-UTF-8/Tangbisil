@@ -17,6 +17,7 @@ import com.back.domain.member.member.entity.Industry;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.member.service.MemberService;
+import com.back.support.TestAccessTokenFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -144,8 +145,7 @@ public class ApiV1MatchControllerTest {
                                 """.formatted(email, industry))
         );
 
-        Member member = memberRepository.findByEmail(email).orElseThrow();
-        return memberService.genAccessToken(member);
+        return TestAccessTokenFactory.accessTokenFor(memberRepository, memberService, email);
     }
 
     @Test
