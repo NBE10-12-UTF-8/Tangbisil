@@ -119,6 +119,9 @@ public interface MatchRequestRepository extends JpaRepository<MatchRequest, Long
            """)
     Optional<MatchRequest> findByUuidWithMember(@Param("uuid") UUID uuid);
 
+    // 매칭 후보 UUID 여러 개를 한 번에 조회 - 후보 하나당 쿼리 하나씩 날리던 N+1을 방지한다.
+    List<MatchRequest> findAllByUuidIn(Collection<UUID> uuids);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM MatchRequest r WHERE r.member = :member")
     void deleteByMember(@Param("member") Member member);

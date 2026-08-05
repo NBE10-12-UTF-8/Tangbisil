@@ -46,10 +46,12 @@ public class RedisMatchQueue {
         }
     }
 
-    public List<UUID> getOldestTwo(Industry industry, Situation situation) {
+    // limit만큼 페이징 조회 - 상위 2명만 보던 이전 방식은 그 2명이 막히면 뒤가 무기한 갇히는
+    // Head-of-Line Blocking을 유발했다.
+    public List<UUID> getOldestCandidates(Industry industry, Situation situation, int limit) {
         String key = getQueueKey(industry, situation);
         try {
-            Set<String> range = redisTemplate.opsForZSet().range(key, 0, 1);
+            Set<String> range = redisTemplate.opsForZSet().range(key, 0, limit - 1);
             if (range == null || range.isEmpty()) {
                 return List.of();
             }

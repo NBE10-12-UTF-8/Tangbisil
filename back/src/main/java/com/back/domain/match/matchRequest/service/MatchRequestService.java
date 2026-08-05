@@ -53,26 +53,20 @@ public class MatchRequestService {
 
     private static final long TIER1_THRESHOLD_SECONDS = 15; // 15초 후 유사 상황 매칭
     private static final long TIER2_THRESHOLD_SECONDS = 30; // 30초 후 산업군 전체 매칭
-    // 30초(Tier2)까지도 실제 유저를 못 찾으면, 이 시점부터 봇으로 폴백한다.
-    // Tier2보다 늦게 잡아서 "실제 사람끼리 매칭될 기회"를 최대한 먼저 준다.
-    private static final long BOT_FALLBACK_THRESHOLD_SECONDS = 35;
+    private static final long BOT_FALLBACK_THRESHOLD_SECONDS = 35; // 그래도 못 찾으면 봇 폴백
+    private static final int CANDIDATE_PAGE_SIZE = 20; // ZSet 상위 몇 명까지 후보로 볼지 (Head-of-Line Blocking 방지)
+    private static final int BATCH_MAX_ITERATIONS = 200; // 락 하나로 연속 매칭하는 배치 루프 반복 상한
 
     private void connect(MatchRequest matchRequest, MatchRequest other) {
         ChatRoom chatRoom = chatRoomService.createChatRoom(List.of(matchRequest.getMember(), other.getMember()));
-        // matchRequest/other는 이 트랜잭션에서 로딩된 영속 상태이므로,
-        // matchWith()로 필드를 바꾸면 커밋 시점에 더티 체킹으로 room/status가 함께 반영된다.
-        // (예전엔 assignRoom 네이티브 UPDATE로 room만 먼저 반영했는데, 그 벌크 쿼리가
-        // 영속성 컨텍스트를 비워버려서 뒤이은 matchWith()의 status 변경이 유실되는 버그가 있었다.)
+        // 영속 상태에서 필드만 바꿔 더티 체킹으로 커밋 시 room/status를 함께 반영한다.
         matchRequest.matchWith(chatRoom);
         other.matchWith(chatRoom);
         triggerBotReplyIfNeeded(matchRequest.getMember(), other.getMember(), chatRoom.getId());
-
-        // RDB 최종 커밋 완료 시점에 비동기로 알림이 가도록 이벤트를 발행합니다.
         eventPublisher.publishEvent(new MatchSuccessEvent(chatRoom.getUuid(), matchRequest.getMember().getId(), other.getMember().getId()));
     }
 
-    // 실제 유저 상대를 못 찾고 봇 폴백 기준 시간이 지난 요청을, 그 시점에 즉석으로 만든
-    // 봇 요청과 매칭시켜준다. 봇은 평소엔 대기열에 없다 - 실제 유저끼리 매칭될 기회를 먼저 준다.
+    // 봇 폴백 - 실제 유저 매칭 기회를 먼저 주기 위해 봇은 평소엔 대기열에 없다.
     private void matchWithBot(MatchRequest request) {
         Industry industry = request.getMember().getIndustry();
         Member bot = memberRepository.findByEmail(BotAccounts.emailFor(industry)).orElse(null);
@@ -102,10 +96,8 @@ public class MatchRequestService {
             throw new ServiceException("409-1", "이미 진행 중인 매칭 요청이 있습니다.");
         }
 
-        // RDB에 대기 정보 저장
         MatchRequest matchRequest = matchRequestRepository.save(new MatchRequest(member, situation));
 
-        // RDB 동일 트랜잭션 내에 아웃박스 이벤트 저장
         long epochMilli = matchRequest.getRequestedAt().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
         MatchingOutbox outbox = MatchingOutbox.create(
                 matchRequest.getUuid(),
@@ -115,39 +107,25 @@ public class MatchRequestService {
         );
         matchingOutboxRepository.save(outbox);
 
-        // AFTER_COMMIT 리스너 등록 (커밋 완료 직후 Redis ZADD 기동)
+        // 커밋 완료 직후 Redis ZADD + 1차 매칭 시도. 성공 경로는 커넥션을 추가로 잡지 않고,
+        // 아웃박스 SUCCESS 마킹도 하지 않는다 - retryOutboxEvents 스케줄러가 뒤늦게 보정한다.
         TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {
                     @Override
                     public void afterCommit() {
-                        boolean isLoaded = false;
                         try {
-                            // Redis ZSet 대기열 적재
-                            redisMatchQueue.add(
-                                    member.getIndustry(),
-                                    situation,
-                                    matchRequest.getUuid(),
-                                    epochMilli
-                            );
-                            // 적재 성공 시 아웃박스 상태 SUCCESS 마킹
-                            // 주의: AFTER_COMMIT 시점엔 활성 트랜잭션이 없어서(원본 트랜잭션은 이미 끝남)
-                            // 일반 save()/saveAndFlush() 호출로는 반영이 보장되지 않는다(TransactionRequiredException).
-                            // processMatch()와 동일하게, 프록시를 거쳐 REQUIRES_NEW 트랜잭션으로 실행해야
-                            // 확실히 커밋된다.
-                            applicationContext.getBean(MatchRequestService.class).markOutboxSuccess(outbox.getId());
-                            isLoaded = true;
+                            redisMatchQueue.add(member.getIndustry(), situation, matchRequest.getUuid(), epochMilli);
                         } catch (Exception e) {
-                            // 적재 실패 시 FAIL 마킹 (마찬가지로 REQUIRES_NEW로 확실히 반영)
+                            // 실패는 드문 경로이므로 여기서만 REQUIRES_NEW로 즉시 FAIL 마킹한다.
                             applicationContext.getBean(MatchRequestService.class).markOutboxFailed(outbox.getId());
+                            log.error("[MatchRequestService] Redis 대기열 적재 실패 - requestId: {}", matchRequest.getId(), e);
+                            return;
                         }
 
-                        if (isLoaded) {
-                            try {
-                                // ZADD 적재 성공 직후, 별도 스케줄러 대기 없이 비동기로 즉시 1차 매칭 시도
-                                retryProcessor.retryOne(matchRequest.getId());
-                            } catch (Exception e) {
-                                log.error("[MatchRequestService] 1차 즉시 매칭 시도 중 오류 발생 - matchRequestId: {}", matchRequest.getId(), e);
-                            }
+                        try {
+                            retryProcessor.retryOne(matchRequest.getUuid());
+                        } catch (Exception e) {
+                            log.error("[MatchRequestService] 1차 즉시 매칭 시도 중 오류 발생 - matchRequestId: {}", matchRequest.getId(), e);
                         }
                     }
                 }
@@ -156,34 +134,27 @@ public class MatchRequestService {
         return matchRequest;
     }
 
-    // AFTER_COMMIT 콜백(활성 트랜잭션이 없는 시점)에서 호출되므로, 독립적인 REQUIRES_NEW 트랜잭션으로
-    // 실행해 확실히 커밋되도록 한다. 반드시 프록시(applicationContext.getBean)를 거쳐 호출해야 한다.
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void markOutboxSuccess(Long outboxId) {
-        matchingOutboxRepository.findById(outboxId).ifPresent(MatchingOutbox::markSuccess);
-    }
-
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markOutboxFailed(Long outboxId) {
         matchingOutboxRepository.findById(outboxId).ifPresent(MatchingOutbox::markFailed);
     }
 
+    // NOT_SUPPORTED로 클래스 레벨 트랜잭션 상속을 차단 - 안 그러면 첫 조회로 커넥션을 잡은 채
+    // 아래 tryLock() 대기(최대 5초)에 들어가버린다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void tryMatch(UUID matchRequestId) {
         MatchRequest matchRequest = matchRequestRepository.findByUuidWithMember(matchRequestId)
                 .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
         if (matchRequest.getStatus() != MatchStatus.PENDING) {
-            return; // 이미 매칭되었거나 취소된 유저면 조용히 탈출 (Early Exit)
+            return;
         }
         Industry industry = matchRequest.getMember().getIndustry();
         String lockKey = "match:lock:" + industry.name();
         RLock lock = redissonClient.getLock(lockKey);
         try {
-            // 락 획득 시도 (대기 최대 5초, 락 소유 최대 10초)
-            if (lock.tryLock(5, 10, TimeUnit.SECONDS)) {
+            // leaseTime 미지정 -> Redisson watchdog이 붙어 배치 루프가 길어져도 락이 새지 않는다.
+            if (lock.tryLock(5, TimeUnit.SECONDS)) {
                 try {
-                    // 프록시를 거쳐 REQUIRES_NEW 트랜잭션으로 실행 - 이 호출이 반환된 시점에는
-                    // DB 반영이 이미 100% 커밋 완료된 상태이므로, 그 뒤에 오는 unlock()이
-                    // 항상 "커밋 이후"에만 일어남을 보장한다.
                     applicationContext.getBean(MatchRequestService.class).processMatch(matchRequestId, industry);
                 } finally {
                     if (lock.isHeldByCurrentThread()) {
@@ -197,38 +168,99 @@ public class MatchRequestService {
         }
     }
 
+    // self-invocation은 프록시를 안 거쳐 위 NOT_SUPPORTED가 적용 안 되므로, 이 메서드도 동일하게 막아둔다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void tryMatch(MatchRequest matchRequestParam) {
         tryMatch(matchRequestParam.getUuid());
     }
 
-    // 분산 락을 쥔 상태에서만 호출되는 실제 매칭 처리 트랜잭션.
-    // REQUIRES_NEW로 독립 커밋시켜, tryMatch()의 락 해제가 이 메서드의 커밋 이후에만 일어나도록 강제한다.
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // 분산 락을 쥔 상태에서 대기자를 연속으로 이어 매칭하는 배치 루프. 최초 트리거된 요청을 먼저
+    // 처리하고, 이후로는 매번 industry 전체에서 가장 오래 기다린 PENDING 요청을 다시 골라 이어간다.
+    // 이 메서드 자체는 NOT_SUPPORTED - 실제 DB 쓰기는 connectPair()/connectWithBot()의 개별
+    // REQUIRES_NEW에 위임해서, 한 쌍 커밋이 다른 쌍에 영향을 주지 않게 격리한다. Redis 제거는
+    // 그 커밋이 성공한 뒤에만 best-effort로 수행한다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void processMatch(UUID matchRequestId, Industry industry) {
-        // [중요] 락에 들어온 순간, DB의 최신 상태를 단건 인덱스로 초고속 검증합니다.
-        MatchRequest currentRequest = matchRequestRepository.findByUuidWithMember(matchRequestId)
-                .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
-        if (currentRequest.getStatus() != MatchStatus.PENDING) {
-            return; // 대기 도중 취소되었거나 이미 다른 사람과 매칭이 끝난 상태면 스킵 (Early Exit)
-        }
-        Situation situation = currentRequest.getSituation();
-        long elapsedSeconds = Duration.between(currentRequest.getRequestedAt(), LocalDateTime.now()).getSeconds();
-        Optional<MatchRequest> opponentOpt = findOpponent(currentRequest, elapsedSeconds);
-        if (opponentOpt.isPresent()) {
-            MatchRequest opponent = opponentOpt.get();
+        UUID currentTargetId = matchRequestId;
+        int iterations = 0;
 
-            // RDB 매칭 성공 처리 및 방 생성 진행
-            connect(currentRequest, opponent);
-            // Redis ZSet 대기열에서 나와 상대방을 즉시 원자적으로 선점 제거 (ZREM)
-            redisMatchQueue.remove(industry, situation, currentRequest.getUuid());
-            redisMatchQueue.remove(industry, opponent.getSituation(), opponent.getUuid());
-            return;
+        while (currentTargetId != null && iterations++ < BATCH_MAX_ITERATIONS) {
+            Optional<MatchRequest> currentOpt = matchRequestRepository.findByUuidWithMember(currentTargetId);
+            if (currentOpt.isEmpty() || currentOpt.get().getStatus() != MatchStatus.PENDING) {
+                break;
+            }
+
+            MatchRequest currentRequest = currentOpt.get();
+            Situation situation = currentRequest.getSituation();
+            long elapsedSeconds = Duration.between(currentRequest.getRequestedAt(), LocalDateTime.now()).getSeconds();
+
+            Optional<MatchRequest> opponentOpt;
+            try {
+                opponentOpt = findOpponent(currentRequest, elapsedSeconds);
+            } catch (Exception e) {
+                log.error("[MatchRequestService] 배치 매칭 루프 중 후보 탐색 오류 발생 - matchRequestId: {}", currentTargetId, e);
+                break;
+            }
+
+            if (opponentOpt.isPresent()) {
+                MatchRequest opponent = opponentOpt.get();
+                UUID opponentId = opponent.getUuid();
+                Situation opponentSituation = opponent.getSituation();
+                try {
+                    applicationContext.getBean(MatchRequestService.class).connectPair(currentRequest.getUuid(), opponentId);
+                } catch (Exception e) {
+                    log.error("[MatchRequestService] 매칭 확정 실패 - currentId: {}, opponentId: {}", currentRequest.getUuid(), opponentId, e);
+                    break;
+                }
+                safeRemoveFromQueue(industry, situation, currentRequest.getUuid());
+                safeRemoveFromQueue(industry, opponentSituation, opponentId);
+            } else if (elapsedSeconds >= BOT_FALLBACK_THRESHOLD_SECONDS) {
+                try {
+                    applicationContext.getBean(MatchRequestService.class).connectWithBot(currentRequest.getUuid());
+                } catch (Exception e) {
+                    log.error("[MatchRequestService] 봇 매칭 확정 실패 - matchRequestId: {}", currentTargetId, e);
+                    break;
+                }
+                safeRemoveFromQueue(industry, situation, currentRequest.getUuid());
+            } else {
+                break;
+            }
+
+            currentTargetId = findOldestInSituations(industry, Arrays.asList(Situation.values()), null)
+                    .map(MatchRequest::getUuid)
+                    .orElse(null);
         }
-        // 봇 매칭 폴백
-        if (elapsedSeconds >= BOT_FALLBACK_THRESHOLD_SECONDS) {
-            matchWithBot(currentRequest);
-            // ZSet 대기열에서 나 자신을 제거하고 봇 매칭 진행
-            redisMatchQueue.remove(industry, situation, currentRequest.getUuid());
+    }
+
+    // 매칭 확정 한 쌍만의 최소 단위 트랜잭션 - 이후 회차 실패가 이미 커밋된 쌍을 함께 롤백시키지 않도록 격리한다.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void connectPair(UUID currentId, UUID opponentId) {
+        MatchRequest current = matchRequestRepository.findByUuidWithMember(currentId)
+                .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
+        MatchRequest opponent = matchRequestRepository.findByUuidWithMember(opponentId)
+                .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
+        if (current.getStatus() != MatchStatus.PENDING || opponent.getStatus() != MatchStatus.PENDING) {
+            throw new ServiceException("409-1", "이미 처리된 매칭 요청입니다.");
+        }
+        connect(current, opponent);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void connectWithBot(UUID currentId) {
+        MatchRequest current = matchRequestRepository.findByUuidWithMember(currentId)
+                .orElseThrow(() -> new ServiceException("404-1", "매칭 요청을 찾을 수 없습니다."));
+        if (current.getStatus() != MatchStatus.PENDING) {
+            throw new ServiceException("409-1", "이미 처리된 매칭 요청입니다.");
+        }
+        matchWithBot(current);
+    }
+
+    // ZREM 실패는 치명적이지 않다 - findOldestInSituations()의 자가 치유 로직이 다음 스캔에서 정리한다.
+    private void safeRemoveFromQueue(Industry industry, Situation situation, UUID id) {
+        try {
+            redisMatchQueue.remove(industry, situation, id);
+        } catch (Exception e) {
+            log.warn("[MatchRequestService] Redis 대기열 정리 실패(자가 치유 로직이 추후 정리) - id: {}", id, e);
         }
     }
 
@@ -237,33 +269,52 @@ public class MatchRequestService {
         Industry industry = request.getMember().getIndustry();
         Situation situation = request.getSituation();
         UUID excludeId = request.getUuid();
-        // Tier 1: 동일 상황 ZSet에서 가장 오래 기다린 사람
         if (elapsedSeconds < TIER1_THRESHOLD_SECONDS) {
             return findOldestInSituations(industry, List.of(situation), excludeId);
         }
 
-        // Tier 2: 유사 상황 ZSet 그룹들에서 가장 오래 기다린 사람
         if (elapsedSeconds < TIER2_THRESHOLD_SECONDS) {
             Set<Situation> similarGroup = SituationSimilarity.getSimilarGroup(situation);
             return findOldestInSituations(industry, similarGroup, excludeId);
         }
 
-        // Tier 3: 업종 내 모든 상황 ZSet 중에서 가장 오래 기다린 사람
         return findOldestInSituations(industry, Arrays.asList(Situation.values()), excludeId);
     }
 
+    // 후보 UUID가 어느 situation 큐에서 나왔는지 함께 들고 다니기 위한 레코드 (자가 치유 ZREM에 필요).
+    private record CandidateRef(Situation situation, UUID id) {}
+
     /**
-     * 지정된 여러 상황(Situations)의 Redis ZSet 키들을 전수 검사하여,
-     * 각 대기열 1등들 중 가중치(Score)가 가장 오래된 사용자 1명을 최종 선출합니다.
-     * 본인(excludeId)은 후보에서 제외하여 셀프 매칭을 방지합니다.
+     * 지정된 상황들의 Redis ZSet 상위 {@value #CANDIDATE_PAGE_SIZE}명 중 가장 오래 기다린 PENDING
+     * 사용자 1명을 선출합니다. 후보 UUID를 먼저 모두 모아 IN절로 일괄 조회하고(N+1 방지), 스테일
+     * 항목은 파이프라인 밖에서 별도로 ZREM 정리합니다(자가 치유).
      */
     private Optional<MatchRequest> findOldestInSituations(Industry industry, java.util.Collection<Situation> situations, UUID excludeId) {
-        return situations.stream()
-                .flatMap(s -> redisMatchQueue.getOldestTwo(industry, s).stream())
-                .filter(id -> !id.equals(excludeId))
-                .flatMap(id -> matchRequestRepository.findByUuidWithMember(id).stream())
+        List<CandidateRef> candidateRefs = situations.stream()
+                .flatMap(s -> redisMatchQueue.getOldestCandidates(industry, s, CANDIDATE_PAGE_SIZE).stream()
+                        .filter(id -> !id.equals(excludeId))
+                        .map(id -> new CandidateRef(s, id)))
+                .toList();
+
+        if (candidateRefs.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<UUID> candidateIds = candidateRefs.stream().map(CandidateRef::id).toList();
+        Map<UUID, MatchRequest> byId = matchRequestRepository.findAllByUuidIn(candidateIds).stream()
+                .collect(java.util.stream.Collectors.toMap(MatchRequest::getUuid, mr -> mr));
+
+        for (CandidateRef ref : candidateRefs) {
+            MatchRequest mr = byId.get(ref.id());
+            if (mr == null || mr.getStatus() != MatchStatus.PENDING) {
+                redisMatchQueue.remove(industry, ref.situation(), ref.id());
+            }
+        }
+
+        // requestedAt 동점 시 id를 2차 기준으로 더해 항상 같은 후보를 확정적으로 고른다 (낙관적 락 충돌 방지).
+        return byId.values().stream()
                 .filter(mr -> mr.getStatus() == MatchStatus.PENDING)
-                .min(Comparator.comparing(MatchRequest::getRequestedAt));
+                .min(Comparator.comparing(MatchRequest::getRequestedAt).thenComparing(MatchRequest::getId));
     }
 
     public MatchRequest findById(UUID id) {
@@ -282,7 +333,6 @@ public class MatchRequestService {
 
         matchRequestRepository.delete(matchRequest);
 
-        // Redis ZSet 대기열에서도 본인을 즉시 안전하게 제거
         redisMatchQueue.remove(
                 matchRequest.getMember().getIndustry(),
                 matchRequest.getSituation(),
@@ -295,7 +345,6 @@ public class MatchRequestService {
         LocalDateTime expiredBefore = LocalDateTime.now().minusMinutes(5);
         List<MatchRequest> expired = matchRequestRepository.findExpiredPending(MatchStatus.PENDING, expiredBefore);
 
-        // DB에서 지우기 전에, 각 만료 건을 Redis ZSet 대기열에서 제거
         for (MatchRequest request : expired) {
             redisMatchQueue.remove(
                     request.getMember().getIndustry(),
@@ -331,7 +380,6 @@ public class MatchRequestService {
         return matchRequestRepository.existsByMemberAndStatus(member, MatchStatus.PENDING);
     }
 
-    // 채팅방 입장 시 상대방이 선택한 상황을 노출하기 위한 조회
     public Situation findOpponentSituation(Long roomId, Long memberId) {
         return matchRequestRepository.findByRoomIdAndMemberIdNot(roomId, memberId, PageRequest.of(0, 1))
                 .stream()
