@@ -45,7 +45,7 @@ public class TrendAggregationEventHandler {
     public void handleChatMessageSent(ChatMessageSentEvent event) {
 
         String content = event.getMessageDto() != null ? event.getMessageDto().getContent() : null;
-        UUID senderMemberId = event.getMessageDto() != null ? event.getMessageDto().getSenderMemberId() : null;
+        UUID senderMemberId = event.getMessageDto() != null ? event.getMessageDto().getSenderParticipantId() : null;
         LocalDate today = LocalDate.now(KST);
 
         if (messageDuplicateChecker.isDuplicate(today, senderMemberId, content)) {

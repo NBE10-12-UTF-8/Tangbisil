@@ -54,7 +54,7 @@ class TrendAggregationEventHandlerTest {
 
     private ChatMessageSentEvent eventFrom(UUID senderMemberId, String content) {
         RedisChatMessageDto dto = new RedisChatMessageDto(
-                UUID.randomUUID(), UUID.randomUUID(), "익명", UUID.randomUUID(), content, null);
+                UUID.randomUUID(), UUID.randomUUID(), "익명", senderMemberId, content, null);
         return new ChatMessageSentEvent(dto, List.of());
     }
 
