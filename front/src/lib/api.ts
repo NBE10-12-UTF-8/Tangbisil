@@ -62,21 +62,29 @@ const NO_REFRESH_RETRY_PATHS = [
   "/api/v1/members/refresh",
 ];
 
+// refresh 결과를 세 가지로 구분한다 - "ok"면 재시도, "invalid"면 refreshToken 자체가
+// 무효라 진짜 로그아웃, "unreachable"(네트워크 오류·배포 중 502 등)이면 세션은 아직
+// 살아있을 수 있으니 로그아웃시키지 않고 이번 요청만 실패 처리한다.
+type RefreshResult = "ok" | "invalid" | "unreachable";
+
 // 동시에 여러 요청이 401을 맞아도 재발급 호출은 한 번만 나가도록 공유하는 in-flight promise
-let refreshPromise: Promise<boolean> | null = null;
+let refreshPromise: Promise<RefreshResult> | null = null;
 
 // 재발급된 accessToken은 서버가 쿠키로만 내려주므로(바디에 없음), 여기서는
-// 재발급 성공 여부만 반환한다 — 성공하면 브라우저가 새 쿠키를 이미 들고 있어
-// 원요청을 credentials:"include"로 그냥 재시도하면 된다.
-function refreshAccessToken(): Promise<boolean> {
+// 결과만 반환한다 - 성공하면 브라우저가 새 쿠키를 이미 들고 있어 원요청을
+// credentials:"include"로 그냥 재시도하면 된다.
+function refreshAccessToken(): Promise<RefreshResult> {
   if (!refreshPromise) {
     refreshPromise = fetch(`${BASE}/api/v1/members/refresh`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
     })
-      .then((res) => res.ok)
-      .catch(() => false)
+      .then((res): RefreshResult => {
+        if (res.ok) return "ok";
+        return res.status === 401 ? "invalid" : "unreachable";
+      })
+      .catch((): RefreshResult => "unreachable")
       .finally(() => {
         refreshPromise = null;
       });
@@ -98,21 +106,21 @@ async function req<T>(
     },
   });
 
-  // accessToken 만료로 401을 받으면, 로그인 흐름 자체의 요청이 아닌 한
-  // refreshToken 쿠키로 한 번만 자동 재발급받아 원요청을 재시도한다.
-  // 재시도한 요청마저 401이면(리프레시 토큰/쿠키 만료 등) 세션이 완전히 끝난 것이므로
-  // 여기서도 반드시 로컬 세션 정보를 정리하고 로그인 페이지로 보내야 한다.
   if (res.status === 401 && !NO_REFRESH_RETRY_PATHS.includes(path)) {
     if (!_isRetry) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
+      const result = await refreshAccessToken();
+      if (result === "ok") {
         return req<T>(path, options, true);
+      }
+      if (result === "unreachable") {
+        throw Object.assign(new Error("일시적으로 서버에 연결할 수 없습니다."), { status: res.status });
       }
     }
     clearTokens();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
+    throw Object.assign(new Error("로그인이 필요합니다."), { status: res.status });
   }
 
   if (res.status === 204) return null as T;
@@ -294,11 +302,12 @@ export type ChatMsg = {
   isMine: boolean;
 };
 
-// after: LocalDateTime ISO 문자열 (마지막 수신 메시지의 createdAt). 없으면 전체 조회.
-// 백엔드가 종료된 방에 대해 HTTP 200 + resultCode "200-3" 을 반환하므로 closed 플래그로 구분.
+// after: LocalDateTime ISO 문자열(마지막 수신 메시지의 createdAt). 없으면 전체 조회.
+// 백엔드가 종료된 방에 대해 HTTP 200 + resultCode "200-3"을 반환하므로 closed 플래그로 구분.
 export async function apiGetMessages(
   roomId: string,
   after?: string,
+  _isRetry = false,
 ): Promise<{ msgs: ChatMsg[] | null; closed: boolean }> {
   const url = `/api/v1/rooms/${roomId}/messages${after ? `?after=${encodeURIComponent(after)}` : ""}`;
   const res = await fetch(url, {
@@ -308,13 +317,30 @@ export async function apiGetMessages(
     },
   });
   if (res.status === 204) return { msgs: null, closed: false };
-  const body = await res.json();
+
+  // accessToken 만료 시 한 번 재발급받고 재시도. 일시적 장애("unreachable")면
+  // 로그아웃시키지 않고 이번 폴링만 실패시켜 다음 폴링에서 다시 시도하게 둔다.
+  if (res.status === 401 || res.status === 403) {
+    if (!_isRetry) {
+      const result = await refreshAccessToken();
+      if (result === "ok") return apiGetMessages(roomId, after, true);
+      if (result === "unreachable") {
+        throw Object.assign(new Error("일시적으로 서버에 연결할 수 없습니다."), { status: res.status });
+      }
+    }
+    clearTokens();
+    if (typeof window !== "undefined") window.location.href = "/login";
+    throw Object.assign(new Error("로그인이 필요합니다."), { status: res.status });
+  }
+
+  const text = await res.text();
+  const body = text ? safeJsonParse(text) : null;
   if (!res.ok)
     throw Object.assign(new Error(body?.msg ?? res.statusText), {
       status: res.status,
     });
-  if (body.resultCode === "200-3") return { msgs: null, closed: true };
-  return { msgs: body.data as ChatMsg[] | null, closed: false };
+  if (body?.resultCode === "200-3") return { msgs: null, closed: true };
+  return { msgs: body?.data as ChatMsg[] | null, closed: false };
 }
 
 /* ── Notifications ──────────────────────────────────────────────── */
@@ -340,15 +366,29 @@ export function subscribeRoom(
     onRoomClosed?: () => void,
 ): Client {
   let isFirstConnect = true;
+  let refreshFailCount = 0;
+  const MAX_REFRESH_FAILURES = 3;
 
-  // 토큰을 JS가 들고 있지 않으므로 Authorization 헤더 없이 연결한다.
-  // 네이티브 WebSocket 핸드셰이크는 매 연결·재연결 시도마다(reconnectDelay 포함) 그 순간의
-  // accessToken 쿠키를 자동으로 실어 보내므로, 이전에 존재했던 "재연결 시 토큰이 클로저에
-  // 박혀 갱신 안 됨"·"소셜 로그인 사용자는 토큰이 없어 인증 실패" 문제가 애초에 발생하지
-  // 않는다 — 매번 그 시점의 쿠키로 새로 인증된다(CookieHandshakeInterceptor).
+  // Authorization 헤더 없이 쿠키로 인증한다. 연결/재연결 시도마다 먼저 accessToken을 갱신한다.
   const client = new Client({
     webSocketFactory: () => new SockJS(`${OAUTH_SERVER_BASE}/ws`),
     reconnectDelay: 3000,
+    beforeConnect: async () => {
+      const result = await refreshAccessToken();
+      if (result === "ok") {
+        refreshFailCount = 0;
+        return;
+      }
+      // unreachable(일시적 장애)이면 세션이 살아있을 수 있으니 카운트만 올리고 재시도한다.
+      // invalid(리프레시 토큰 자체 무효)면 바로 로그아웃 처리로 넘어간다.
+      refreshFailCount++;
+      if (result === "invalid" || refreshFailCount >= MAX_REFRESH_FAILURES) {
+        await client.deactivate();
+        clearTokens();
+        if (typeof window !== "undefined") window.location.href = "/login";
+      }
+      throw new Error("accessToken 갱신 실패");
+    },
     onConnect: () => {
       if(!isFirstConnect) {
         onReconnect?.();
