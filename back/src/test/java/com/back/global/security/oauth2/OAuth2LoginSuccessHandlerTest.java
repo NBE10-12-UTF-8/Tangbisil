@@ -61,7 +61,7 @@ class OAuth2LoginSuccessHandlerTest {
 
         // Then
         verify(rq).setCookie(eq("accessToken"), eq("access-token-value"), anyInt());
-        verify(rq).setCookie(eq("refreshToken"), anyString(), anyInt());
+        verify(rq).setCookie(eq("refreshToken"), anyString(), anyInt(), eq(Rq.REFRESH_TOKEN_COOKIE_PATH));
 
         String redirectedUrl = response.getRedirectedUrl();
         assertThat(redirectedUrl).isEqualTo(FRONTEND_BASE_URL + "/oauth/callback");
