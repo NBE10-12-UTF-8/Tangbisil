@@ -1,5 +1,9 @@
 plugins {
     java
+    kotlin("jvm") version "2.3.21"
+    kotlin("plugin.spring") version "2.3.21"
+    kotlin("plugin.jpa") version "2.3.21"
+    kotlin("plugin.lombok") version "2.3.21"
     id("org.springframework.boot") version "4.1.0"
     id("io.spring.dependency-management") version "1.1.7"
 }
@@ -11,6 +15,13 @@ description = "NBE10-12-2-UTF-8"
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+kotlin {
+    jvmToolchain(25)
+    compilerOptions {
+        freeCompilerArgs.add("-Xjsr305=strict")
     }
 }
 
@@ -55,6 +66,10 @@ dependencies {
     // Lombok
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
+
+    // Kotlin
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 
     // Dev
     developmentOnly("org.springframework.boot:spring-boot-devtools")
