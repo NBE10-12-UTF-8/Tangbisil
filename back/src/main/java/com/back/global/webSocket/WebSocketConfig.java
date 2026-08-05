@@ -15,6 +15,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     private final StompAuthChannelInterceptor stompAuthChannelInterceptor;
+    private final CookieHandshakeInterceptor cookieHandshakeInterceptor;
 
     @Value("${custom.cors.allowed-origins}")
     private String[] allowedOrigins;
@@ -23,6 +24,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(allowedOrigins)
+                .addInterceptors(cookieHandshakeInterceptor)
                 .withSockJS();
     }
 

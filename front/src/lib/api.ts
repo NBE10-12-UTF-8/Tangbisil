@@ -15,18 +15,12 @@ export const OAUTH_SERVER_BASE = (
 export const isValidEmail = (value: string) =>
   typeof value === "string" && !!value && isEmail(value);
 
-/* ── Token / admin storage ──────────────────────────────────────── */
-export const getToken = (): string | null =>
-  typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-
-export const setTokens = (accessToken: string, refreshToken: string) => {
-  localStorage.setItem("accessToken", accessToken);
-  localStorage.setItem("refreshToken", refreshToken);
-};
-
+/* ── Session / admin storage ────────────────────────────────────── */
+// 액세스·리프레시 토큰은 HttpOnly 쿠키로만 관리한다(JS가 값을 읽을 수 없음).
+// 여기 남은 localStorage 플래그들은 전부 "로그인/관리자 상태를 UI에 표시하기 위한
+// 힌트"일 뿐, 실제 인증에는 전혀 쓰이지 않는다 — 지워져도 다음 API 호출이 401을
+// 반환하면서 다시 로그인 페이지로 보내질 뿐이다.
 export const clearTokens = () => {
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
   localStorage.removeItem("isAdmin");
   localStorage.removeItem("hasSession");
 };
@@ -35,32 +29,13 @@ export const setAdmin = () => localStorage.setItem("isAdmin", "1");
 export const isAdmin = () =>
   typeof window !== "undefined" && localStorage.getItem("isAdmin") === "1";
 
-// OAuth 로그인은 accessToken을 localStorage에 저장하지 않고 쿠키로만 인증하므로,
-// getToken()만으로는 로그인 여부를 판단할 수 없다. OAuth 콜백에서 /me 조회에 성공하면
-// 이 플래그를 세워 로그인 상태를 표시한다.
+// 로그인/회원가입 성공(= 쿠키가 심어짐) 후 이 플래그를 세워 로그인 상태를 표시한다.
 export const markSession = () => localStorage.setItem("hasSession", "1");
 export const isLoggedIn = () =>
-  typeof window !== "undefined" &&
-  (!!getToken() || localStorage.getItem("hasSession") === "1");
+  typeof window !== "undefined" && localStorage.getItem("hasSession") === "1";
 
 // 정지된 계정으로 로그인 시 /me 페이지에 정지 안내를 띄우기 위한 1회성 플래그 키
 export const SUSPENDED_STORAGE_KEY = "tangbisil_suspended";
-
-// JWT의 role 클레임을 읽어 관리자 여부를 판별 (백엔드는 별도의 /me role 필드를 내려주지 않음)
-export const getRoleFromToken = (token: string): string | null => {
-  try {
-    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const json = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map((c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0"))
-        .join(""),
-    );
-    return (JSON.parse(json).role as string) ?? null;
-  } catch {
-    return null;
-  }
-};
 
 
 /* ── Industry mapping ────────────────────────────────────────────── */
@@ -88,25 +63,20 @@ const NO_REFRESH_RETRY_PATHS = [
 ];
 
 // 동시에 여러 요청이 401을 맞아도 재발급 호출은 한 번만 나가도록 공유하는 in-flight promise
-let refreshPromise: Promise<string | null> | null = null;
+let refreshPromise: Promise<boolean> | null = null;
 
-function refreshAccessToken(): Promise<string | null> {
+// 재발급된 accessToken은 서버가 쿠키로만 내려주므로(바디에 없음), 여기서는
+// 재발급 성공 여부만 반환한다 — 성공하면 브라우저가 새 쿠키를 이미 들고 있어
+// 원요청을 credentials:"include"로 그냥 재시도하면 된다.
+function refreshAccessToken(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = fetch(`${BASE}/api/v1/members/refresh`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
     })
-      .then(async (res) => {
-        if (!res.ok) return null;
-        const text = await res.text();
-        const body = text ? safeJsonParse(text) : null;
-        const token = body?.data?.accessToken as string | undefined;
-        if (!token) return null;
-        localStorage.setItem("accessToken", token);
-        return token;
-      })
-      .catch(() => null)
+      .then((res) => res.ok)
+      .catch(() => false)
       .finally(() => {
         refreshPromise = null;
       });
@@ -119,27 +89,23 @@ async function req<T>(
   options?: RequestInit,
   _isRetry = false,
 ): Promise<T> {
-  const token = getToken();
   const res = await fetch(`${BASE}${path}`, {
     ...options,
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options?.headers ?? {}),
     },
   });
 
   // accessToken 만료로 401을 받으면, 로그인 흐름 자체의 요청이 아닌 한
-  // refreshToken으로 한 번만 자동 재발급받아 원요청을 재시도한다.
-  // OAuth 로그인 사용자는 localStorage에 토큰이 없고 쿠키만으로 인증되므로
-  // token 존재 여부와 무관하게 재발급을 시도해야 한다.
+  // refreshToken 쿠키로 한 번만 자동 재발급받아 원요청을 재시도한다.
   // 재시도한 요청마저 401이면(리프레시 토큰/쿠키 만료 등) 세션이 완전히 끝난 것이므로
   // 여기서도 반드시 로컬 세션 정보를 정리하고 로그인 페이지로 보내야 한다.
   if (res.status === 401 && !NO_REFRESH_RETRY_PATHS.includes(path)) {
     if (!_isRetry) {
-      const newToken = await refreshAccessToken();
-      if (newToken) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
         return req<T>(path, options, true);
       }
     }
@@ -168,12 +134,13 @@ function safeJsonParse(text: string) {
 }
 
 /* ── Auth ───────────────────────────────────────────────────────── */
+// 토큰은 응답 바디가 아니라 HttpOnly 쿠키로만 내려온다 — 로그인 성공 여부와
+// 관리자 라우팅 판단에 필요한 최소 정보(/me와 동일한 모양)만 돌려받는다.
 export const apiLogin = (email: string, password: string) =>
   req<{
-    grantType: string;
-    accessToken: string;
-    refreshToken: string;
-    accessTokenExpiresIn: number;
+    email: string;
+    industry: string;
+    role: string;
   }>("/api/v1/members/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
@@ -226,10 +193,7 @@ export const apiConfirmPasswordReset = (
   });
 
 export const apiRefreshToken = () =>
-  req<{ grantType: string; accessToken: string; refreshToken: string; accessTokenExpiresIn: number }>(
-    "/api/v1/members/refresh",
-    { method: "POST" },
-  );
+  req<null>("/api/v1/members/refresh", { method: "POST" });
 
 export const apiGetMe = () =>
   req<{ email: string; industry: string | null; role: string }>(
@@ -336,13 +300,11 @@ export async function apiGetMessages(
   roomId: string,
   after?: string,
 ): Promise<{ msgs: ChatMsg[] | null; closed: boolean }> {
-  const token = getToken();
   const url = `/api/v1/rooms/${roomId}/messages${after ? `?after=${encodeURIComponent(after)}` : ""}`;
   const res = await fetch(url, {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
   if (res.status === 204) return { msgs: null, closed: false };
@@ -376,12 +338,13 @@ export function subscribeRoom(
     onReconnect?: () => void,
     onError?: (errorMsg: string) => void,
 ): Client {
-  const token = getToken();
   let isFirstConnect = true;
 
+  // 토큰을 JS가 들고 있지 않으므로 Authorization 헤더 없이 연결한다.
+  // 네이티브 WebSocket 핸드셰이크는 same-site(서브도메인) 쿠키를 자동으로 실어 보내므로,
+  // 백엔드가 그 쿠키(accessToken)로 CONNECT를 인증한다(CookieHandshakeInterceptor).
   const client = new Client({
     webSocketFactory: () => new SockJS(`${OAUTH_SERVER_BASE}/ws`),
-    connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
     reconnectDelay: 3000,
     onConnect: () => {
       if(!isFirstConnect) {

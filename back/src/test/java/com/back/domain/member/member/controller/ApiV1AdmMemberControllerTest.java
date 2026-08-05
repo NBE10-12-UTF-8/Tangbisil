@@ -33,29 +33,18 @@ public class ApiV1AdmMemberControllerTest {
     @Autowired
     private MemberRepository memberRepository;
 
+    // 로그인 응답 바디에는 더 이상 토큰이 실리지 않는다(HttpOnly 쿠키로만 내려감).
+    // 테스트에서 Bearer 헤더로 쓸 토큰은 발급 로직을 직접 호출해 받아온다.
+    private String getAccessToken(String email) {
+        Member member = memberRepository.findByEmail(email).orElseThrow();
+        return memberService.genAccessToken(member);
+    }
+
     @Test
     @DisplayName("관리자 회원 다건 조회")
     void t1() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "admin@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         // When
         ResultActions resultActions = mvc
@@ -80,25 +69,7 @@ public class ApiV1AdmMemberControllerTest {
     @DisplayName("관리자 회원 단건 조회")
     void t2() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "admin@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         // Given - 조회할 memberId 가져오기
         String membersResponse = mvc.perform(
@@ -141,25 +112,7 @@ public class ApiV1AdmMemberControllerTest {
     @DisplayName("관리자 회원 단건 조회 - 이메일로 조회")
     void t2_1() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                {
-                                     "email": "admin@test.com",
-                                     "password": "1234"
-                                }
-                                """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         Member target = memberService.joinWithoutEmailVerification("lookup_by_email@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
@@ -183,25 +136,7 @@ public class ApiV1AdmMemberControllerTest {
     @DisplayName("관리자 권한으로 일반 회원 정지 토글 성공")
     void t3() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "admin@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         // Given - 정지시킬 일반 회원 가입
         Member user = memberService.joinWithoutEmailVerification("user_suspend_adm@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
@@ -230,25 +165,7 @@ public class ApiV1AdmMemberControllerTest {
         Member user1 = memberService.joinWithoutEmailVerification("user1_susp_adm@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
         Member user2 = memberService.joinWithoutEmailVerification("user2_susp_adm@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "user1_susp_adm@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("user1_susp_adm@test.com");
 
         // When
         ResultActions resultActions = mvc
@@ -266,25 +183,7 @@ public class ApiV1AdmMemberControllerTest {
     @DisplayName("관리자가 자기 자신을 제재하려고 시도할 시 400 Bad Request 실패")
     void t5() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "admin@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         Member admin = memberService.findByEmail("admin@test.com").orElseThrow();
 
@@ -309,25 +208,7 @@ public class ApiV1AdmMemberControllerTest {
         // Given - 일반 회원 가입 및 로그인 후, 정지 상태로 변경
         Member user = memberService.joinWithoutEmailVerification("user_blocked_adm@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "user_blocked_adm@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("user_blocked_adm@test.com");
 
         // 강제로 회원을 정지 상태로 DB 수정 (토글 활용)
         user.toggleSuspended();
@@ -350,25 +231,7 @@ public class ApiV1AdmMemberControllerTest {
     void t7() throws Exception {
         Member user = memberService.joinWithoutEmailVerification("user_susp_logout@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "user_susp_logout@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("user_susp_logout@test.com");
 
         user.toggleSuspended();
         memberRepository.saveAndFlush(user);
@@ -388,25 +251,7 @@ public class ApiV1AdmMemberControllerTest {
     void t8() throws Exception {
         Member user = memberService.joinWithoutEmailVerification("user_susp_patch@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "user_susp_patch@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("user_susp_patch@test.com");
 
         user.toggleSuspended();
         memberRepository.saveAndFlush(user);
@@ -434,25 +279,7 @@ public class ApiV1AdmMemberControllerTest {
     void t9() throws Exception {
         Member user = memberService.joinWithoutEmailVerification("user_susp_delete@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "user_susp_delete@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("user_susp_delete@test.com");
 
         user.toggleSuspended();
         memberRepository.saveAndFlush(user);
@@ -474,25 +301,7 @@ public class ApiV1AdmMemberControllerTest {
     void t10() throws Exception {
         Member user = memberService.joinWithoutEmailVerification("user_susp_blocked_other@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
 
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "user_susp_blocked_other@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("user_susp_blocked_other@test.com");
 
         user.toggleSuspended();
         memberRepository.saveAndFlush(user);
@@ -513,25 +322,7 @@ public class ApiV1AdmMemberControllerTest {
     @DisplayName("관리자용 회원 목록 isSuspended=true 필터링 조회 성공")
     void t11() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "admin@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         // Given - 정지 상태인 검증용 회원 생성
         Member suspended = memberService.joinWithoutEmailVerification("suspended_t11@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");
@@ -561,25 +352,7 @@ public class ApiV1AdmMemberControllerTest {
     @DisplayName("관리자용 회원 목록 isSuspended=false 필터링 조회 성공")
     void t12() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "admin@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         // Given - 정상(비정지) 상태인 검증용 회원 생성
         memberService.joinWithoutEmailVerification("active_t12@test.com", "1234", com.back.domain.member.member.entity.Industry.IT, "USER");

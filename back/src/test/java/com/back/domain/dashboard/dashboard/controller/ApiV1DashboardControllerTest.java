@@ -88,26 +88,8 @@ public class ApiV1DashboardControllerTest {
     @Test
     @DisplayName("관리자 대시보드 통계 조회")
     void t1() throws Exception {
-        // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                        {
-                                             "email": "admin@test.com",
-                                             "password": "1234"
-                                        }
-                                        """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        // Given - 관리자 로그인 (토큰은 응답 바디가 아니라 쿠키로 내려오므로, 발급 로직을 직접 호출)
+        String accessToken = loginAndGetToken("admin@test.com");
 
         // When
         ResultActions resultActions = mvc
@@ -174,26 +156,10 @@ public class ApiV1DashboardControllerTest {
                         .andExpect(jsonPath("$.data.recentMatchLogs[0].matchedAt").exists()));
     }
 
-    private String loginAndGetToken(String email) throws Exception {
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                        {
-                                             "email": "%s",
-                                             "password": "1234"
-                                        }
-                                        """.formatted(email))
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        return new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+    // 로그인 응답 바디에는 더 이상 토큰이 실리지 않는다(HttpOnly 쿠키로만 내려감).
+    private String loginAndGetToken(String email) {
+        Member member = memberRepository.findByEmail(email).orElseThrow();
+        return memberService.genAccessToken(member);
     }
 
     @Test

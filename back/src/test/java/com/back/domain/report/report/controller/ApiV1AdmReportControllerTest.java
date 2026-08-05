@@ -65,29 +65,18 @@ public class ApiV1AdmReportControllerTest {
     @Autowired
     private MemberRepository memberRepository;
 
+    // 로그인 응답 바디에는 더 이상 토큰이 실리지 않는다(HttpOnly 쿠키로만 내려감).
+    // 테스트에서 Bearer 헤더로 쓸 토큰은 발급 로직을 직접 호출해 받아온다.
+    private String getAccessToken(String email) {
+        Member member = memberRepository.findByEmail(email).orElseThrow();
+        return memberService.genAccessToken(member);
+    }
+
     @Test
     @DisplayName("관리자용 신고 목록 페이징 조회 성공")
     void t1() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "admin@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         // Given - 1건의 신고 데이터 임의 적재
         Member reporter = memberService.joinWithoutEmailVerification("reporter_list@test.com", "1234", Industry.IT, "USER");
@@ -125,25 +114,7 @@ public class ApiV1AdmReportControllerTest {
         // Given - 일반 회원 가입 및 로그인
         Member user = memberService.joinWithoutEmailVerification("normal_user@test.com", "1234", Industry.IT, "USER");
 
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "normal_user@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("normal_user@test.com");
 
         // When - 어드민 신고 API 목록 조회 요청
         ResultActions resultActions = mvc
@@ -161,25 +132,7 @@ public class ApiV1AdmReportControllerTest {
     @DisplayName("특정 신고의 증거 상세 대화 조회 및 가독성 라벨링 치환 검증 성공")
     void t3() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "admin@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         // Given - 신고자, 피신고자, 참여자 계정 생성
         Member reporter = memberService.joinWithoutEmailVerification("reporter_detail@test.com", "1234", Industry.IT, "USER");
@@ -237,25 +190,7 @@ public class ApiV1AdmReportControllerTest {
     @DisplayName("관리자용 신고서 처리 상태 수정 토글 성공 (PENDING -> PROCESSED)")
     void t4() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "admin@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         // Given - 임시 신고 데이터 생성 (기본 PENDING)
         Member reporter = memberService.joinWithoutEmailVerification("reporter_toggle@test.com", "1234", Industry.IT, "USER");
@@ -286,25 +221,7 @@ public class ApiV1AdmReportControllerTest {
         // Given - 일반 회원 가입 및 로그인
         Member user = memberService.joinWithoutEmailVerification("normal_toggle_user@test.com", "1234", Industry.IT, "USER");
 
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "normal_toggle_user@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("normal_toggle_user@test.com");
 
         // Given - 임시 신고 데이터 생성
         Member reporter = memberService.joinWithoutEmailVerification("reporter_toggle_fail@test.com", "1234", Industry.IT, "USER");
@@ -328,25 +245,7 @@ public class ApiV1AdmReportControllerTest {
     @DisplayName("존재하지 않는 신고 ID로 처리 상태 수정 요청 시 404-1 에러 반환")
     void t6() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "admin@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         // Given - 임의의 존재하지 않는 신고 ID 생성
         UUID nonExistentId = UUID.randomUUID();
@@ -370,25 +269,7 @@ public class ApiV1AdmReportControllerTest {
     @DisplayName("관리자용 신고 목록 PENDING 필터링 조회 성공")
     void t7() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "admin@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         // Given - PENDING 상태인 검증용 데이터 직접 생성
         Member reporter = memberService.joinWithoutEmailVerification("reporter_t7@test.com", "1234", Industry.IT, "USER");
@@ -419,25 +300,7 @@ public class ApiV1AdmReportControllerTest {
     @DisplayName("관리자용 신고 목록 PROCESSED 필터링 조회 성공")
     void t8() throws Exception {
         // Given - 관리자 로그인
-        String loginResponse = mvc.perform(
-                        post("/api/v1/members/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                    {
-                                         "email": "admin@test.com",
-                                         "password": "1234"
-                                    }
-                                    """)
-                )
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+        String accessToken = getAccessToken("admin@test.com");
 
         // Given - PROCESSED 상태인 검증용 데이터 직접 생성
         Member reporter = memberService.joinWithoutEmailVerification("reporter_t8@test.com", "1234", Industry.IT, "USER");

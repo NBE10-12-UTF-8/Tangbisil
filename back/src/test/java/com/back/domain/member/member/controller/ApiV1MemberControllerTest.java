@@ -168,15 +168,17 @@ public class ApiV1MemberControllerTest {
                 )
                 .andDo(print());
 
-        // Then
+        // Then - 토큰은 응답 바디가 아니라 HttpOnly 쿠키로만 내려간다
         resultActions
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
                 .andExpect(jsonPath("$.msg").value("로그인 생성 성공"))
-                .andExpect(jsonPath("$.data.grantType").value("Bearer"))
-                .andExpect(jsonPath("$.data.accessToken").exists())
-                .andExpect(jsonPath("$.data.refreshToken").exists())
-                .andExpect(jsonPath("$.data.accessTokenExpiresIn").exists());
+                .andExpect(jsonPath("$.data.email").value("test@test.com"))
+                .andExpect(jsonPath("$.data.industry").value("IT/개발"))
+                .andExpect(cookie().exists("accessToken"))
+                .andExpect(cookie().exists("refreshToken"))
+                .andExpect(cookie().httpOnly("accessToken", true))
+                .andExpect(cookie().httpOnly("refreshToken", true));
     }
 
     @Test
@@ -243,8 +245,8 @@ public class ApiV1MemberControllerTest {
                             """)
         );
 
-        // Given - 로그인 선행
-        String loginResponse = mvc.perform(
+        // Given - 로그인 선행 (토큰은 응답 바디가 아니라 쿠키로 내려온다)
+        Cookie accessTokenCookie = mvc.perform(
                         post("/api/v1/members/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
@@ -256,19 +258,13 @@ public class ApiV1MemberControllerTest {
                 )
                 .andReturn()
                 .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+                .getCookie("accessToken");
 
         // When
         ResultActions resultActions = mvc
                 .perform(
                         post("/api/v1/members/logout")
-                                .header("Authorization", "Bearer " + accessToken)
+                                .cookie(accessTokenCookie)
                 )
                 .andDo(print());
 
@@ -298,7 +294,7 @@ public class ApiV1MemberControllerTest {
         );
 
         // Given - 로그인 선행
-        String loginResponse = mvc.perform(
+        Cookie accessTokenCookie = mvc.perform(
                         post("/api/v1/members/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
@@ -310,19 +306,13 @@ public class ApiV1MemberControllerTest {
                 )
                 .andReturn()
                 .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+                .getCookie("accessToken");
 
         // When
         ResultActions resultActions = mvc
                 .perform(
                         get("/api/v1/members/me")
-                                .header("Authorization", "Bearer " + accessToken)
+                                .cookie(accessTokenCookie)
                 )
                 .andDo(print());
 
@@ -353,8 +343,8 @@ public class ApiV1MemberControllerTest {
                             """)
         );
 
-        // Given - 로그인 선행
-        String loginResponse = mvc.perform(
+        // Given - 로그인 선행 (토큰은 응답 바디가 아니라 쿠키로 내려온다)
+        Cookie accessTokenCookie = mvc.perform(
                         post("/api/v1/members/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
@@ -366,19 +356,13 @@ public class ApiV1MemberControllerTest {
                 )
                 .andReturn()
                 .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+                .getCookie("accessToken");
 
         // When
         ResultActions resultActions = mvc
                 .perform(
                         patch("/api/v1/members/me")
-                                .header("Authorization", "Bearer " + accessToken)
+                                .cookie(accessTokenCookie)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
                                     {
@@ -560,8 +544,8 @@ public class ApiV1MemberControllerTest {
                             """)
         );
 
-        // Given - 로그인 선행
-        String loginResponse = mvc.perform(
+        // Given - 로그인 선행 (토큰은 응답 바디가 아니라 쿠키로 내려온다)
+        Cookie accessTokenCookie = mvc.perform(
                         post("/api/v1/members/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
@@ -573,19 +557,13 @@ public class ApiV1MemberControllerTest {
                 )
                 .andReturn()
                 .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+                .getCookie("accessToken");
 
         // When
         ResultActions resultActions = mvc
                 .perform(
                         delete("/api/v1/members/me")
-                                .header("Authorization", "Bearer " + accessToken)
+                                .cookie(accessTokenCookie)
                 )
                 .andDo(print());
 
@@ -619,14 +597,13 @@ public class ApiV1MemberControllerTest {
                         .cookie(cookie)
         ).andDo(print());
 
-        // then
+        // then - 새 accessToken은 응답 바디가 아니라 쿠키로만 내려간다
         resultActions
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
                 .andExpect(jsonPath("$.msg").value("AccessToken 재발급 성공"))
-                .andExpect(jsonPath("$.data.accessToken").exists())
-                .andExpect(jsonPath("$.data.refreshToken")
-                        .value(refreshToken.toString()));
+                .andExpect(cookie().exists("accessToken"))
+                .andExpect(cookie().httpOnly("accessToken", true));
     }
     @Test
     @DisplayName("RefreshToken 없으면 401")
@@ -676,8 +653,8 @@ public class ApiV1MemberControllerTest {
                             """)
         );
 
-        // Given - 로그인 선행
-        String loginResponse = mvc.perform(
+        // Given - 로그인 선행 (토큰은 응답 바디가 아니라 쿠키로 내려온다)
+        Cookie accessTokenCookie = mvc.perform(
                         post("/api/v1/members/login")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
@@ -689,19 +666,13 @@ public class ApiV1MemberControllerTest {
                 )
                 .andReturn()
                 .getResponse()
-                .getContentAsString();
-
-        String accessToken = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(loginResponse)
-                .path("data")
-                .path("accessToken")
-                .asText();
+                .getCookie("accessToken");
 
         // When
         ResultActions resultActions = mvc
                 .perform(
                         get("/api/v1/members/me")
-                                .header("Authorization", "Bearer " + accessToken)
+                                .cookie(accessTokenCookie)
                 )
                 .andDo(print());
 
