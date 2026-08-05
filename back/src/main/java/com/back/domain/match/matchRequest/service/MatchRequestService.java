@@ -174,7 +174,7 @@ public class MatchRequestService {
     // self-invocation은 프록시를 안 거쳐 위 NOT_SUPPORTED가 적용 안 되므로, 이 메서드도 동일하게 막아둔다.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void tryMatch(MatchRequest matchRequestParam) {
-        tryMatch(matchRequestParam.getUuid(), matchRequestParam.getMember().getIndustry());
+        tryMatch(matchRequestParam.getUuid());
     }
 
     // 분산 락을 쥔 상태에서 대기자를 연속으로 이어 매칭하는 배치 루프. 최초 트리거된 요청을 먼저
