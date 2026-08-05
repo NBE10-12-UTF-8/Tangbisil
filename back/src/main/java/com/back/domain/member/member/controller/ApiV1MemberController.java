@@ -104,7 +104,8 @@ public class ApiV1MemberController {
         rq.setCookie(
                 "refreshToken",
                 refreshToken.toString(),
-                refreshTokenExpirationSeconds
+                refreshTokenExpirationSeconds,
+                Rq.REFRESH_TOKEN_COOKIE_PATH
         );
 
         // 토큰은 HttpOnly 쿠키로만 내려간다. 응답 바디에 실으면 프론트가 JS(localStorage 등)에
@@ -124,7 +125,7 @@ public class ApiV1MemberController {
         Member actor = rq.getActor();
         memberService.clearRefreshToken(actor);
         rq.deleteCookie("accessToken");
-        rq.deleteCookie("refreshToken");
+        rq.deleteCookie("refreshToken", Rq.REFRESH_TOKEN_COOKIE_PATH);
 
         return new RsData<>(
                 "200-1",
@@ -181,7 +182,7 @@ public class ApiV1MemberController {
         Member actor = rq.getActor();
         memberService.delete(actor);
         rq.deleteCookie("accessToken");
-        rq.deleteCookie("refreshToken");
+        rq.deleteCookie("refreshToken", Rq.REFRESH_TOKEN_COOKIE_PATH);
 
         return new RsData<>(
                 "200-1",

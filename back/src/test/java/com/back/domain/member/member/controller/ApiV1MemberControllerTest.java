@@ -178,7 +178,10 @@ public class ApiV1MemberControllerTest {
                 .andExpect(cookie().exists("accessToken"))
                 .andExpect(cookie().exists("refreshToken"))
                 .andExpect(cookie().httpOnly("accessToken", true))
-                .andExpect(cookie().httpOnly("refreshToken", true));
+                .andExpect(cookie().httpOnly("refreshToken", true))
+                // refreshToken은 /refresh 요청에만 실려야 한다 - Path를 넓게 두면
+                // XSS가 터졌을 때 다른 모든 요청에도 이 쿠키가 자동으로 따라붙는다.
+                .andExpect(cookie().path("refreshToken", "/api/v1/members/refresh"));
     }
 
     @Test
