@@ -735,6 +735,52 @@ public class ApiV1MemberControllerTest {
     }
 
     @Test
+    @DisplayName("로그인으로 발급받은 refreshToken 쿠키로 AccessToken을 재발급받을 수 있다")
+    void t19() throws Exception {
+        preVerifyEmail("test@test.com");
+        mvc.perform(
+                post("/api/v1/members/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                     "email": "test@test.com",
+                                     "password": "1234",
+                                     "industry": "IT/개발",
+                                     "agreedToTerms": true
+                                }
+                                """)
+        );
+
+        // Given - 로그인해서 refreshToken 쿠키 발급
+        ResultActions loginResult = mvc.perform(
+                post("/api/v1/members/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                     "email": "test@test.com",
+                                     "password": "1234"
+                                }
+                                """)
+        );
+        Cookie refreshTokenCookie = loginResult.andReturn().getResponse().getCookie("refreshToken");
+        assertThat(refreshTokenCookie).isNotNull();
+
+        // When - 그 refreshToken 쿠키로 재발급 요청
+        ResultActions resultActions = mvc
+                .perform(
+                        post("/api/v1/members/refresh")
+                                .cookie(refreshTokenCookie)
+                )
+                .andDo(print());
+
+        // Then
+        resultActions
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.data.accessToken").exists());
+    }
+
+    @Test
     @DisplayName("같은 이메일로 로그인을 5번 연속 실패하면, 비밀번호가 맞아도 6번째부터는 429로 차단된다")
     void t21() throws Exception {
         preVerifyEmail("brute-force-test@test.com");

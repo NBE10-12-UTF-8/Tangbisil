@@ -3,12 +3,14 @@ package com.back.domain.chat.chatRoom.service;
 import com.back.domain.bot.BotAccounts;
 import com.back.domain.chat.chatRoom.entity.ChatRoom;
 import com.back.domain.chat.chatRoom.entity.ChatRoomStatus;
+import com.back.domain.chat.chatRoom.event.ChatRoomClosedEvent;
 import com.back.domain.chat.chatRoom.repository.ChatRoomRepository;
 import com.back.domain.chat.chatRoomParticipant.entity.ChatRoomParticipant;
 import com.back.domain.chat.chatRoomParticipant.service.ChatRoomParticipantService;
 import com.back.global.exception.ServiceException;
 import com.back.domain.member.member.entity.Member;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -26,6 +28,7 @@ public class ChatRoomService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomParticipantService chatRoomParticipantService;
     private final RedisTemplate<String, String> redisTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ChatRoom getChatRoom(UUID roomId) {
         return chatRoomRepository.findByUuid(roomId)
@@ -65,6 +68,18 @@ public class ChatRoomService {
         } catch (Exception e) {
             log.error("대화방 종료 후 Redis 캐시 삭제 실패 - roomId: {}", roomId, e);
         }
+
+        // 상대방은 이 요청을 모르므로, 직접 메시지를 보내야만 종료를 알게 되는 걸 막기 위해
+        // 실시간으로 알려준다. WebSocket 브로드캐스트는 커밋 이후 비동기로 처리해야 하므로
+        // (ChatMessageEventHandler와 동일한 패턴) 여기선 직접 보내지 않고 이벤트만 발행한다 —
+        // ChatRoomService가 SimpMessagingTemplate을 직접 물면 WebSocketConfig(→
+        // StompAuthChannelInterceptor→MemberService→MatchRequestService→ChatRoomService)로
+        // 이어지는 빈 순환참조가 생긴다.
+        List<String> otherMemberUuids = chatRoomParticipantService.getParticipants(chatRoom.getId()).stream()
+                .filter(p -> !p.getMember().getId().equals(actor.getId()))
+                .map(p -> p.getMember().getUuid().toString())
+                .toList();
+        eventPublisher.publishEvent(new ChatRoomClosedEvent(chatRoom.getUuid(), otherMemberUuids));
 
         return chatRoom;
     }
