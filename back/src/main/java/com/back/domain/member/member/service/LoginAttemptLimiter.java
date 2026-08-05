@@ -27,7 +27,7 @@ public class LoginAttemptLimiter {
     public void recordFailure(String email) {
         String key = key(email);
         Long attempts = redisTemplate.opsForValue().increment(key);
-        if (attempts != null && attempts == 1L) {
+        if (attempts != null && (attempts == 1L || redisTemplate.getExpire(key) < 0)) {
             redisTemplate.expire(key, WINDOW);
         }
     }

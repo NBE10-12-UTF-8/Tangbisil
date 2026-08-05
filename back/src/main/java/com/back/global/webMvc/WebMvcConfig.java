@@ -10,7 +10,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry
                 .addMapping("/api/**")
-                .allowedOrigins("http://localhost:3000", "https://tangbisil-production.up.railway.app")
+                .allowedOrigins(
+                        "http://localhost:3000",
+                        "https://tangbisil-production.up.railway.app",
+                        "https://nbe10-12-2-utf-8.vercel.app",
+                        "https://tangbisil.vercel.app",
+                        "https://tangbisil.kro.kr",
+                        "https://tangbisil-one.vercel.app"
+                )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH")
                 .allowedHeaders("*")
                 .allowCredentials(true);
