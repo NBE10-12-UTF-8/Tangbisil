@@ -70,7 +70,7 @@ class TrendKeywordServiceTest {
 
         // 원점수만 보면 장마>태풍>우산이지만, 장마-태풍의 NPMI가 높아 태풍이 감점되어
         // 장마-우산의 낮은 NPMI 덕에 상대적으로 덜 깎인 우산이 태풍보다 먼저 나온다.
-        assertThat(result).extracting(RankedKeywordDto::keyword)
+        assertThat(result).extracting(RankedKeywordDto::getKeyword)
                 .containsExactly("장마", "우산", "태풍");
     }
 

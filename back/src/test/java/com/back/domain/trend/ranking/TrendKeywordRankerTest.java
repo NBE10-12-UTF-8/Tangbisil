@@ -54,13 +54,13 @@ class TrendKeywordRankerTest {
         List<RankedKeywordDto> result = trendKeywordRanker.rank(TARGET_DATE, 10);
 
         assertThat(result).hasSize(2);
-        assertThat(result.get(0).keyword()).isEqualTo("장마");
-        assertThat(result.get(0).frequency()).isEqualTo(50);
-        assertThat(result.get(0).zScore()).isCloseTo(5.244, offset(0.01));
+        assertThat(result.get(0).getKeyword()).isEqualTo("장마");
+        assertThat(result.get(0).getFrequency()).isEqualTo(50);
+        assertThat(result.get(0).getZScore()).isCloseTo(5.244, offset(0.01));
 
-        assertThat(result.get(1).keyword()).isEqualTo("우산");
-        assertThat(result.get(1).frequency()).isEqualTo(20);
-        assertThat(result.get(1).zScore()).isCloseTo(4.496, offset(0.01));
+        assertThat(result.get(1).getKeyword()).isEqualTo("우산");
+        assertThat(result.get(1).getFrequency()).isEqualTo(20);
+        assertThat(result.get(1).getZScore()).isCloseTo(4.496, offset(0.01));
     }
 
     @Test
@@ -79,7 +79,7 @@ class TrendKeywordRankerTest {
         List<RankedKeywordDto> result = trendKeywordRanker.rank(TARGET_DATE, 2);
 
         assertThat(result).hasSize(2);
-        assertThat(result).extracting(RankedKeywordDto::keyword)
+        assertThat(result).extracting(RankedKeywordDto::getKeyword)
                 .containsExactly("A", "B");
     }
 
@@ -104,7 +104,7 @@ class TrendKeywordRankerTest {
         List<RankedKeywordDto> result = trendKeywordRanker.rank(TARGET_DATE, 10);
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).keyword()).isEqualTo("장마");
-        assertThat(result.get(0).zScore()).isZero();
+        assertThat(result.get(0).getKeyword()).isEqualTo("장마");
+        assertThat(result.get(0).getZScore()).isZero();
     }
 }
