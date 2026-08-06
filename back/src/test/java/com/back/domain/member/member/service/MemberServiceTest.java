@@ -37,6 +37,6 @@ class MemberServiceTest {
         UUID token = memberService.genRefreshToken(member);
 
         // Then
-        assertThat(memberRepository.findByRefreshToken(token)).isPresent();
+        assertThat(memberRepository.findByRefreshToken(token)).isNotNull();
     }
 }

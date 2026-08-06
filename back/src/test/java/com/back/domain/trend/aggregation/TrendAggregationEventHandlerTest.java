@@ -13,6 +13,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
@@ -54,7 +55,7 @@ class TrendAggregationEventHandlerTest {
 
     private ChatMessageSentEvent eventFrom(UUID senderParticipantId, String content) {
         RedisChatMessageDto dto = new RedisChatMessageDto(
-                UUID.randomUUID(), UUID.randomUUID(), "익명", senderParticipantId, content, null);
+                UUID.randomUUID(), UUID.randomUUID(), "익명", senderParticipantId, content, LocalDateTime.now());
         return new ChatMessageSentEvent(dto, List.of());
     }
 

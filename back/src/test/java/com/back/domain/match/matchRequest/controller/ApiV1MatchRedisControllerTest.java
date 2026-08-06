@@ -234,7 +234,7 @@ public class ApiV1MatchRedisControllerTest {
         UUID matchRequestId = UUID.fromString(
                 new ObjectMapper().readTree(createResponse).path("data").path("matchRequestId").asText());
 
-        assertThat(matchRequestRepository.findByUuid(matchRequestId)).isPresent();
+        assertThat(matchRequestRepository.findByUuid(matchRequestId)).isNotNull();
 
         MatchingOutbox outbox = matchingOutboxRepository.findAll().stream()
                 .filter(o -> o.getMatchRequestId().equals(matchRequestId))
