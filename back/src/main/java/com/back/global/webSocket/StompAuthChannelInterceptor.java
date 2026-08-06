@@ -106,8 +106,10 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                 throw new AccessDeniedException("유효하지 않은 구독 경로입니다.");
             }
 
-            ChatRoom room = chatRoomRepository.findByUuid(roomId)
-                    .orElseThrow(() -> new AccessDeniedException("존재하지 않는 채팅방입니다."));
+            ChatRoom room = chatRoomRepository.findByUuid(roomId);
+            if (room == null) {
+                throw new AccessDeniedException("존재하지 않는 채팅방입니다.");
+            }
             Member member = memberService.findByUuid(memberId)
                     .orElseThrow(() -> new AccessDeniedException("존재하지 않는 회원입니다."));
 

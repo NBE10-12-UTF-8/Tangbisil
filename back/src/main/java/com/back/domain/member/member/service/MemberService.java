@@ -179,7 +179,7 @@ public class MemberService {
         if (matchRequestService.hasPendingRequest(findMember)) {
             throw new ServiceException("409-2", "진행 중인 매칭 요청이 있어 탈퇴할 수 없습니다. 매칭을 취소한 뒤 다시 시도해주세요.");
         }
-        if (chatRoomParticipantService.findActiveChatRoomByMember(findMember).isPresent()) {
+        if (chatRoomParticipantService.findActiveChatRoomByMember(findMember) != null) {
             throw new ServiceException("409-3", "진행 중인 채팅방이 있어 탈퇴할 수 없습니다. 채팅을 종료한 뒤 다시 시도해주세요.");
         }
 

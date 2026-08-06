@@ -66,7 +66,7 @@ public class StompChatControllerTest {
         Long chatRoomLongId = 1L;
         when(mockChatRoom.getId()).thenReturn(chatRoomLongId);
         when(memberService.findByUuid(memberId)).thenReturn(Optional.of(mockMember));
-        when(chatRoomRepository.findByUuid(roomId)).thenReturn(Optional.of(mockChatRoom));
+        when(chatRoomRepository.findByUuid(roomId)).thenReturn(mockChatRoom);
 
         ChatRoomMessageRequestDto requestDto = mock(ChatRoomMessageRequestDto.class);
         when(requestDto.getContent()).thenReturn(content);
