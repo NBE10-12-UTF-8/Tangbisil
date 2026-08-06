@@ -21,14 +21,14 @@
 | 🔥 실시간 HOT 키워드 | 전일 대화를 매일 새벽 배치로 집계(Flyway 스냅샷 테이블) → Lucene Nori 형태소 분석으로 명사 추출 → NPMI 동시출현 점수 + Z-score 트렌드 점수 산출 → MMR로 유사 키워드 중복을 줄인 TOP 10 제공. Redis SET 기반 지문(fingerprint)으로 도배성 중복 메시지는 집계에서 제외 |
 | 🛡️ 신고 및 제재 | 신고 시 이전 대화 30개 비동기 자동 백업(원본 삭제 대비 FK 미사용 스냅샷), 관리자 확인 후 계정 정지 — 인증 필터에서 실시간 차단 |
 | 📊 관리자 대시보드 | 가입자·매칭·활성 채팅방 실시간 통계, 이메일 검색, 신고 처리 상태 관리 |
-| 🔑 인증 | JWT(Access/Refresh)를 HttpOnly 쿠키로만 관리(Refresh는 `/refresh` 경로로 스코프 제한), 카카오·구글 OAuth — 1회용 code 교환 방식으로 토큰 노출 방지 |
+| 🔑 인증 | JWT(Access/Refresh)를 HttpOnly 쿠키로만 관리(Refresh는 /refresh 경로로 스코프 제한), 카카오·구글 OAuth — 로그인 성공 시 서버가 바로 쿠키에 토큰을 적재해 리다이렉트(별도 code 교환 단계 없이 URL·응답 바디에 토큰 노출 없음) |
 | ✉️ 이메일 인증·비밀번호 재설정 | 회원가입 시 이메일 인증 토큰 발송, 비밀번호 재설정도 이메일 토큰 기반. 만료 토큰은 스케줄러가 정리 |
 
 ## 익명성 설계
 
 - 수집 정보는 **이메일·비밀번호·산업군뿐** — 실명·회사명·연락처 없음
 - 이메일 등 신원 정보는 MEMBER 테이블에만 존재, 매칭·채팅·신고 등 활동 테이블은 UUID 식별자로만 연결
-- 내부 PK는 Long(성능·인덱스 효율)으로 관리하되, 외부에 노출되는 공개 식별자는 별도 `uuid` 필드로 분리해 열거 공격 차단 (Flyway 마이그레이션으로 전 엔티티 전환 완료)
+- 내부 PK는 Long(성능·인덱스 효율)으로 관리하되, 외부에 노출되는 공개 식별자는 별도 uuid 필드로 분리해 열거 공격 차단 (Flyway 마이그레이션 V10~V19로 전 엔티티 전환 완료)
 - 매칭 이력에는 날짜·산업군·상황만 남고 대화 내용은 저장하지 않음
 
 ## 기술 스택
@@ -41,7 +41,7 @@
 | Cache/Lock | Redis (Cache-Aside, 메시지 중복 방지 SET), Redisson (분산 락) |
 | 검색/분석 | Apache Lucene Nori (한국어 형태소 분석 · 트렌드 키워드 추출) |
 | AI | Groq API (OpenAI 호환 Chat Completions, llama 3.3 70B) |
-| Infra | Docker, GitHub Actions, Railway |
+| Infra | Docker, GitHub Actions (Docker Hub 푸시 → AWS SSM으로 EC2 배포) |
 | 모니터링·테스트 | Spring Actuator, Prometheus, Grafana, JMeter |
 
 ## 시스템 아키텍처
@@ -52,7 +52,7 @@
                                                                     │        └──▶ Redis (캐시·락·중복방지)
                                                                     └──▶ Groq API (AI 봇 응답)
 
-개발자 ──push──▶ GitHub ──▶ GitHub Actions (Docker 빌드) ──▶ Railway 자동 배포
+개발자 ──push──▶ GitHub ──▶ GitHub Actions (Docker 빌드·Docker Hub 푸시) ──▶ AWS SSM ──▶ EC2 자동 배포
 ```
 
 ## 성능 검증
