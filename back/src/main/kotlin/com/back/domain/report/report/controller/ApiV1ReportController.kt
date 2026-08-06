@@ -3,6 +3,7 @@ package com.back.domain.report.report.controller
 import com.back.domain.report.report.dto.ReportRequestDto
 import com.back.domain.report.report.dto.ReportResponseDto
 import com.back.domain.report.report.service.ReportService
+import com.back.global.exception.ServiceException
 import com.back.global.rq.Rq
 import com.back.global.rsData.RsData
 import io.swagger.v3.oas.annotations.Operation
@@ -28,7 +29,7 @@ class ApiV1ReportController(
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "신고 접수")
     fun createReport(@RequestBody @Valid requestDto: ReportRequestDto): RsData<ReportResponseDto> {
-        val actor = rq.actor
+        val actor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
 
         val report = reportService.createReport(
             actor,

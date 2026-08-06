@@ -60,7 +60,7 @@ class ApiV1AdmMemberController(
     @PatchMapping("/{memberId}/suspend")
     @Operation(summary = "회원 제재 상태 변경")
     fun toggleMemberSuspension(@PathVariable memberId: UUID): RsData<MemberAdmDto> {
-        val adminActor = rq.actor
+        val adminActor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
 
         val responseDto = memberService.toggleMemberSuspension(memberId, adminActor)
 

@@ -78,7 +78,7 @@ class ChatMessageService(
         if (!sender.email.isBotEmail()) {
             participants.map { it.member }
                 .firstOrNull { it.email.isBotEmail() }
-                ?.let { bot -> eventPublisher.publishEvent(BotReplyTriggerEvent(roomId, bot.id)) }
+                ?.let { bot -> eventPublisher.publishEvent(BotReplyTriggerEvent(roomId, bot.id!!)) }
         }
 
         return ChatRoomMessageResponseDto(message, sender.uuid)
@@ -91,7 +91,7 @@ class ChatMessageService(
     fun getMessagesBeforeTarget(roomId: Long, targetMessageId: UUID): List<ChatMessage> {
         val targetMessage = getMessage(targetMessageId)
         return chatMessageRepository.findTop30ByChatRoomIdAndCreatedAtLessThanEqualOrderByCreatedAtDesc(
-            roomId, targetMessage.createdAt
+            roomId, targetMessage.createdAt!!
         )
     }
 
@@ -102,7 +102,7 @@ class ChatMessageService(
         val chatRoom = chatRoomRepository.findById(roomId)
             .orElseThrow { ServiceException("404-1", "채팅방을 찾을 수 없습니다.") }
         val requesterParticipantId = chatRoomParticipantRepository
-            .findByChatRoomIdAndMemberId(roomId, requester.id)?.uuid
+            .findByChatRoomIdAndMemberId(roomId, requester.id!!)?.uuid
             ?: throw ServiceException("403-1", "해당 채팅방에 접근 권한이 없습니다.")
 
         if (chatRoom.status == ChatRoomStatus.CLOSED) {
@@ -169,7 +169,7 @@ class ChatMessageService(
 
         // DB에서 조회한 원본 결과 반환
         if (after != null) {
-            messages = messages.filter { it.createdAt.isAfter(after) }
+            messages = messages.filter { it.createdAt!!.isAfter(after) }
         }
         return messages.map { ChatRoomMessageResponseDto(it, requester.uuid) }
     }

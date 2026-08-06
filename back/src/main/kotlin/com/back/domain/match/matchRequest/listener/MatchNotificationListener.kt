@@ -45,7 +45,7 @@ class MatchNotificationListener(
     private fun sendNotificationIfNotBot(memberId: Long, roomId: UUID) {
         memberRepository.findById(memberId).ifPresent { member ->
             if (!member.email.isBotEmail()) {
-                matchNotificationService.notifyMatchSuccess(member.id, roomId)
+                matchNotificationService.notifyMatchSuccess(member.id!!, roomId)
             }
         }
     }

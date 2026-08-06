@@ -47,7 +47,7 @@ class MatchScheduler(
                             // 스케줄러는 락 경합 시 대기 없이(0초) 즉시 통과하여 스레드 블로킹을 방지합니다.
                             matchRequestService.tryMatch(UUID.fromString(idStr), industry, 0)
                         } catch (e: ServiceException) {
-                            if (e.rsData.resultCode() == "404-1") {
+                            if (e.rsData.resultCode == "404-1") {
                                 redisMatchQueue.remove(industry, situation, UUID.fromString(idStr))
                                 log.info("[MatchScheduler] DB에 존재하지 않는 대기 요청 자동 정리 완료 - id: {}", idStr)
                             } else {

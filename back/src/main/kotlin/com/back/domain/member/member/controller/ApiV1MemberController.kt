@@ -150,7 +150,7 @@ class ApiV1MemberController(
     @PostMapping("/logout")
     @Operation(summary = "로그아웃")
     fun logout(): RsData<Void> {
-        val actor = rq.actor
+        val actor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
         memberService.clearRefreshToken(actor)
         rq.deleteCookie("accessToken")
         rq.deleteCookie("refreshToken", Rq.REFRESH_TOKEN_COOKIE_PATH)
@@ -164,7 +164,8 @@ class ApiV1MemberController(
     @GetMapping("/me")
     @Operation(summary = "내 정보 조회")
     fun me(): RsData<MemberMeRes> {
-        val actor = memberService.findById(rq.actor.id)
+        val loginActor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
+        val actor = memberService.findById(loginActor.id!!)
             .orElseThrow { ServiceException("404-1", "존재하지 않는 회원입니다.") }
 
         return RsData(
@@ -177,7 +178,7 @@ class ApiV1MemberController(
     @PatchMapping("/me")
     @Operation(summary = "산업군 수정")
     fun updateIndustry(@Valid @RequestBody req: MemberUpdateIndustryReq): RsData<MemberUpdateIndustryRes> {
-        val actor = rq.actor
+        val actor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
         memberService.updateIndustry(actor, req.industry)
 
         return RsData(
@@ -191,7 +192,7 @@ class ApiV1MemberController(
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "회원 탈퇴")
     fun delete(): RsData<Void> {
-        val actor = rq.actor
+        val actor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
         memberService.delete(actor)
         rq.deleteCookie("accessToken")
         rq.deleteCookie("refreshToken", Rq.REFRESH_TOKEN_COOKIE_PATH)
@@ -205,7 +206,7 @@ class ApiV1MemberController(
     @GetMapping("/me/matches")
     @Operation(summary = "매치 기록 조회")
     fun findMatchHistory(): RsData<List<MatchHistoryDto>> {
-        val actor = rq.actor
+        val actor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
         return RsData(
             "200-1",
             "괴거 매칭 이력 조회 성공",

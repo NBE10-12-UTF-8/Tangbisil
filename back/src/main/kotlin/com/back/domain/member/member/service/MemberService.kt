@@ -138,7 +138,7 @@ class MemberService(
 
     @Transactional
     fun clearRefreshToken(member: Member) {
-        val findMember = memberRepository.findById(member.id)
+        val findMember = memberRepository.findById(member.id!!)
             .orElseThrow { ServiceException("404-1", "존재하지 않는 회원입니다.") }
         findMember.updateRefreshToken(null)
     }
@@ -152,14 +152,14 @@ class MemberService(
 
     @Transactional
     fun updateIndustry(member: Member, industry: Industry) {
-        val findMember = memberRepository.findById(member.id)
+        val findMember = memberRepository.findById(member.id!!)
             .orElseThrow { ServiceException("404-1", "존재하지 않는 회원입니다.") }
         findMember.updateIndustry(industry)
     }
 
     @Transactional
     fun delete(member: Member) {
-        val findMember = memberRepository.findById(member.id)
+        val findMember = memberRepository.findById(member.id!!)
             .orElseThrow { ServiceException("404-1", "존재하지 않는 회원입니다.") }
 
         if (matchRequestService.hasPendingRequest(findMember)) {

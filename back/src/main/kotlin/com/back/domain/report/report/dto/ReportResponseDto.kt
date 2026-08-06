@@ -10,5 +10,5 @@ data class ReportResponseDto(
     val status: ReportStatus,
     val createdAt: LocalDateTime
 ) {
-    constructor(report: Report) : this(report.uuid, report.status, report.createdAt)
+    constructor(report: Report) : this(report.uuid, report.status, report.createdAt!!)
 }

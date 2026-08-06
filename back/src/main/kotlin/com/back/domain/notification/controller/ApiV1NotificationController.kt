@@ -31,7 +31,7 @@ class ApiV1NotificationController(
     ): RsData<List<MatchNotificationDto>> {
         val actor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
 
-        val notifications = matchNotificationService.getNotifications(actor.id, after)
+        val notifications = matchNotificationService.getNotifications(actor.id!!, after)
         if (notifications.isEmpty()) {
             return RsData("200-2", "신규 알림 없음", null)
         }

@@ -57,9 +57,9 @@ class DashboardService(
         val seenRoomIds = HashSet<Long>()
         return matchRequestRepository
             .findRecentByStatus(MatchStatus.MATCHED, PageRequest.of(0, RECENT_MATCH_FETCH_BATCH_SIZE))
-            .filter { seenRoomIds.add(it.room!!.id) }
+            .filter { seenRoomIds.add(it.room!!.id!!) }
             .take(RECENT_MATCH_LOG_SIZE)
-            .map { RecentMatchLogDto(it.modifiedAt, it.industry, it.situation) }
+            .map { RecentMatchLogDto(it.modifiedAt!!, it.industry, it.situation) }
     }
 
     // 기간별 산업군 가입 통계 - startDate 00:00부터 endDate 다음날 00:00 직전까지

@@ -15,7 +15,7 @@ data class MatchHistoryDto(
 ) {
     // findMatchHistoryByMember가 room.status = CLOSED 조건으로 조회한 결과만 넘어오므로 room은 항상 존재한다
     constructor(matchRequest: MatchRequest, isBot: Boolean) : this(
-        matchRequest.room!!.createdAt,
+        matchRequest.room!!.createdAt!!,
         matchRequest.industry,
         matchRequest.situation,
         matchRequest.room!!.status,

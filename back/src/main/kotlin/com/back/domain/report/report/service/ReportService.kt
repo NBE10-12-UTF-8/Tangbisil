@@ -43,7 +43,7 @@ class ReportService(
         val targetMessage = chatMessageService.getMessage(reportedMessageId)
 
         // 3. 신고자가 해당 채팅방의 참여자(Participant)인지 서비스 위임 검증
-        if (!chatRoomParticipantService.isParticipant(room.id, reporter.id)) {
+        if (!chatRoomParticipantService.isParticipant(room.id!!, reporter.id!!)) {
             throw ServiceException("403-2", "채팅방 참여자만 신고할 수 있습니다.")
         }
 
@@ -70,7 +70,7 @@ class ReportService(
         val report = reportRepository.save(Report(reporter, reported, room, reportedMessageId, reason))
 
         // 9. 비동기 이벤트 발행 (엔티티 대신 식별자 ID만 전달하도록 수정)
-        eventPublisher.publishEvent(ReportCreatedEvent(report.id, room.id, reportedMessageId))
+        eventPublisher.publishEvent(ReportCreatedEvent(report.id!!, room.id!!, reportedMessageId))
         // reportId/roomId는 순수 내부 PK 전달(이벤트는 클라이언트에 노출되지 않음), targetMessageId만 FK 없는 특수 UUID 필드 원형 유지
 
         log.info("[ReportService] 신고 접수 완료 - Thread: {}", Thread.currentThread().name)
@@ -92,7 +92,7 @@ class ReportService(
             ?: throw ServiceException("404-1", "존재하지 않는 신고서입니다.")
 
         // 2. 해당 신고서에 종속된 백업 대화 목록 시간순(ASC) 획득
-        val backupMessages = reportedMessageRepository.findByReportIdOrderBySentAtAsc(report.id)
+        val backupMessages = reportedMessageRepository.findByReportIdOrderBySentAtAsc(report.id!!)
 
         // 3. 동적 가독성 라벨링 매핑 정보 셋업 - senderMemberId(ReportedMessage)가 FK 없는 UUID
         // 특수 필드라 여기서도 uuid로 비교해야 한다

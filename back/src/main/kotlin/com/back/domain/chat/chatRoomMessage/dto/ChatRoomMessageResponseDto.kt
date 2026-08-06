@@ -18,7 +18,7 @@ data class ChatRoomMessageResponseDto(
         message.chatRoom.uuid,
         message.participant.nickname,
         message.content,
-        message.createdAt,
+        message.createdAt!!,
         message.participant.member.uuid == requesterUuid
     )
 

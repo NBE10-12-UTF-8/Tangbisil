@@ -18,7 +18,7 @@ data class MemberAdmDto(
         member.email,
         member.industry,
         member.isSuspended,
-        member.createdAt,
+        member.createdAt!!,
         member.role
     )
 }

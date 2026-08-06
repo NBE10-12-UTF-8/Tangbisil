@@ -37,11 +37,11 @@ class StompChatController(
             .orElseThrow { ServiceException("404-1", "존재하지 않는 회원입니다.") }
         val chatRoom = chatRoomRepository.findByUuid(roomId)
             ?: throw ServiceException("404-2", "채팅방을 찾을 수 없습니다.")
-        chatMessageService.sendMessage(chatRoom.id, actor, requestDto.content)
+        chatMessageService.sendMessage(chatRoom.id!!, actor, requestDto.content)
     }
 
     @MessageExceptionHandler(ServiceException::class)
     @SendToUser("/queue/errors")
     fun handleException(e: ServiceException): Map<String, String> =
-        mapOf("code" to e.rsData.resultCode(), "message" to e.rsData.msg())
+        mapOf("code" to e.rsData.resultCode, "message" to e.rsData.msg)
 }

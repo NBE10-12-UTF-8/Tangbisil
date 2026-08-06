@@ -22,7 +22,7 @@ data class ChatRoomDto(
         chatRoom.uuid,
         chatRoom.status,
         chatRoom.maxParticipants,
-        chatRoom.createdAt,
+        chatRoom.createdAt!!,
         chatRoom.closedAt,
         isBot,
         opponentSituation

@@ -48,7 +48,7 @@ class ChatRoomService(
     fun closeChatRoom(roomId: UUID, actor: Member): ChatRoom {
         val chatRoom = getChatRoom(roomId)
 
-        chatRoomParticipantService.validateAccess(chatRoom.id, actor)
+        chatRoomParticipantService.validateAccess(chatRoom.id!!, actor)
 
         if (chatRoom.status == ChatRoomStatus.CLOSED) {
             throw ServiceException("409-1", "이미 종료된 채팅방입니다.")
@@ -69,7 +69,7 @@ class ChatRoomService(
         // ChatRoomService가 SimpMessagingTemplate을 직접 물면 WebSocketConfig(→
         // StompAuthChannelInterceptor→MemberService→MatchRequestService→ChatRoomService)로
         // 이어지는 빈 순환참조가 생긴다.
-        val otherMemberUuids = chatRoomParticipantService.getParticipants(chatRoom.id)
+        val otherMemberUuids = chatRoomParticipantService.getParticipants(chatRoom.id!!)
             .filter { it.member.id != actor.id }
             .map { it.member.uuid.toString() }
         eventPublisher.publishEvent(ChatRoomClosedEvent(chatRoom.uuid, otherMemberUuids))
@@ -90,7 +90,7 @@ class ChatRoomService(
 
         chatRoomParticipantService.getParticipantsByRoomIds(roomIds)
             .filter { it.member.email.isBotEmail() }
-            .forEach { result[it.chatRoom.id] = true }
+            .forEach { result[it.chatRoom.id!!] = true }
 
         return result
     }

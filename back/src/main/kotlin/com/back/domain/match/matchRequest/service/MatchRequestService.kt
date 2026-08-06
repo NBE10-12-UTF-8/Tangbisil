@@ -71,8 +71,8 @@ class MatchRequestService(
         // 영속 상태에서 필드만 바꿔 더티 체킹으로 커밋 시 room/status를 함께 반영한다.
         matchRequest.matchWith(chatRoom)
         other.matchWith(chatRoom)
-        triggerBotReplyIfNeeded(matchRequest.member, other.member, chatRoom.id)
-        eventPublisher.publishEvent(MatchSuccessEvent(chatRoom.uuid, matchRequest.member.id, other.member.id))
+        triggerBotReplyIfNeeded(matchRequest.member, other.member, chatRoom.id!!)
+        eventPublisher.publishEvent(MatchSuccessEvent(chatRoom.uuid, matchRequest.member.id!!, other.member.id!!))
     }
 
     // 봇 폴백 - 실제 유저 매칭 기회를 먼저 주기 위해 봇은 평소엔 대기열에 없다.
@@ -90,9 +90,9 @@ class MatchRequestService(
 
     private fun triggerBotReplyIfNeeded(requester: Member, other: Member, roomId: Long) {
         if (other.email.isBotEmail()) {
-            eventPublisher.publishEvent(BotReplyTriggerEvent(roomId, other.id))
+            eventPublisher.publishEvent(BotReplyTriggerEvent(roomId, other.id!!))
         } else if (requester.email.isBotEmail()) {
-            eventPublisher.publishEvent(BotReplyTriggerEvent(roomId, requester.id))
+            eventPublisher.publishEvent(BotReplyTriggerEvent(roomId, requester.id!!))
         }
     }
 
@@ -119,7 +119,7 @@ class MatchRequestService(
                     redisMatchQueue.add(matchRequest.industry, situation, matchRequest.uuid, epochMilli)
                 } catch (e: Exception) {
                     // 실패는 드문 경로이므로 여기서만 REQUIRES_NEW로 즉시 FAIL 마킹한다.
-                    self().markOutboxFailed(outbox.id)
+                    self().markOutboxFailed(outbox.id!!)
                     log.error("[MatchRequestService] Redis 대기열 적재 실패 - requestId: {}", matchRequest.id, e)
                     return
                 }
@@ -348,7 +348,7 @@ class MatchRequestService(
         // 이 요청을 PENDING으로 읽어 확정시켜버려도 걸러내지 못한다(이 체크가 이미 지난
         // 스냅샷 기준이라서). DELETE 문 자체에 status 조건을 걸어 DB가 최신 커밋 상태
         // 기준으로 원자적으로 처리하게 한다.
-        val deleted = matchRequestRepository.deleteByIdAndStatus(matchRequest.id, MatchStatus.PENDING)
+        val deleted = matchRequestRepository.deleteByIdAndStatus(matchRequest.id!!, MatchStatus.PENDING)
         if (deleted == 0) {
             throw ServiceException("409-1", "이미 매칭된 요청은 취소할 수 없습니다.")
         }
@@ -371,11 +371,11 @@ class MatchRequestService(
     fun findMatchHistoryByMember(member: Member): List<MatchHistoryDto> {
         val requests = matchRequestRepository.findByMemberAndRoomStatus(member, ChatRoomStatus.CLOSED)
 
-        val roomIds = requests.map { it.room!!.id }.distinct()
+        val roomIds = requests.map { it.room!!.id!! }.distinct()
 
         val botMap = chatRoomService.hasBotParticipantMap(roomIds)
 
-        return requests.map { MatchHistoryDto(it, botMap.getOrDefault(it.room!!.id, false)) }
+        return requests.map { MatchHistoryDto(it, botMap.getOrDefault(it.room!!.id!!, false)) }
     }
 
     @Transactional(readOnly = true)

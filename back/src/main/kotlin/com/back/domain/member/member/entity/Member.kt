@@ -59,8 +59,8 @@ class Member() : BaseEntity() {
     // uuid를 세팅하지 않으면 BaseEntity 필드 초기화(UUID.randomUUID())가 그대로 남아
     // 진짜 공개 식별자와 다른 값이 되므로, 실제 값을 반드시 함께 넘겨야 한다.
     constructor(id: Long, uuid: UUID, email: String, role: String) : this() {
-        setId(id)
-        setUuid(uuid)
+        this.id = id
+        this.uuid = uuid
         this.email = email
         this.role = role
     }

@@ -20,6 +20,6 @@ data class RedisChatMessageDto(
         message.participant.nickname,
         message.participant.uuid,
         message.content,
-        message.createdAt
+        message.createdAt!!
     )
 }

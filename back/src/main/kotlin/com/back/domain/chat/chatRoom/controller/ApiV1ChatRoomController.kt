@@ -31,9 +31,9 @@ class ApiV1ChatRoomController(
 
         val actor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
 
-        chatRoomParticipantService.validateAccess(chatRoom.id, actor)
-        val isBot = chatRoomService.hasBotParticipant(chatRoom.id)
-        val opponentSituation = matchRequestService.findOpponentSituation(chatRoom.id, actor.id)
+        chatRoomParticipantService.validateAccess(chatRoom.id!!, actor)
+        val isBot = chatRoomService.hasBotParticipant(chatRoom.id!!)
+        val opponentSituation = matchRequestService.findOpponentSituation(chatRoom.id!!, actor.id!!)
 
         return RsData("200-1", "채팅방 정보 조회 성공", ChatRoomDto(chatRoom, isBot, opponentSituation))
     }
@@ -44,8 +44,8 @@ class ApiV1ChatRoomController(
         val actor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
 
         val chatRoom = chatRoomService.closeChatRoom(roomId, actor)
-        val isBot = chatRoomService.hasBotParticipant(chatRoom.id)
-        val opponentSituation = matchRequestService.findOpponentSituation(chatRoom.id, actor.id)
+        val isBot = chatRoomService.hasBotParticipant(chatRoom.id!!)
+        val opponentSituation = matchRequestService.findOpponentSituation(chatRoom.id!!, actor.id!!)
 
         return RsData("200-1", "채팅방 상태 수정 성공 (채팅방 종료)", ChatRoomDto(chatRoom, isBot, opponentSituation))
     }
@@ -58,8 +58,8 @@ class ApiV1ChatRoomController(
         val chatRoom = chatRoomService.findActiveChatRoom(actor)
             ?: return RsData("200-2", "진행 중인 채팅방이 존재하지 않습니다.", null)
 
-        val isBot = chatRoomService.hasBotParticipant(chatRoom.id)
-        val opponentSituation = matchRequestService.findOpponentSituation(chatRoom.id, actor.id)
+        val isBot = chatRoomService.hasBotParticipant(chatRoom.id!!)
+        val opponentSituation = matchRequestService.findOpponentSituation(chatRoom.id!!, actor.id!!)
         return RsData("200-1", "현재 활성화된 채팅방 조회 성공", ChatRoomDto(chatRoom, isBot, opponentSituation))
     }
 }

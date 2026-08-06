@@ -28,7 +28,8 @@ class ApiV1MatchController(
     @PostMapping
     @Operation(summary = "매칭 요청 생성")
     fun create(@RequestBody @Valid dto: MatchRequestDto): RsData<MatchResponseDto> {
-        val actor = memberService.findById(rq.actor.id)
+        val loginActor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
+        val actor = memberService.findById(loginActor.id!!)
             .orElseThrow { ServiceException("404-1", "존재하지 않는 회원입니다.") }
         val matchRequest = matchRequestService.create(actor, dto.situation!!)
 
@@ -62,7 +63,7 @@ class ApiV1MatchController(
     @DeleteMapping("/{matchRequestId}")
     @Operation(summary = "매칭 취소")
     fun cancel(@PathVariable matchRequestId: UUID): RsData<Void> {
-        val actor = rq.actor
+        val actor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
         val matchRequest = matchRequestService.findById(matchRequestId)
 
         matchRequestService.cancel(matchRequest, actor)

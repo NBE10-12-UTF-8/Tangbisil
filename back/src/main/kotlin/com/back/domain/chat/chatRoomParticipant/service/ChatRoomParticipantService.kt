@@ -19,7 +19,7 @@ class ChatRoomParticipantService(
             return
         }
 
-        val isParticipant = chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(roomId, actor.id)
+        val isParticipant = chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(roomId, actor.id!!)
         if (!isParticipant) {
             throw ServiceException("403-1", "접근 권한이 없습니다.")
         }
@@ -34,7 +34,7 @@ class ChatRoomParticipantService(
     }
 
     fun findActiveChatRoomByMember(member: Member): ChatRoom? =
-        chatRoomParticipantRepository.findByMemberIdAndChatRoomStatus(member.id, ChatRoomStatus.ACTIVE)?.chatRoom
+        chatRoomParticipantRepository.findByMemberIdAndChatRoomStatus(member.id!!, ChatRoomStatus.ACTIVE)?.chatRoom
 
     fun isParticipant(roomId: Long, memberId: Long): Boolean =
         chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(roomId, memberId)

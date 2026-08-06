@@ -40,7 +40,7 @@ class ReportEventListener(
                     msg.participant.member.uuid,
                     msg.participant.nickname,
                     msg.content,
-                    msg.createdAt,
+                    msg.createdAt!!,
                     msg.uuid == event.targetMessageId
                 )
             }

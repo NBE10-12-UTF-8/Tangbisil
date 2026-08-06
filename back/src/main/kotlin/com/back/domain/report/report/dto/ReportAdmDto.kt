@@ -19,6 +19,6 @@ data class ReportAdmDto(
         report.reported?.email ?: "탈퇴한 사용자",
         report.reason,
         report.status,
-        report.createdAt
+        report.createdAt!!
     )
 }

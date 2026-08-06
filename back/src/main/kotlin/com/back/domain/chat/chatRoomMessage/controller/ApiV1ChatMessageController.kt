@@ -40,7 +40,7 @@ class ApiV1ChatMessageController(
     ): RsData<ChatRoomMessageResponseDto> {
         val actor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
 
-        val responseDto = chatMessageService.sendMessage(resolveRoom(roomId).id, actor, requestDto.content)
+        val responseDto = chatMessageService.sendMessage(resolveRoom(roomId).id!!, actor, requestDto.content)
 
         return RsData("201-1", "메시지 생성 성공", responseDto)
     }
@@ -55,7 +55,7 @@ class ApiV1ChatMessageController(
     ): RsData<List<ChatRoomMessageResponseDto>> {
         val actor = rq.actor ?: throw ServiceException("401-1", "인증이 필요합니다.")
 
-        val messages = chatMessageService.getMessages(resolveRoom(roomId).id, actor, after)
+        val messages = chatMessageService.getMessages(resolveRoom(roomId).id!!, actor, after)
         if (messages.isEmpty()) {
             return RsData("200-2", "신규 메시지 없음", null)
         }

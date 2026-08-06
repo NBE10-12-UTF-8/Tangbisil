@@ -29,18 +29,19 @@ class BotReplyTransactionalOps(
     fun loadContext(roomId: Long, botMemberId: Long): ReplyContext? {
         val bot = memberRepository.findById(botMemberId)
             .orElseThrow { IllegalStateException("봇 계정을 찾을 수 없습니다: $botMemberId") }
+        val botId = bot.id!!
 
         val recentDesc = chatMessageService.getRecentMessages(roomId, HISTORY_LIMIT)
 
-        if (recentDesc.isNotEmpty() && recentDesc[0].isSentBy(bot.id)) {
+        if (recentDesc.isNotEmpty() && recentDesc[0].isSentBy(botId)) {
             log.info("마지막 메시지가 봇이라 응답 생략")
             return null
         }
 
         val conversation: List<Pair<Boolean, String>> = recentDesc.reversed()
-            .map { it.isSentBy(bot.id) to it.content }
+            .map { it.isSentBy(botId) to it.content }
 
-        return ReplyContext(bot.id, buildSystemInstruction(bot.industry), conversation)
+        return ReplyContext(botId, buildSystemInstruction(bot.industry), conversation)
     }
 
     // 실제 조회로 바꿈 - getReferenceById는 트랜잭션이 끝나면 detached 프록시가 되어
