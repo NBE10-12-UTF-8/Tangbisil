@@ -43,16 +43,9 @@ public class StompChatControllerTest {
         );
     }
 
-    @Test
-    @DisplayName("Principal이 null이면 ServiceException(401-1)을 던진다")
-    void t1() {
-        UUID roomId = UUID.randomUUID();
-        ChatRoomMessageRequestDto requestDto = mock(ChatRoomMessageRequestDto.class);
-
-        assertThatThrownBy(() -> controller.sendMessage(roomId, requestDto, null))
-                .isInstanceOf(ServiceException.class)
-                .hasMessageContaining("인증이 필요합니다.");
-    }
+    // Principal이 null인 경우는 더 이상 테스트하지 않는다: STOMP CONNECT 단계에서
+    // StompAuthChannelInterceptor가 인증되지 않은 세션을 이미 차단하므로, 이 핸들러에
+    // 도달하는 시점엔 Principal이 항상 존재한다(Kotlin에서도 non-null로 선언됨).
 
     @Test
     @DisplayName("유효한 Principal로 sendMessage 호출 시 ChatMessageService.sendMessage()가 위임된다")

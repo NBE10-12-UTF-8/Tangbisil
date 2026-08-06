@@ -26,12 +26,8 @@ class StompChatController(
     fun sendMessage(
         @DestinationVariable roomId: UUID,
         @Payload @Valid requestDto: ChatRoomMessageRequestDto,
-        principal: Principal?
+        principal: Principal
     ) {
-        if (principal == null) {
-            throw ServiceException("401-1", "인증이 필요합니다.")
-        }
-
         val memberId = UUID.fromString(principal.name)
         val actor = memberService.findByUuid(memberId)
             .orElseThrow { ServiceException("404-1", "존재하지 않는 회원입니다.") }
