@@ -27,8 +27,12 @@ class MatchRequest(
     var room: ChatRoom? = null
         protected set
 
-    // 한글 라벨로 DB에 저장해야 하는 값(사용자 노출용 코드성 데이터)은 AttributeConverter를 쓴다
-    var industry: Industry? = member.industry
+    // 한글 라벨로 DB에 저장해야 하는 값(사용자 노출용 코드성 데이터)은 AttributeConverter를 쓴다.
+    // 호출부(MatchRequestService.create)가 이미 member.industry != null을 검증한 뒤에만 생성하므로
+    // 여기서 non-null로 스냅샷을 떠두면, 이후 매칭 로직 전체에서 member를 다시 안 타도 되고
+    // member.industry가 nullable이라 생기는 스마트 캐스트 문제도 피할 수 있다.
+    var industry: Industry = member.industry
+        ?: error("산업군이 설정되지 않은 회원으로는 매칭 요청을 생성할 수 없습니다.")
         protected set
 
     var situation: Situation = situation

@@ -151,12 +151,14 @@ public class ApiV1ChatMessageRedisControllerTest {
         }
 
         // 우리가 쓴 유저만 핀포인트 삭제 (메일 토큰은 삭제하지 않아도 다른 테스트 격리에 영향을 주지 않으므로 제외)
-        memberRepository.findByEmail("redis_user1@test.com").ifPresent(m -> {
-            memberRepository.delete(m);
-        });
-        memberRepository.findByEmail("redis_user2@test.com").ifPresent(m -> {
-            memberRepository.delete(m);
-        });
+        Member redisUser1 = memberRepository.findByEmail("redis_user1@test.com");
+        if (redisUser1 != null) {
+            memberRepository.delete(redisUser1);
+        }
+        Member redisUser2 = memberRepository.findByEmail("redis_user2@test.com");
+        if (redisUser2 != null) {
+            memberRepository.delete(redisUser2);
+        }
     }
 
     private void preVerifyEmail(String email) {
@@ -175,7 +177,7 @@ public class ApiV1ChatMessageRedisControllerTest {
 
         );
 
-        return memberRepository.findByEmail(email).orElseThrow();
+        return memberRepository.findByEmail(email);
     }
 
     // 로그인 응답 바디에는 더 이상 토큰이 실리지 않는다(HttpOnly 쿠키로만 내려감).

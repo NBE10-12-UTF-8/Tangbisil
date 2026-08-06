@@ -77,8 +77,8 @@ class MatchRequestService(
 
     // 봇 폴백 - 실제 유저 매칭 기회를 먼저 주기 위해 봇은 평소엔 대기열에 없다.
     private fun matchWithBot(request: MatchRequest) {
-        val industry = request.member.industry
-        val bot = memberRepository.findByEmail(BotAccounts.emailFor(industry)).orElse(null)
+        val industry = request.industry
+        val bot = memberRepository.findByEmail(BotAccounts.emailFor(industry))
         if (bot == null) {
             log.error("[MatchRequestService] {} 산업군 봇 계정을 찾을 수 없음", industry)
             return
@@ -108,7 +108,7 @@ class MatchRequestService(
         val matchRequest = matchRequestRepository.save(MatchRequest(member, situation))
 
         val epochMilli = matchRequest.requestedAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val outbox = MatchingOutbox.create(matchRequest.uuid, member.industry, situation, epochMilli)
+        val outbox = MatchingOutbox.create(matchRequest.uuid, matchRequest.industry, situation, epochMilli)
         matchingOutboxRepository.save(outbox)
 
         // 커밋 완료 직후 Redis ZADD + 1차 매칭 시도. 성공 경로는 커넥션을 추가로 잡지 않고,
@@ -116,7 +116,7 @@ class MatchRequestService(
         TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
             override fun afterCommit() {
                 try {
-                    redisMatchQueue.add(member.industry, situation, matchRequest.uuid, epochMilli)
+                    redisMatchQueue.add(matchRequest.industry, situation, matchRequest.uuid, epochMilli)
                 } catch (e: Exception) {
                     // 실패는 드문 경로이므로 여기서만 REQUIRES_NEW로 즉시 FAIL 마킹한다.
                     self().markOutboxFailed(outbox.id)
@@ -124,7 +124,7 @@ class MatchRequestService(
                     return
                 }
                 try {
-                    retryProcessor.retryOne(matchRequest.uuid, member.industry)
+                    retryProcessor.retryOne(matchRequest.uuid, matchRequest.industry)
                 } catch (e: Exception) {
                     log.error("[MatchRequestService] 1차 즉시 매칭 시도 중 오류 발생 - matchRequestId: {}", matchRequest.id, e)
                 }
@@ -176,7 +176,7 @@ class MatchRequestService(
         if (matchRequest.status != MatchStatus.PENDING) {
             return
         }
-        tryMatch(matchRequestId, matchRequest.member.industry)
+        tryMatch(matchRequestId, matchRequest.industry)
     }
 
     // self-invocation은 프록시를 안 거쳐 위 NOT_SUPPORTED가 적용 안 되므로, 이 메서드도 동일하게 막아둔다.
@@ -278,7 +278,7 @@ class MatchRequestService(
 
     // 상황 조건(Tier 1~3)에 맞는 대기열들을 찾아 가장 대기 시간이 오래된 상대를 탐색합니다.
     private fun findOpponent(request: MatchRequest, elapsedSeconds: Long): MatchRequest? {
-        val industry = request.member.industry
+        val industry = request.industry
         val situation = request.situation
         val excludeId = request.uuid
         if (elapsedSeconds < TIER1_THRESHOLD_SECONDS) {
@@ -340,7 +340,7 @@ class MatchRequestService(
 
         // deleteByIdAndStatus가 clearAutomatically=true라 실행 후 matchRequest가 detach되어
         // lazy 필드(member)에 다시 접근할 수 없다 - 필요한 값은 미리 꺼내둔다.
-        val industry = matchRequest.member.industry
+        val industry = matchRequest.industry
         val situation = matchRequest.situation
         val uuid = matchRequest.uuid
 
@@ -362,7 +362,7 @@ class MatchRequestService(
         val expired = matchRequestRepository.findExpiredPending(MatchStatus.PENDING, expiredBefore)
 
         for (request in expired) {
-            redisMatchQueue.remove(request.member.industry, request.situation, request.uuid)
+            redisMatchQueue.remove(request.industry, request.situation, request.uuid)
         }
 
         matchRequestRepository.deleteAll(expired)

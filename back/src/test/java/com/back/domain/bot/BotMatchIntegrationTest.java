@@ -126,7 +126,7 @@ class BotMatchIntegrationTest {
         assertThat(refreshedB.getStatus()).isEqualTo(MatchStatus.MATCHED);
         assertThat(refreshedA.getRoom().getId()).isEqualTo(refreshedB.getRoom().getId());
 
-        Member bot = memberRepository.findByEmail(BotAccounts.emailFor(Industry.IT)).orElseThrow();
+        Member bot = memberRepository.findByEmail(BotAccounts.emailFor(Industry.IT));
         boolean botHasMatchRequest = matchRequestRepository.findAll().stream()
                 .anyMatch(r -> r.getMember().getId().equals(bot.getId()));
         assertThat(botHasMatchRequest).isFalse();
