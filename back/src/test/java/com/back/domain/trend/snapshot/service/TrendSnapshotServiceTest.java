@@ -66,9 +66,9 @@ class TrendSnapshotServiceTest {
         trendSnapshotService.snapshotDate(YESTERDAY);
 
         assertThat(dailyKeywordCountRepository.findByDateAndKeyword(YESTERDAY, "장마"))
-                .hasValueSatisfying(row -> assertThat(row.getFrequency()).isEqualTo(3));
+                .satisfies(row -> assertThat(row.getFrequency()).isEqualTo(3));
         assertThat(dailyKeywordCountRepository.findByDateAndKeyword(YESTERDAY, "우산"))
-                .hasValueSatisfying(row -> assertThat(row.getFrequency()).isEqualTo(2));
+                .satisfies(row -> assertThat(row.getFrequency()).isEqualTo(2));
     }
 
     @Test
@@ -79,7 +79,7 @@ class TrendSnapshotServiceTest {
         trendSnapshotService.snapshotDate(YESTERDAY);
 
         assertThat(dailyMessageCountRepository.findByDate(YESTERDAY))
-                .hasValueSatisfying(row -> assertThat(row.getTotalMessages()).isEqualTo(7));
+                .satisfies(row -> assertThat(row.getTotalMessages()).isEqualTo(7));
     }
 
     @Test
@@ -92,7 +92,7 @@ class TrendSnapshotServiceTest {
 
         assertThat(dailyKeywordCountRepository.findAll()).isEmpty();
         assertThat(dailyMessageCountRepository.findByDate(YESTERDAY))
-                .hasValueSatisfying(row -> assertThat(row.getTotalMessages()).isEqualTo(4));
+                .satisfies(row -> assertThat(row.getTotalMessages()).isEqualTo(4));
     }
 
     @Test
@@ -103,7 +103,7 @@ class TrendSnapshotServiceTest {
         trendSnapshotService.snapshotDate(YESTERDAY);
 
         assertThat(dailyKeywordCountRepository.findAll()).isEmpty();
-        assertThat(dailyMessageCountRepository.findByDate(YESTERDAY)).isEmpty();
+        assertThat(dailyMessageCountRepository.findByDate(YESTERDAY)).isNull();
     }
 
     @Test
@@ -119,11 +119,11 @@ class TrendSnapshotServiceTest {
 
         assertThat(dailyKeywordCountRepository.findAll()).hasSize(1);
         assertThat(dailyKeywordCountRepository.findByDateAndKeyword(YESTERDAY, "장마"))
-                .hasValueSatisfying(row -> assertThat(row.getFrequency()).isEqualTo(5));
+                .satisfies(row -> assertThat(row.getFrequency()).isEqualTo(5));
 
         assertThat(dailyMessageCountRepository.findAll()).hasSize(1);
         assertThat(dailyMessageCountRepository.findByDate(YESTERDAY))
-                .hasValueSatisfying(row -> assertThat(row.getTotalMessages()).isEqualTo(8));
+                .satisfies(row -> assertThat(row.getTotalMessages()).isEqualTo(8));
     }
 
     @Test
@@ -135,7 +135,7 @@ class TrendSnapshotServiceTest {
         trendSnapshotService.snapshotDate(YESTERDAY);
 
         assertThat(dailyCooccurrenceCountRepository.findByDateAndKeywordAAndKeywordB(YESTERDAY, "장마", "우산"))
-                .hasValueSatisfying(row -> assertThat(row.getFrequency()).isEqualTo(4));
+                .satisfies(row -> assertThat(row.getFrequency()).isEqualTo(4));
     }
 
     @Test
@@ -148,7 +148,7 @@ class TrendSnapshotServiceTest {
 
         assertThat(dailyCooccurrenceCountRepository.findAll()).isEmpty();
         assertThat(dailyMessageCountRepository.findByDate(YESTERDAY))
-                .hasValueSatisfying(row -> assertThat(row.getTotalMessages()).isEqualTo(4));
+                .satisfies(row -> assertThat(row.getTotalMessages()).isEqualTo(4));
     }
 
     @Test
@@ -164,7 +164,7 @@ class TrendSnapshotServiceTest {
 
         assertThat(dailyCooccurrenceCountRepository.findAll()).hasSize(1);
         assertThat(dailyCooccurrenceCountRepository.findByDateAndKeywordAAndKeywordB(YESTERDAY, "장마", "우산"))
-                .hasValueSatisfying(row -> assertThat(row.getFrequency()).isEqualTo(5));
+                .satisfies(row -> assertThat(row.getFrequency()).isEqualTo(5));
     }
 
     @Test
@@ -178,6 +178,6 @@ class TrendSnapshotServiceTest {
 
         assertThat(dailyCooccurrenceCountRepository.findAll()).hasSize(1);
         assertThat(dailyCooccurrenceCountRepository.findByDateAndKeywordAAndKeywordB(YESTERDAY, "장마", "우산"))
-                .hasValueSatisfying(row -> assertThat(row.getFrequency()).isEqualTo(3));
+                .satisfies(row -> assertThat(row.getFrequency()).isEqualTo(3));
     }
 }

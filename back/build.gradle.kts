@@ -1,5 +1,9 @@
 plugins {
     java
+    kotlin("jvm") version "2.3.21"
+    kotlin("plugin.spring") version "2.3.21"
+    kotlin("plugin.jpa") version "2.3.21"
+    kotlin("plugin.lombok") version "2.3.21"
     id("org.springframework.boot") version "4.1.0"
     id("io.spring.dependency-management") version "1.1.7"
 }
@@ -11,6 +15,13 @@ description = "NBE10-12-2-UTF-8"
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+kotlin {
+    jvmToolchain(25)
+    compilerOptions {
+        freeCompilerArgs.add("-Xjsr305=strict")
     }
 }
 
@@ -55,6 +66,13 @@ dependencies {
     // Lombok
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
+
+    // Kotlin
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
+    // 이 프로젝트는 Jackson 3(tools.jackson.*)를 쓰는데, com.fasterxml.jackson.module:jackson-module-kotlin은
+    // Jackson 2 전용이라 공유 ObjectMapper(Ut.json.objectMapper)에 전혀 안 얹힌다 - Kotlin data class를
+    // 기본 생성자 없이 JSON에서 역직렬화하면 InvalidDefinitionException이 난다. Jackson 3용 좌표를 써야 한다.
+    implementation("tools.jackson.module:jackson-module-kotlin:3.1.4")
 
     // Dev
     developmentOnly("org.springframework.boot:spring-boot-devtools")

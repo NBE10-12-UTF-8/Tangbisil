@@ -184,7 +184,7 @@ public class StompAuthChannelInterceptorTest {
         when(mockRoom.getId()).thenReturn(1L);
         Member mockMember = mock(Member.class);
         when(mockMember.getId()).thenReturn(2L);
-        when(chatRoomRepository.findByUuid(roomId)).thenReturn(java.util.Optional.of(mockRoom));
+        when(chatRoomRepository.findByUuid(roomId)).thenReturn(mockRoom);
         when(memberService.findByUuid(memberId)).thenReturn(java.util.Optional.of(mockMember));
         when(chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(1L, 2L))
                 .thenReturn(false);
@@ -211,7 +211,7 @@ public class StompAuthChannelInterceptorTest {
         when(mockRoom.getId()).thenReturn(1L);
         Member mockMember = mock(Member.class);
         when(mockMember.getId()).thenReturn(2L);
-        when(chatRoomRepository.findByUuid(roomId)).thenReturn(java.util.Optional.of(mockRoom));
+        when(chatRoomRepository.findByUuid(roomId)).thenReturn(mockRoom);
         when(memberService.findByUuid(memberId)).thenReturn(java.util.Optional.of(mockMember));
         when(chatRoomParticipantRepository.existsByChatRoomIdAndMemberId(1L, 2L))
                 .thenReturn(true);

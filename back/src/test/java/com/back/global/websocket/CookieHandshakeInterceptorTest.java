@@ -48,7 +48,7 @@ class CookieHandshakeInterceptorTest {
         ServerHttpRequest request = requestWithCookies(new Cookie("accessToken", "valid-token"));
         Map<String, Object> attributes = new HashMap<>();
 
-        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), null, attributes);
+        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), mock(org.springframework.web.socket.WebSocketHandler.class), attributes);
 
         assertThat(result).isTrue();
         assertThat(attributes.get("memberId")).isEqualTo(memberId);
@@ -61,7 +61,7 @@ class CookieHandshakeInterceptorTest {
         ServerHttpRequest request = requestWithCookies();
         Map<String, Object> attributes = new HashMap<>();
 
-        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), null, attributes);
+        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), mock(org.springframework.web.socket.WebSocketHandler.class), attributes);
 
         assertThat(result).isTrue();
         assertThat(attributes).isEmpty();
@@ -75,7 +75,7 @@ class CookieHandshakeInterceptorTest {
         ServerHttpRequest request = requestWithCookies(new Cookie("accessToken", "bad-token"));
         Map<String, Object> attributes = new HashMap<>();
 
-        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), null, attributes);
+        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), mock(org.springframework.web.socket.WebSocketHandler.class), attributes);
 
         assertThat(result).isTrue();
         assertThat(attributes).isEmpty();
@@ -89,7 +89,7 @@ class CookieHandshakeInterceptorTest {
         ServerHttpRequest request = requestWithCookies(new Cookie("accessToken", "no-id-token"));
         Map<String, Object> attributes = new HashMap<>();
 
-        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), null, attributes);
+        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), mock(org.springframework.web.socket.WebSocketHandler.class), attributes);
 
         assertThat(result).isTrue();
         assertThat(attributes).isEmpty();
@@ -103,7 +103,7 @@ class CookieHandshakeInterceptorTest {
         ServerHttpRequest request = requestWithCookies(new Cookie("accessToken", "no-role-token"));
         Map<String, Object> attributes = new HashMap<>();
 
-        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), null, attributes);
+        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), mock(org.springframework.web.socket.WebSocketHandler.class), attributes);
 
         assertThat(result).isTrue();
         assertThat(attributes).isEmpty();
@@ -120,7 +120,7 @@ class CookieHandshakeInterceptorTest {
         ServerHttpRequest request = requestWithCookies(new Cookie("accessToken", "bad-id-token"));
         Map<String, Object> attributes = new HashMap<>();
 
-        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), null, attributes);
+        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), mock(org.springframework.web.socket.WebSocketHandler.class), attributes);
 
         assertThat(result).isTrue();
         assertThat(attributes).isEmpty();
@@ -132,7 +132,7 @@ class CookieHandshakeInterceptorTest {
         ServerHttpRequest request = requestWithCookies(new Cookie("accessToken", null));
         Map<String, Object> attributes = new HashMap<>();
 
-        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), null, attributes);
+        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), mock(org.springframework.web.socket.WebSocketHandler.class), attributes);
 
         assertThat(result).isTrue();
         assertThat(attributes).isEmpty();
@@ -144,7 +144,7 @@ class CookieHandshakeInterceptorTest {
         ServerHttpRequest request = requestWithCookies(new Cookie("refreshToken", "some-value"));
         Map<String, Object> attributes = new HashMap<>();
 
-        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), null, attributes);
+        boolean result = interceptor.beforeHandshake(request, mock(org.springframework.http.server.ServerHttpResponse.class), mock(org.springframework.web.socket.WebSocketHandler.class), attributes);
 
         assertThat(result).isTrue();
         assertThat(attributes).isEmpty();

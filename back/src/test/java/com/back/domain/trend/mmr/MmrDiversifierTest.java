@@ -35,7 +35,7 @@ class MmrDiversifierTest {
         // 원점수 순서는 장마(10) > 태풍(9) > 우산(8)이지만,
         // 태풍은 이미 뽑힌 장마와 유사도가 높아(0.9) 9 - 2*0.9 = 7.2로 깎이고
         // 우산은 장마와 유사도가 낮아(0.1) 8 - 2*0.1 = 7.8로 덜 깎여서 태풍보다 먼저 뽑힌다.
-        assertThat(result).extracting(RankedKeywordDto::keyword)
+        assertThat(result).extracting(RankedKeywordDto::getKeyword)
                 .containsExactly("장마", "우산", "태풍");
     }
 
@@ -51,7 +51,7 @@ class MmrDiversifierTest {
 
         List<RankedKeywordDto> result = diversifier.diversify(candidates, similarities, config, 2);
 
-        assertThat(result).extracting(RankedKeywordDto::keyword).containsExactly("장마");
+        assertThat(result).extracting(RankedKeywordDto::getKeyword).containsExactly("장마");
     }
 
     @Test
@@ -67,7 +67,7 @@ class MmrDiversifierTest {
         List<RankedKeywordDto> result = diversifier.diversify(candidates, Map.of(), new MmrConfig(2.0, 0.9), 2);
 
         assertThat(result).hasSize(2);
-        assertThat(result).extracting(RankedKeywordDto::keyword).containsExactly("A", "B");
+        assertThat(result).extracting(RankedKeywordDto::getKeyword).containsExactly("A", "B");
     }
 
     @Test
@@ -82,7 +82,7 @@ class MmrDiversifierTest {
         // similarities를 완전히 비워둔다 — 어떤 쌍에 대한 정보도 없음
         List<RankedKeywordDto> result = diversifier.diversify(candidates, Map.of(), new MmrConfig(2.0, 0.9), 3);
 
-        assertThat(result).extracting(RankedKeywordDto::keyword).containsExactly("A", "B", "C");
+        assertThat(result).extracting(RankedKeywordDto::getKeyword).containsExactly("A", "B", "C");
     }
 
     @Test

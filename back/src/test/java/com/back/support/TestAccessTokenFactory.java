@@ -17,7 +17,7 @@ public final class TestAccessTokenFactory {
     }
 
     public static String accessTokenFor(MemberRepository memberRepository, MemberService memberService, String email) {
-        Member member = memberRepository.findByEmail(email).orElseThrow();
+        Member member = memberRepository.findByEmail(email);
         return memberService.genAccessToken(member);
     }
 }
