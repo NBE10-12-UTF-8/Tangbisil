@@ -47,7 +47,8 @@ public class MatchScheduler {
                 if (allIds != null) {
                     for (String idStr : allIds) {
                         try {
-                            matchRequestService.tryMatch(UUID.fromString(idStr));
+                            // 스케줄러는 락 경합 시 대기 없이(0초) 즉시 통과하여 스레드 블로킹을 방지합니다.
+                            matchRequestService.tryMatch(UUID.fromString(idStr), industry, 0);
                         } catch (ServiceException e) {
                             if ("404-1".equals(e.getRsData().resultCode())) {
                                 redisMatchQueue.remove(industry, situation, UUID.fromString(idStr));
