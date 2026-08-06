@@ -220,13 +220,14 @@ public class ApiV1ChatMessageRedisControllerTest {
     void t2() throws Exception {
         // Given (레디스에 캐시를 미리 직접 수동 주입해 둠)
         String key = "chat:room:" + testRoom.getUuid() + ":messages";
-        RedisChatMessageDto cachedDto = new RedisChatMessageDto();
-        cachedDto.setMessageId(UUID.randomUUID());
-        cachedDto.setRoomId(testRoom.getUuid());
-        cachedDto.setSenderNickname("가짜닉네임");
-        cachedDto.setSenderParticipantId(UUID.randomUUID());
-        cachedDto.setContent("레디스 캐시 전용 메시지");
-        cachedDto.setCreatedAt(java.time.LocalDateTime.now());
+        RedisChatMessageDto cachedDto = new RedisChatMessageDto(
+                UUID.randomUUID(),
+                testRoom.getUuid(),
+                "가짜닉네임",
+                UUID.randomUUID(),
+                "레디스 캐시 전용 메시지",
+                java.time.LocalDateTime.now()
+        );
 
         String json = Ut.json.toString(cachedDto);
         long score = java.sql.Timestamp.valueOf(cachedDto.getCreatedAt()).getTime();

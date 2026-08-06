@@ -69,7 +69,10 @@ dependencies {
 
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    // 이 프로젝트는 Jackson 3(tools.jackson.*)를 쓰는데, com.fasterxml.jackson.module:jackson-module-kotlin은
+    // Jackson 2 전용이라 공유 ObjectMapper(Ut.json.objectMapper)에 전혀 안 얹힌다 - Kotlin data class를
+    // 기본 생성자 없이 JSON에서 역직렬화하면 InvalidDefinitionException이 난다. Jackson 3용 좌표를 써야 한다.
+    implementation("tools.jackson.module:jackson-module-kotlin:3.1.4")
 
     // Dev
     developmentOnly("org.springframework.boot:spring-boot-devtools")
