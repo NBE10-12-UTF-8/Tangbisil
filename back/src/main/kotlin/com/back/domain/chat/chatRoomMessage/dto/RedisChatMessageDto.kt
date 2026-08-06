@@ -13,7 +13,6 @@ data class RedisChatMessageDto(
     val content: String?,
     val createdAt: LocalDateTime
 ) : Serializable {
-    // Entity -> DTO 변환 생성자
     constructor(message: ChatMessage) : this(
         message.uuid,
         message.chatRoom.uuid,

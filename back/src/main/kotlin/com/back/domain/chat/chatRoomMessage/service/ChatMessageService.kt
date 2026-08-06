@@ -60,11 +60,9 @@ class ChatMessageService(
             ?: throw ServiceException("403-1", "채팅방 참여자만 메시지를 보낼 수 있습니다.")
 
         val message = chatMessageRepository.save(ChatMessage(chatRoom, participant, content))
-
-        // 저장 성공한 메시지 엔티티를 가벼운 Redis DTO 객체로 변환
         val cacheDto = RedisChatMessageDto(message)
 
-        // 비동기 캐시 적재를 수행할 배달부(EventHandler)에게 이벤트 발행
+        // 실제 Redis 캐시 적재는 이 이벤트를 받는 EventHandler가 비동기로 수행한다
         val targets = participants.map {
             ChatMessageSentEvent.BroadcastTarget(
                 it.uuid,
@@ -112,11 +110,9 @@ class ChatMessageService(
         val key = "chat:room:${chatRoom.uuid}:messages"
         var cachedMessages: MutableList<RedisChatMessageDto>? = null
 
-        // Redis 캐시 조회 시도
         try {
-            // 레디스 캐시 키가 확실히 존재(hasKey)하는지 먼저 체크
+            // 키 자체가 존재하면 결과가 빈 리스트여도 캐시 히트로 취급해 DB 조회를 막는다
             if (java.lang.Boolean.TRUE == redisTemplate.hasKey(key)) {
-                // 키가 있다면 결과가 비어있더라도 캐시 히트(빈 리스트)로 취급하여 DB 조회를 차단
                 val messages = mutableListOf<RedisChatMessageDto>()
 
                 val jsonPayloads = if (after != null) {
@@ -134,12 +130,10 @@ class ChatMessageService(
                 cachedMessages = messages
             }
         } catch (e: Exception) {
-            // Redis 완전 다운 시 에러 로그만 남기고 조용히 DB 조회로 우회 (Fallback)
-            log.error("Redis 조회 실패! DB 직접 조회로 Fallback합니다. roomId: {}", roomId, e)
-            cachedMessages = null // 에러가 나면 확실히 null로 밀어서 DB로 돌림
+            log.error("Redis 조회 실패! DB 직접 조회로 우회합니다. roomId: {}", roomId, e)
+            cachedMessages = null
         }
 
-        // 캐시 히트(Cache Hit) 성공 시 즉각 반환 (DB 쿼리 차단)
         if (cachedMessages != null) {
             var result: List<RedisChatMessageDto> = cachedMessages
             if (after != null) {
@@ -148,10 +142,8 @@ class ChatMessageService(
             return result.map { ChatRoomMessageResponseDto(it, requesterParticipantId) }
         }
 
-        // 캐시 미스(Cache Miss) 또는 레디스 장애 시: MySQL DB 조회 진행
         var messages = chatMessageRepository.findByChatRoomIdOrderByCreatedAtAsc(roomId)
 
-        // DB 조회 데이터를 Redis ZSet 캐시에 재건
         try {
             if (messages.isNotEmpty()) {
                 for (msg in messages) {
@@ -160,14 +152,13 @@ class ChatMessageService(
                     val score = Timestamp.valueOf(dto.createdAt).time
                     redisTemplate.opsForZSet().add(key, json, score.toDouble())
                 }
-                // Active 방에 누수 방지용 Safety TTL (2시간) 지정
+                // 활성 방에서 캐시가 계속 남아있지 않도록 누수 방지용 TTL을 건다
                 redisTemplate.expire(key, Duration.ofHours(2))
             }
         } catch (e: Exception) {
             log.warn("Redis 캐시 재건 실패! (레디스 서버 다운 상태일 수 있습니다.)", e)
         }
 
-        // DB에서 조회한 원본 결과 반환
         if (after != null) {
             messages = messages.filter { it.createdAt!!.isAfter(after) }
         }

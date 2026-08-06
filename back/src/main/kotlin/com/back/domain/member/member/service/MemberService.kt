@@ -189,7 +189,6 @@ class MemberService(
             throw ServiceException("400-1", "자기 자신은 제재할 수 없습니다.")
         }
 
-        // 상태 토글 실행 (true <-> false)
         targetMember.toggleSuspended()
 
         return MemberAdmDto(targetMember)
