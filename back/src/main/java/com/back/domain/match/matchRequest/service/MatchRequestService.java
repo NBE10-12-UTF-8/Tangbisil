@@ -143,12 +143,12 @@ public class MatchRequestService {
      * 주의: 호출부는 반드시 대상 요청의 올바른 Industry를 전달해야 합니다.
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void tryMatch(UUID matchRequestId, Industry industry) {
+    public void tryMatch(UUID matchRequestId, Industry industry, long waitTimeSeconds) {
         String lockKey = "match:lock:" + industry.name();
         RLock lock = redissonClient.getLock(lockKey);
         try {
             // leaseTime 미지정 -> Redisson watchdog이 붙어 배치 루프가 길어져도 락이 새지 않는다.
-            if (lock.tryLock(10, TimeUnit.SECONDS)) {
+            if (lock.tryLock(waitTimeSeconds, TimeUnit.SECONDS)) {
                 try {
                     applicationContext.getBean(MatchRequestService.class).processMatch(matchRequestId, industry);
                 } finally {
@@ -161,6 +161,11 @@ public class MatchRequestService {
             Thread.currentThread().interrupt();
             throw new ServiceException("500-1", "분산 락 획득 중 인터럽트가 발생했습니다.");
         }
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void tryMatch(UUID matchRequestId, Industry industry) {
+        tryMatch(matchRequestId, industry, 10);
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
