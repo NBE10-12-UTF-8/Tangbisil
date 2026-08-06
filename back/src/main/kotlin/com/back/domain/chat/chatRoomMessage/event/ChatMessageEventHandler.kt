@@ -28,7 +28,7 @@ class ChatMessageEventHandler(
         val key = "chat:room:${dto.roomId}:messages"
 
         try {
-            val jsonPayload = Ut.json.toString(dto)
+            val jsonPayload = Ut.json.toString(dto)!!
             val score = Timestamp.valueOf(dto.createdAt).time
 
             redisTemplate.opsForZSet().add(key, jsonPayload, score.toDouble())

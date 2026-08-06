@@ -128,7 +128,7 @@ class ChatMessageService(
 
                 if (!jsonPayloads.isNullOrEmpty()) {
                     for (json in jsonPayloads) {
-                        messages.add(Ut.json.objectMapper.readValue(json, RedisChatMessageDto::class.java))
+                        messages.add(Ut.json.objectMapper!!.readValue(json, RedisChatMessageDto::class.java))
                     }
                 }
                 cachedMessages = messages
@@ -156,7 +156,7 @@ class ChatMessageService(
             if (messages.isNotEmpty()) {
                 for (msg in messages) {
                     val dto = RedisChatMessageDto(msg)
-                    val json = Ut.json.toString(dto)
+                    val json = Ut.json.toString(dto)!!
                     val score = Timestamp.valueOf(dto.createdAt).time
                     redisTemplate.opsForZSet().add(key, json, score.toDouble())
                 }

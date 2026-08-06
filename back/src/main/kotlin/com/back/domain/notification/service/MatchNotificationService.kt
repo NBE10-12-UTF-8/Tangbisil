@@ -32,7 +32,7 @@ class MatchNotificationService(
 
         val key = key(memberId)
         try {
-            val json = Ut.json.toString(notification)
+            val json = Ut.json.toString(notification)!!
             val score = notification.createdAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
             redisTemplate.opsForZSet().add(key, json, score.toDouble())
 
@@ -66,7 +66,7 @@ class MatchNotificationService(
         if (jsonPayloads != null) {
             for (json in jsonPayloads) {
                 try {
-                    notifications.add(Ut.json.objectMapper.readValue(json, MatchNotificationDto::class.java))
+                    notifications.add(Ut.json.objectMapper!!.readValue(json, MatchNotificationDto::class.java))
                 } catch (e: Exception) {
                     // 항목 하나가 손상됐다고 전체 조회를 실패시키지 않는다
                     log.error("[MatchNotificationService] 알림 역직렬화 실패 - payload: {}", json, e)
